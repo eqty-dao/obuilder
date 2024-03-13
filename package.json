@@ -8,7 +8,7 @@
   "ownableRidPath": "./storage/ownable-rids",
   "ownableTemplatesPath": "./storage/ownable-templates",
   "templateCost": {
-    "template1": "26100000000"
+    "template1": "100000"
   },
   "scripts": {
     "build": "nest build",

@@ -26,6 +26,7 @@ export class UploadZipService implements OnModuleInit {
   private packageInfo: any;
   private ltoSessionSeed = 'test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12';
   private lto = new LTO('T');
+  
   private readonly _ltoAccount?: Account = this.ltoSessionSeed ? this.lto.account({ seed: this.ltoSessionSeed }) : undefined;
   public readonly networkId = this.lto.networkId;
 
@@ -51,7 +52,7 @@ export class UploadZipService implements OnModuleInit {
 
   public async getLTOAccountBalance(address?: string) {
     if (!address) address = this.getLTOAccountAddress();
-    const url = `https://nodes.lto.network/addresses/balance/${address}`;
+    const url = `https://testnet.lto.network/addresses/balance/${address}`;
 
     const response = await fetch(url);
     if (response.status == 200) {
@@ -102,7 +103,8 @@ export class UploadZipService implements OnModuleInit {
     // const response = await fetch(url);
     // const data = await response.json();
     
-    const thisServerAddress = "3JmZz5aaYXHCaXEnxGkoiM82Pu3tvjynBJE"; // test recipient address
+    // const thisServerAddress = "3JmZz5aaYXHCaXEnxGkoiM82Pu3tvjynBJE"; // test recipient address
+    const thisServerAddress = this.getLTOAccountAddress();
     // Must be a transaction type
     if (data.type != 4) throw ('Wrong Transaction type');
 
@@ -110,7 +112,7 @@ export class UploadZipService implements OnModuleInit {
     // the sender will be able to claim the Ownable
 
     //check for correct amount and correct recipient (this servers' LTO wallet)
-    if (this.packageInfo.templateCost.template1 != data.amount) throw ('Wrong LTO amount for Template');
+    if (data.amount < this.packageInfo.templateCost.template1) throw ('Wrong LTO amount for Template');
     if (data.recipient != thisServerAddress) throw ('Wrong recipient! Use Server LTO Wallet address');
 
     return {
