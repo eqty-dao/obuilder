@@ -1,0 +1,28 @@
+[
+  {
+    "template": "template1",
+    "NFT_BLOCKCHAIN": "arbitrumSepolia",
+    "NFT_PUBLIC_USER_WALLET_ADDRESS": "0x0",
+    "OWNABLE_THUMBNAIL": "Demo-Ownable.png",
+    "OWNABLE_LTO_TRANSACTION_ID": "4EHLk5fRpp1yUaUWjyFRfcgk8wuSNTfCdUvArhRLvD4W",
+    "PLACEHOLDER1_NAME": "ownable_demo_ownable",
+    "PLACEHOLDER1_DESCRIPTION": "first demo create ownable with tx",
+    "PLACEHOLDER1_VERSION": "0.1.0",
+    "PLACEHOLDER1_AUTHORS": "Colin <colin@lto.network>",
+    "PLACEHOLDER1_KEYWORDS": [
+      "ownable",
+      "first",
+      "demo",
+      "lto",
+      "nft"
+    ],
+    "PLACEHOLDER2_TITLE": "Demo Ownable",
+    "PLACEHOLDER2_IMG": "Demo-Ownable.png",
+    "PLACEHOLDER3_MSG": "ownable_demo_ownable",
+    "PLACEHOLDER3_STATE": "ownable_demo_ownable",
+    "PLACEHOLDER4_CONTRACT_NAME": "crates.io:ownable-demo_ownable",
+    "PLACEHOLDER4_TYPE": "Demo Ownable",
+    "PLACEHOLDER4_DESCRIPTION": "first demo create ownable with tx",
+    "PLACEHOLDER4_NAME": "Demo Ownable"
+  }
+]

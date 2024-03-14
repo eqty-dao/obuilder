@@ -82,7 +82,8 @@ export class UploadZipService implements OnModuleInit {
 
     // FIRST WORKING METHOD
     const data = await this.httpService.axiosRef
-    .get(`https://nodes.lto.network/transactions/info/${ltoTransactionId}`)
+    // .get(`https://nodes.lto.network/transactions/info/${ltoTransactionId}`)
+    .get(`https://testnet.lto.network/transactions/info/${ltoTransactionId}`)
     .then((res) => res.data)
     .catch((err) => {
       throw new Error(
@@ -102,7 +103,7 @@ export class UploadZipService implements OnModuleInit {
     // const url = `https://nodes.lto.network/transactions/info/${ltoTransactionId}`;
     // const response = await fetch(url);
     // const data = await response.json();
-    
+    console.log("data",data);
     // const thisServerAddress = "3JmZz5aaYXHCaXEnxGkoiM82Pu3tvjynBJE"; // test recipient address
     const thisServerAddress = this.getLTOAccountAddress();
     // Must be a transaction type
