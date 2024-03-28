@@ -15,10 +15,3 @@ export interface TypedPackageCapabilities {
     versions: Array<{date: Date, cid: string}>;
     keywords: string[];
   }
-export interface NftInfo {
-    network: string,    // eip155:1
-    id: number,
-    address: string, // 0x341...
-    lock_service: string,
-  }
-  

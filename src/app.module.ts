@@ -3,9 +3,9 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UploadZipModule } from './upload-zip/upload-zip.module';
 // import { TypeOrmModule } from '@nestjs/typeorm';
-// import { DataSource } from 'typeorm';
-// import { UsersModule } from './users/users.module';
-// import { DatabaseModule } from './database/database.module';
+import { DataSource } from 'typeorm';
+import { UsersModule } from './users/users.module';
+import { DatabaseModule } from './database/database.module';
 import { ConfigModule } from '@nestjs/config';
 import { LtoModule } from './common/lto/lto.module';
 

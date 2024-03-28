@@ -17,7 +17,9 @@ export class EthereumService {
   //   const nftContract = this.ethers.getContract('Ownable', nft.network, nft.address);
   //   return await nftContract.owner();
   // }
- 
+  public async GetServerETHBalance(): Promise<string> {
+    return await this.ethers.GetServerETHBalance();
+  }
   public async mintNFT(nftContractAddress: string, nftOwner: string, nftTokenURI:string): Promise<number> {
     return this.ethers.mintNFT('LockableNFT', nftContractAddress, nftOwner, nftTokenURI);    
   }

@@ -8,25 +8,26 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bodyParser: false,
   });
+  // const app = await NestFactory.create(AppModule);
 
   const config = await app.get<ConfigService>(ConfigService);
   await config.load();
 
   app.use(bodyParser.json({}), bodyParser.urlencoded({ extended: false }));
-
+  
   app.enableShutdownHooks();
-
+  
   
   const packageInfo = require('../package.json');
-
+  
   const options = new DocumentBuilder()
-    .setTitle('LTO')
-    .setDescription(packageInfo.description)
-    .setVersion(packageInfo.version)
-    .addTag('Creating Ownables and NFTs made easy')
-    .addBearerAuth()
-    .build();
-
+  .setTitle('LTO')
+  .setDescription(packageInfo.description)
+  .setVersion(packageInfo.version)
+  .addTag('Creating Ownables and NFTs made easy')
+  .addBearerAuth()
+  .build();
+  
   const document = SwaggerModule.createDocument(app, options);
   SwaggerModule.setup('api', app, document);
 

@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
-import { exec } from 'child_process';
 
 @Injectable()
 export class UsersService {
@@ -14,17 +13,8 @@ export class UsersService {
   }
 
   async findAll(role?: typeof Role.INTERN | typeof Role.ENGINEER | typeof Role.ADMIN) {
-    exec("cd ../Ownables/ownable-sdk/ownables;ls -la", (error, stdout, stderr) => {
-      if (error) {
-          console.log(`error: ${error.message}`);
-          return;
-      }
-      if (stderr) {
-          console.log(`stderr: ${stderr}`);
-          return;
-      }
-      console.log(`stdout: ${stdout}`);
-  });
+    
+  
     if(role) return await this.databaseService.user.findMany({
       where: {
         // role: role

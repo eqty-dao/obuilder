@@ -7,13 +7,7 @@ export default {
   port: {
     default: 80,
     env: 'PORT',
-  },
-  account: {
-    seed: {
-      default: '',
-      env: 'ACCOUNT_SEED',
-    },
-  },
+  },  
   accept: {
     unlockNFT: {
       default: true,
@@ -32,6 +26,12 @@ export default {
     networkId: {
       default: 'T',
       env: 'LTO_NETWORK_ID',
+    },
+    account: {
+      seed: {
+        default: '',
+        env: 'LTO_ACCOUNT_SEED',
+      },
     },
   },
   eth: {
@@ -54,6 +54,10 @@ export default {
       },
     },
     contracts: {
+      ethereum: {
+        default: '',
+        env: 'ETHEREUM_NFT_CONTRACT_ADDR',
+      },
       arbitrum: {
         default: '',
         env: 'ARBITRUM_NFT_CONTRACT_ADDR',

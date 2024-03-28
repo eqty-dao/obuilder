@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { EthereumService } from './ethereum/ethereum.service';
-import { NFTInfo } from '../interfaces/OwnableInfo';
+import { NftInfo } from '../interfaces/OwnableInfo';
 
 @Injectable()
 export class NFTService {
@@ -21,7 +21,10 @@ export class NFTService {
 
   //   throw new Error(`Unknown network ${nft.network}`);
   // }
-
+  public async GetServerETHBalance(): Promise<string> {
+    console.log("ethereum");
+    return await this.ethereum.GetServerETHBalance();
+  }
   async mintNFT(nftContractAddress: string, nftOwner: string, nftTokenURI:string): Promise<number> {        
     return await this.ethereum.mintNFT(nftContractAddress, nftOwner, nftTokenURI);    
   }

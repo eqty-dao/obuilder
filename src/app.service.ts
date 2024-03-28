@@ -17,9 +17,9 @@ export class AppService implements OnModuleInit {
     };
   }
 
-  getHello(): string {
-    return 'Hello world';
-  }
+  // getHello(): string {
+  //   return 'Hello world';
+  // }
 
   getInfo(text: string, name: string): InfoDto {
     if(text === undefined) console.log("text undefined");

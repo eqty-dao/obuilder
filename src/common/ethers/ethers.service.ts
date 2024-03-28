@@ -14,29 +14,28 @@ import * as abis from './abi';
 @Injectable()
 export class EthersService implements OnModuleInit {
   private wallet: ethers.Wallet;
-  private signer: HDNodeWallet;
+  private signer: ethers.HDNodeWallet;
+  private alchemyProvider: ethers.AlchemyProvider;
   private readonly providers: Map<string | number, ethers.Provider> = new Map();
 
   constructor(private config: ConfigService) { }
 
   onModuleInit(): void {
     
-    // const alchemyProvider = ethers.getDefaultProvider('https://arb-sepolia.g.alchemy.com/v2/dN8Sr0rKWmfbfV2GsKpFbl98_QkeiR6j');
-    
     const network:ethers.Networkish = { name: 'arbitrum-sepolia', chainId: 421614}; // new Network('arbitrum-sepolia', 421614)
-    const alchemyProvider = new ethers.AlchemyProvider(network, this.config.get('eth.account.arbitrum_alchemy_api_key'));
-    console.log("Mnemonic:", this.config.get('eth.account.mnemonic'));
-    console.log("alchemyProvider", alchemyProvider);    
-    this.signer = ethers.Wallet.fromPhrase(this.config.get('eth.account.mnemonic'), alchemyProvider);
-    console.log("signer",this.signer)
-
-
+    this.alchemyProvider = new ethers.AlchemyProvider(network, this.config.get('eth.account.arbitrum_alchemy_api_key'));
+    this.signer = ethers.Wallet.fromPhrase(this.config.get('eth.account.mnemonic'), this.alchemyProvider);
     // this.initProviders();
   }
   public signMessage(message: string | Uint8Array): Promise<string> {
     return this.wallet.signMessage(message);
   }
 
+  public async GetServerETHBalance(): Promise<string> {
+    // console.log("Blocknumber:", await this.alchemyProvider.getBlockNumber());
+    return (ethers.formatUnits(await this.alchemyProvider.getBalance(this.signer.address),"ether").toString());
+  }
+  
   public async mintNFT(type: keyof typeof abis, contractAddress: string, nftOwner: string, nftTokenURI: string): Promise<number> {
     if (!(type in abis)) throw new Error(`No ABI for ${type}`);
 

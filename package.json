@@ -6,6 +6,7 @@
   "private": false,
   "license": "MIT",
   "ownableRidPath": "./storage/ownable-rids",
+  "ownableCidPath": "./storage/ownable-cids",
   "ownableTemplatesPath": "./storage/ownable-templates",
   "templateCost": {
     "template1": "100000"
@@ -44,6 +45,7 @@
     "chokidar": "^3.6.0",
     "convict": "^6.2.4",
     "ethers": "^6.11.1",
+    "file-saver": "^2.0.5",
     "ipfs-core": "^0.18.1",
     "jszip": "^3.10.1",
     "mysql2": "^3.9.1",

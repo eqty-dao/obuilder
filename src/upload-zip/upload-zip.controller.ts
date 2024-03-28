@@ -1,10 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFile, ParseIntPipe, Res, Query } from '@nestjs/common';
+import { Controller, Get, Header, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFile, ParseIntPipe, Res, Query, StreamableFile } from '@nestjs/common';
 import { UploadZipService } from './upload-zip.service';
-import { CreateUploadZipDto } from './dto/create-upload-zip.dto';
+// import { CreateUploadZipDto } from './dto/create-upload-zip.dto';
 import { UpdateUploadZipDto } from './dto/update-upload-zip.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Express } from 'express';
 import { InputUploadFileDto } from './dto/inputUploadFileDto.dto';
+import { Account, EventChain } from '@ltonetwork/lto';
+import { Signer } from '../common/http-signature/signer';
+import { createReadStream } from 'fs';
 
 @Controller('api/v1')
 export class UploadZipController {
@@ -36,10 +39,24 @@ export class UploadZipController {
     }
 
   }
-  // create(@Body() createUploadZipDto: CreateUploadZipDto) {
-  //   return this.uploadZipService.create(createUploadZipDto);
-  // }
-
+  
+  @Get('CIDs')
+  async getCIDs() {
+    try {
+      return  await this.uploadZipService.getCIDs(); 
+    } catch (e) {
+      return { "error": `${e}` };
+    }
+  }
+  
+  @Get('requestIDs')
+  async getCRequestIDs() {
+    try {
+      return  await this.uploadZipService.getRequestIDs(); 
+    } catch (e) {
+      return { "error": `${e}` };
+    }
+  }
   //needs additional Query parameter to get different costs for template 1,2,3...
   @Get('templateCost')
   templateCost(@Query('template') templateNumber: number) {
@@ -53,10 +70,19 @@ export class UploadZipController {
     }
   }
 
+  @Get('claim/:requestId')
+  @Header('Content-type', 'application/zip')
+  async claim(
+    @Param('requestId') requestId:string,        
+    @Signer() signer?: Account,
+  ): Promise<StreamableFile> {
+    return await this.uploadZipService.claim(requestId, signer);
+  }
+  
   @Get('ServerWalletAddressLTO')
   serverWalletAddressLTO() {
     try {
-      return this.uploadZipService.getLTOAccountAddress();
+      return  { "serverWalletAddressLTO": `${this.uploadZipService.getServerLTOwalletAddress()}` }
     } catch (e) {
       return { "error": `${e}` };
     }
@@ -66,6 +92,16 @@ export class UploadZipController {
   async getLTOAccountBalance(@Query('address') address?: string) {
     try {
       return await this.uploadZipService.getLTOAccountBalance(address);
+    } catch (e) {
+      return { "error": `${e}` };
+    }
+  }
+  @Get('GetServerETHBalance')
+  async GetServerETHBalance() {
+    try {
+      const balance = await this.uploadZipService.GetServerETHBalance();
+      // console.log("balance", balance);
+      return { "ServerETHBalance" : balance };
     } catch (e) {
       return { "error": `${e}` };
     }
