@@ -19,6 +19,7 @@ import { TypedPackage } from "../interfaces/TypedPackage";
 import { NFTService } from '../nft/nft.service';
 import { IEventChainJSON } from '@ltonetwork/lto/interfaces';
 import { json } from 'node:stream/consumers';
+import { stringify } from 'querystring';
 
 @Injectable()
 export class UploadZipService implements OnModuleInit {
@@ -196,10 +197,6 @@ export class UploadZipService implements OnModuleInit {
         .addTo(chain)
         .signWith(this._ltoAccount);
 
-      // console.log("CHAIN1:", JSON.stringify(chain));
-
-      // await this.execute({transfer: {to: to}});
-      // await OwnableService.execute(this.chain, msg, this.state.stateDump);
       new Event({ "@context": 'execute_msg.json', transfer: { to: sender } }).addTo(chain).signWith(this._ltoAccount);
       // console.log("CHAIN2:", JSON.stringify(chain));
       // console.log("CHAIN3:", chain);
@@ -235,7 +232,7 @@ export class UploadZipService implements OnModuleInit {
 
     return buf;
   }
-  
+
 
   public getServerLTOwalletAddress(): string {
     return this.getLTOAccountAddress();
@@ -243,7 +240,11 @@ export class UploadZipService implements OnModuleInit {
 
   public templateCost(templateNumber: number) {
     if (templateNumber == 1)
-      return this.packageInfo.templateCost.template1;
+      return {
+        'arbitrum': `${this.packageInfo.templateCost.template1}`,
+        'ethereum': `${this.packageInfo.templateCost.template1}`,
+        'polygon': `${this.packageInfo.templateCost.template1}`
+      }
     throw ("Template Number does not exist");
   }
 
@@ -277,7 +278,7 @@ export class UploadZipService implements OnModuleInit {
     if (verbose) console.log("nftOwner", nftOwner);
     if (verbose) console.log("nftTokenURI", nftTokenURI);
     if (verbose) console.log("NFT_BLOCKCHAIN", jsonFile.NFT_BLOCKCHAIN);
-    
+
     const nftcount = 78;
     // const nftcount = await this.nft.mintNFT(nftContractAddress, nftOwner, nftTokenURI);
     if (verbose) console.log("nftcount", nftcount);
@@ -349,16 +350,14 @@ export class UploadZipService implements OnModuleInit {
     }
   }
   private async executeCommand(command: string) {
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        console.log(`error: ${error.message}`);
-        throw new Error(`error: ${error.message}`);
-      }
-      if (stderr) {
-        console.log(`stderr: ${stderr}`);
-        throw new Error(`stderr: ${stderr}`);
-      }
-      console.log(`stdout: ${stdout}`);
+    return new Promise((resolve, reject) => {
+      exec(command, (error, stdout, stderr) => {
+        if (error) {
+          console.log(`error: ${error.message}`);
+          throw new Error(`error: ${error.message}`);
+        }
+        resolve(stdout? stdout : stderr);        
+      });
     });
   }
 

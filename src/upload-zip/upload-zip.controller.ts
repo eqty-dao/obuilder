@@ -29,7 +29,7 @@ export class UploadZipController {
     }
     let requestId;
     try {
-      requestId = await this.uploadZipService.store(buffer,true);
+      requestId = await this.uploadZipService.store(buffer, true);
       return {
         REQUEST_ID: requestId, // res.status(201).json({ file: file.originalname })
       }
@@ -39,20 +39,20 @@ export class UploadZipController {
     }
 
   }
-  
+
   @Get('CIDs')
   async getCIDs() {
     try {
-      return  await this.uploadZipService.getCIDs(); 
+      return await this.uploadZipService.getCIDs();
     } catch (e) {
       return { "error": `${e}` };
     }
   }
-  
+
   @Get('requestIDs')
   async getCRequestIDs() {
     try {
-      return  await this.uploadZipService.getRequestIDs(); 
+      return await this.uploadZipService.getRequestIDs();
     } catch (e) {
       return { "error": `${e}` };
     }
@@ -61,10 +61,7 @@ export class UploadZipController {
   @Get('templateCost')
   templateCost(@Query('template') templateNumber: number) {
     try {
-      return {
-        "templateCost": `${this.uploadZipService.templateCost(templateNumber)}`,
-        "serverWalletAddressLTO": `${this.uploadZipService.getServerLTOwalletAddress()}`
-      }
+      return this.uploadZipService.templateCost(templateNumber);
     } catch (e) {
       return { "error": `${e}` };
     }
@@ -73,57 +70,55 @@ export class UploadZipController {
   @Get('claim/:requestId')
   @Header('Content-type', 'application/zip')
   async claim(
-    @Param('requestId') requestId:string,        
+    @Param('requestId') requestId: string,
     @Signer() signer?: Account,
   ): Promise<StreamableFile> {
     return await this.uploadZipService.claim(requestId, signer);
   }
-  
+
   @Get('ServerWalletAddressLTO')
   serverWalletAddressLTO() {
     try {
-      return  { "serverWalletAddressLTO": `${this.uploadZipService.getServerLTOwalletAddress()}` }
+      return { "serverWalletAddressLTO": `${this.uploadZipService.getServerLTOwalletAddress()}` }
     } catch (e) {
       return { "error": `${e}` };
     }
   }
 
-  @Get('GetLTOAccountBalance')
-  async getLTOAccountBalance(@Query('address') address?: string) {
+  @Get('GetServerInfo')
+  async GetServerInfo() {
     try {
-      return await this.uploadZipService.getLTOAccountBalance(address);
-    } catch (e) {
-      return { "error": `${e}` };
-    }
-  }
-  @Get('GetServerETHBalance')
-  async GetServerETHBalance() {
-    try {
-      const balance = await this.uploadZipService.GetServerETHBalance();
+      const ethBalance = await this.uploadZipService.GetServerETHBalance();
+      const ltoBalance = await this.uploadZipService.getLTOAccountBalance();
+      const serverLTOwallet = this.uploadZipService.getServerLTOwalletAddress()
       // console.log("balance", balance);
-      return { "ServerETHBalance" : balance };
+      return {
+        "ServerETHBalance": ethBalance,
+        "ServerLTOBalance": ltoBalance,
+        "serverLTOwalletAddress": serverLTOwallet
+      };
     } catch (e) {
       return { "error": `${e}` };
     }
   }
 
-  @Get()
-  findAll() {
-    return this.uploadZipService.findAll();
-  }
+  // @Get()
+  // findAll() {
+  //   return this.uploadZipService.findAll();
+  // }
 
-  @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.uploadZipService.findOne(id);
-  }
+  // @Get(':id')
+  // findOne(@Param('id', ParseIntPipe) id: number) {
+  //   return this.uploadZipService.findOne(id);
+  // }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateUploadZipDto: UpdateUploadZipDto) {
-    return this.uploadZipService.update(+id, updateUploadZipDto);
-  }
+  // @Patch(':id')
+  // update(@Param('id') id: string, @Body() updateUploadZipDto: UpdateUploadZipDto) {
+  //   return this.uploadZipService.update(+id, updateUploadZipDto);
+  // }
 
-  @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.uploadZipService.remove(id);
-  }
+  // @Delete(':id')
+  // remove(@Param('id', ParseIntPipe) id: number) {
+  //   return this.uploadZipService.remove(id);
+  // }
 }
