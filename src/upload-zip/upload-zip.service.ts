@@ -8,8 +8,8 @@ import JSZip from 'jszip';
 import fileExists from '../utils/fileExists';
 import path from 'path';
 import { HttpService } from '@nestjs/axios';
-import { catchError, firstValueFrom } from 'rxjs';
-import { AxiosError } from 'axios';
+// import { catchError, firstValueFrom } from 'rxjs';
+// import { AxiosError } from 'axios';
 import { Account, Binary, LTO, Transaction, Event, EventChain } from "@ltonetwork/lto";
 import { exec } from 'child_process';
 import chokidar from 'chokidar';
@@ -18,8 +18,8 @@ import { TransactionIdData } from '../interfaces/TransactionIdData';
 import { TypedPackage } from "../interfaces/TypedPackage";
 import { NFTService } from '../nft/nft.service';
 import { IEventChainJSON } from '@ltonetwork/lto/interfaces';
-import { json } from 'node:stream/consumers';
-import { stringify } from 'querystring';
+// import { json } from 'node:stream/consumers';
+// import { stringify } from 'querystring';
 
 @Injectable()
 export class UploadZipService implements OnModuleInit {
@@ -220,14 +220,14 @@ export class UploadZipService implements OnModuleInit {
       buf = Buffer.from(file, 'utf8');
 
       // Checking the import of the EvenChain json if this still works (e.g. for ownable-sdk)
-      // const data:IEventChainJSON = JSON.parse(JSON.stringify(chain));
-      // const chain1 = EventChain.from(data);
-      // chain1.validate();
-      // if (!chain1.isCreatedBy(genesisSigner))
-      //   throw new Error('Event chain hijacking: genesis event not signed by chain creator');
-      // else {
-      //   console.log("All good! Genesis signer correct")
-      // }
+      const data: IEventChainJSON = JSON.parse(JSON.stringify(chain));
+      const chain1 = EventChain.from(data);
+      chain1.validate();
+      if (!chain1.isCreatedBy(genesisSigner))
+        throw new Error('Event chain hijacking: genesis event not signed by chain creator');
+      else {
+        console.log("All good! Genesis signer correct")
+      }
     }
 
     return buf;
@@ -239,13 +239,17 @@ export class UploadZipService implements OnModuleInit {
   }
 
   public templateCost(templateNumber: number) {
-    if (templateNumber == 1)
-      return {
-        'arbitrum': `${this.packageInfo.templateCost.template1}`,
-        'ethereum': `${this.packageInfo.templateCost.template1}`,
-        'polygon': `${this.packageInfo.templateCost.template1}`
-      }
-    throw ("Template Number does not exist");
+    if (this.packageInfo.templateCostEthereum[templateNumber] === undefined) {
+
+      throw (`Template Number ${templateNumber} does not exist`);
+    }
+    console.log(templateNumber, this.packageInfo.templateCostEthereum[1])
+    return {
+      'ethereum': (this.packageInfo.templateCostEthereum[templateNumber]).toString(),
+      'arbitrum': (this.packageInfo.templateCostArbitrum[templateNumber]).toString(),
+      'polygon': (this.packageInfo.templateCostMatic[templateNumber]).toString()
+    }
+
   }
 
   private async readJsonFileFromZip(files: Map<string, Buffer>) {
@@ -291,23 +295,7 @@ export class UploadZipService implements OnModuleInit {
     }
 
   }
-  // 1) unzip the files into memory (DONE)
-  // 2) check for existing ownableData.json (DONE)
-  // 3) read the ownableData.json file as jsonFile (DONE)
-  // 4) TODO: checks on correct jsonFile content (not needed for PoC, also Colin can check the user input)
-  // 4.1) check for the correct amount of LTO transferred in transactionID (DONE)
-  // 4.2) provide GET request (REST-API) for Colin to get templateCost (DONE)
-  // 4.3) create LTO Test Wallet for Ownable-NFT-Server (DONE)
-  // 4.4) provide GET request (REST-API) for Colin to get LTO Server WalletAddress (DONE)
-  // 5) Calculate the request ID based on the ownableData.json and Picture (DONE)
-  // 6) cp -r the template of the Ownable into rid_template directory
-  // 7) modify files inside accordingly
-  // 8) execute Ownable creation
-  // 9) create NFT on EVM Blockchain with input from 'jsonFile'
-  // 10) generate "create Event" on Event chain (this adds the NFT ID to event chain)  (former import in ownable-sdk)
-  // 10.1) Make Ownable claimable
-  // 11) When Ownable claimed: transfer NFT ownership to ETH Test-Wallet (which will be in future the NFT_PUBLIC_USER_WALLET_ADDRESS)
-  // 12) DONE.
+
   public async store(data: Uint8Array, verbose?: boolean): Promise<string> {
     try {
 
@@ -356,7 +344,7 @@ export class UploadZipService implements OnModuleInit {
           console.log(`error: ${error.message}`);
           throw new Error(`error: ${error.message}`);
         }
-        resolve(stdout? stdout : stderr);        
+        resolve(stdout ? stdout : stderr);
       });
     });
   }
