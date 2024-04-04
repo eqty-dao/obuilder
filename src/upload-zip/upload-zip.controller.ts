@@ -59,9 +59,9 @@ export class UploadZipController {
   }
   //needs additional Query parameter to get different costs for template 1,2,3...
   @Get('templateCost')
-  templateCost(@Query('template') templateNumber: number) {
+  templateCost(@Query('templateId') templateId: number, @Query('chain') chain: string) {
     try {
-      return this.uploadZipService.templateCost(templateNumber);
+      return this.uploadZipService.templateCost(templateId, chain);
     } catch (e) {
       return { "error": `${e}` };
     }

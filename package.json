@@ -8,21 +8,23 @@
   "ownableRidPath": "./storage/ownable-rids",
   "ownableCidPath": "./storage/ownable-cids",
   "ownableTemplatesPath": "./storage/ownable-templates",
-  "templateCostEthereum": {
-    "1": "100000",
-    "2": "200000",
-    "3": "300000"
-  },
-  "templateCostArbitrum": {
-    "1": "100000",
-    "2": "200000",
-    "3": "300000"
-  },
-  "templateCostMatic": {
-    "1": "100000",
-    "2": "200000",
-    "3": "300000"
-  },
+  "templateCost": {
+    "ethereum": {
+      "1": "100000",
+      "2": "200000",
+      "3": "300000"
+    },
+    "arbitrum": {
+      "1": "100000",
+      "2": "200000",
+      "3": "300000"
+    },
+    "matic": {
+      "1": "100000",
+      "2": "200000",
+      "3": "300000"
+    }
+  },  
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",

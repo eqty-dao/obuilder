@@ -82,13 +82,13 @@ export class UploadZipService implements OnModuleInit {
   }
 
   async existsRidTemplate(rid: string): Promise<boolean> {
-    return await fileExists(`${this.pathToRids}/${rid}_template`);
+    return await fileExists(`${this.pathToRids}/${rid}/${rid}_template`);
   }
   async existsCid(cid: string): Promise<boolean> {
-    return await fileExists(`${this.pathToCids}/${cid}.zip`);
+    return await fileExists(`${this.pathToCids}/${cid}/${cid}.zip`);
   }
 
-  private async checkLtoTransactionId(ltoTransactionId: string): Promise<TransactionIdData> {
+  private async checkLtoTransactionId(ltoTransactionId: string, templateId: number, chain: String): Promise<TransactionIdData> {
 
     // FIRST WORKING METHOD
     const data = await this.httpService.axiosRef
@@ -114,19 +114,21 @@ export class UploadZipService implements OnModuleInit {
     // const response = await fetch(url);
     // const data = await response.json();
     const thisServerAddress = this.getLTOAccountAddress();
+    
+    // for debugging...
     // const data = {
     //   type: 4,
     //   sender: "3N5vwNey9aFkyrQ5KUzMt3qfuwg5jKKzrLB",
     //   recipient: thisServerAddress,
     //   amount: this.packageInfo.templateCost.template1,
     // };
-    console.log("data", data);
+    
     // Must be a transaction type
     if (data.type != 4) throw ('Wrong Transaction type');
 
-
+    if (this.packageInfo.templateCost.chain[templateId] === undefined) throw (`Undefined templateCost for chain ${chain}`);
     //check for correct amount and correct recipient (this servers' LTO wallet)
-    if (data.amount < this.packageInfo.templateCost.template1) throw ('Wrong LTO amount for Template');
+    if (data.amount < this.packageInfo.templateCost.chain[templateId]) throw ('Wrong LTO amount for Template');
     if (data.recipient != thisServerAddress) throw ('Wrong recipient! Use Server LTO Wallet address');
 
     return {
@@ -238,16 +240,15 @@ export class UploadZipService implements OnModuleInit {
     return this.getLTOAccountAddress();
   }
 
-  public templateCost(templateNumber: number) {
-    if (this.packageInfo.templateCostEthereum[templateNumber] === undefined) {
-
-      throw (`Template Number ${templateNumber} does not exist`);
+  public templateCost(templateId: number, chain:string) {
+    if (this.packageInfo.templateCost[chain][templateId] === undefined) {
+      throw (`Undefined Template cost for template number ${templateId} and chain: ${chain}`);
     }
-    console.log(templateNumber, this.packageInfo.templateCostEthereum[1])
+    console.log("templateId", templateId, " cost: ", this.packageInfo.templateCost[chain][templateId]);
     return {
-      'ethereum': (this.packageInfo.templateCostEthereum[templateNumber]).toString(),
-      'arbitrum': (this.packageInfo.templateCostArbitrum[templateNumber]).toString(),
-      'polygon': (this.packageInfo.templateCostMatic[templateNumber]).toString()
+      'ethereum': (this.packageInfo.templateCost.ethereum[templateId]).toString(),
+      'arbitrum': (this.packageInfo.templateCost.arbitrum[templateId]).toString(),
+      'matic': (this.packageInfo.templateCost.matic[templateId]).toString()
     }
 
   }
@@ -311,7 +312,8 @@ export class UploadZipService implements OnModuleInit {
 
       if (verbose) console.log("LTO ACCOUNT:", this.getLTOAccountAddress());
       if (verbose) console.log("checking LTO transaction ID...", jsonFile.OWNABLE_LTO_TRANSACTION_ID);
-      const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID);
+
+      const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID, 1, "arbitrum");
       if (verbose) console.log("transactionIdData:", transactionIdData);
 
       if (verbose) console.log("getting request ID of input requestIdFiles...");
