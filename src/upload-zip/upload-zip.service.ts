@@ -123,7 +123,7 @@ export class UploadZipService implements OnModuleInit {
     //   recipient: thisServerAddress,
     //   amount: this.packageInfo.templateCost.template1,
     // };
-    
+    console.log("LTO Transaction data", data);
     // Must be a transaction type
     if (data.type != 4) throw ('Wrong Transaction type');
     if (this.packageInfo.templateCost[chain.toString()][templateId] === undefined) throw (`Undefined templateCost for chain ${chain}`);
@@ -238,10 +238,10 @@ export class UploadZipService implements OnModuleInit {
       // console.log("CHAIN2:", JSON.stringify(chain));
       // console.log("CHAIN3:", chain);
 
-      // IMPORTANT: THIS NEEDS TO BE ENABLED !
-      // const appendedEvents = chain.startingWith(chain.events[0]);
-      // const anchorMap1 = appendedEvents.anchorMap;
-      // await this.lto.anchor(this._ltoAccount, ...anchorMap1);
+      // TODO: THIS NEEDS TO BE ENABLED !
+      const appendedEvents = chain.startingWith(chain.events[0]);
+      const anchorMap1 = appendedEvents.anchorMap;
+      await this.lto.anchor(this._ltoAccount, ...anchorMap1);
 
       chain.validate();
       const genesisSigner = this.lto.account(chain.events[0].signKey);
@@ -283,7 +283,7 @@ export class UploadZipService implements OnModuleInit {
     return {
       'ethereum': (this.packageInfo.templateCost.ethereum[templateId]).toString(),
       'arbitrum': (this.packageInfo.templateCost.arbitrum[templateId]).toString(),
-      'matic': (this.packageInfo.templateCost.matic[templateId]).toString()
+      'polygon': (this.packageInfo.templateCost.polygon[templateId]).toString()
     }
 
   }
@@ -305,8 +305,8 @@ export class UploadZipService implements OnModuleInit {
     } else if (jsonFile.NFT_BLOCKCHAIN === 'arbitrum') {
       nftContractAddress = this.config.get('eth.contracts.arbitrum');
       nftNetwork = "eip155:2";
-    } else if (jsonFile.NFT_BLOCKCHAIN === 'matic') {
-      nftContractAddress = this.config.get('eth.contracts.matic');
+    } else if (jsonFile.NFT_BLOCKCHAIN === 'polygon') {
+      nftContractAddress = this.config.get('eth.contracts.polygon');
       nftNetwork = "eip155:3";
     } else {
       throw (`Unsupported Blockchain: ${jsonFile.NFT_BLOCKCHAIN}`);
@@ -494,8 +494,9 @@ export class UploadZipService implements OnModuleInit {
     if (verbose) console.log("copying modified template into ownable-sdk for ownable creation based on user inputs", `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`);
     cpSync(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`, `../ownable-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
 
-    console.log("Building Ownable...");
+    if (verbose) console.log("Building Ownable...");
     await this.executeCommand(`cd ../ownable-sdk/; npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}; cd ../ownable-nft-server/`);
+    if (verbose) console.log("Starting file watcher for zip file:", `../ownable-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`);
     await this.watchFileCreation(`../ownable-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, rid, verbose);
 
     console.log("Ownable creation startet. Waiting for Zip File to be created...");

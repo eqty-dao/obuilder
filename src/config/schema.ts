@@ -44,9 +44,9 @@ export default {
         default: '',
         env: 'ARBITRUM_ALCHEMY_API_KEY',
       },
-      matic_alchemy_api_key: {
+      polygon_alchemy_api_key: {
         default: '',
-        env: 'MATIC_ALCHEMY_API_KEY',
+        env: 'POLYGON_ALCHEMY_API_KEY',
       },
       eth_alchemy_api_key: {
         default: '',
@@ -62,21 +62,10 @@ export default {
         default: '',
         env: 'ARBITRUM_NFT_CONTRACT_ADDR',
       },
-      matic: {
+      polygon: {
         default: '',
-        env: 'MATIC_NFT_CONTRACT_ADDR',
-      },
-      //   mainnet: '',            // Ethereum Mainnet 
-      //   sepolia: '',            // Sepolia Testnet 
-      //   arbitrum: '',           // Arbitrum Mainnet
-      //   arbitrumsepolia: '0x6D38F446d03Fed2dc82a862A8cc28CFe3F57ad4f', // Arbitrum Sepolia Testnet
-      //   base: '',               // Base Mainnet
-      //   basesepolia: '',
-      //   optimism: '',           // Optimism Mainnet
-      //   optimismsepolia: '',
-      //   matic: '',              // Polygon
-      //   maticmumbai: '0x6bFb332D5296f535e1f98318fd7778e1D6252AA4',       // Polygon Mumbai Testnet
-      // },
+        env: 'POLYGON_NFT_CONTRACT_ADDR',
+      },      
     },
     providers: {
       etherscan: {
