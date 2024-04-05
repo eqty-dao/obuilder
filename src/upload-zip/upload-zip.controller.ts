@@ -29,7 +29,7 @@ export class UploadZipController {
     }
     let requestId;
     try {
-      requestId = await this.uploadZipService.store(buffer, true);
+      requestId = await this.uploadZipService.store(buffer, 1, true); // 1 == template 1 => TODO: make this a POST input variable for future
       return {
         REQUEST_ID: requestId, // res.status(201).json({ file: file.originalname })
       }
@@ -49,19 +49,29 @@ export class UploadZipController {
     }
   }
 
+    
   @Get('requestIDs')
-  async getCRequestIDs() {
-    try {
-      return await this.uploadZipService.getRequestIDs();
-    } catch (e) {
-      return { "error": `${e}` };
+  async getRequestIDs(@Query('onlyClaimable') onlyClaimable?: boolean, @Query('ltoUserAddress') ltoUserAddress?: string) {
+    if(onlyClaimable === undefined) {
+      try {
+        return await this.uploadZipService.getRequestIDs(ltoUserAddress);
+      } catch (e) {
+        return { "error": `${e}` };
+      }
+    } else {
+
+      try {
+        return await this.uploadZipService.getClaimableRequestIDs(ltoUserAddress)
+      }catch (e) {
+        return { "error": `${e}` };
+      }
     }
   }
   //needs additional Query parameter to get different costs for template 1,2,3...
   @Get('templateCost')
   templateCost(@Query('templateId') templateId: number, @Query('chain') chain: string) {
     try {
-      return this.uploadZipService.templateCost(templateId, chain);
+      return this.uploadZipService.templateCost(templateId, chain.toLowerCase().toString());
     } catch (e) {
       return { "error": `${e}` };
     }

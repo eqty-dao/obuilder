@@ -25,9 +25,9 @@ import { IEventChainJSON } from '@ltonetwork/lto/interfaces';
 export class UploadZipService implements OnModuleInit {
   private pathToRids: string;
   private pathToCids: string;
+  private pathToUserRids: string;
   private pathToTemplates: string;
   private packageInfo: any;
-  // private watcherBool: boolean;
   private lto = new LTO(this.config.get('lto.networkId'));
   private readonly _ltoAccount?: Account = this.lto.account({ seed: this.config.get('lto.account.seed') });
   public readonly networkId = this.lto.networkId;
@@ -44,9 +44,11 @@ export class UploadZipService implements OnModuleInit {
     this.packageInfo = require('../../package.json');
     this.pathToRids = this.packageInfo.ownableRidPath;
     this.pathToCids = this.packageInfo.ownableCidPath;
+    this.pathToUserRids = this.packageInfo.userRidsPath;
     this.pathToTemplates = this.packageInfo.ownableTemplatesPath;
     mkdirSync(this.pathToRids, { recursive: true });
     mkdirSync(this.pathToCids, { recursive: true });
+    mkdirSync(this.pathToUserRids, { recursive: true });
   }
 
   public async GetServerETHBalance(): Promise<string> {
@@ -89,7 +91,6 @@ export class UploadZipService implements OnModuleInit {
   }
 
   private async checkLtoTransactionId(ltoTransactionId: string, templateId: number, chain: String): Promise<TransactionIdData> {
-
     // FIRST WORKING METHOD
     const data = await this.httpService.axiosRef
       .get(`${this.config.get('lto.node')}/transactions/info/${ltoTransactionId}`)
@@ -125,10 +126,9 @@ export class UploadZipService implements OnModuleInit {
     
     // Must be a transaction type
     if (data.type != 4) throw ('Wrong Transaction type');
-
-    if (this.packageInfo.templateCost.chain[templateId] === undefined) throw (`Undefined templateCost for chain ${chain}`);
+    if (this.packageInfo.templateCost[chain.toString()][templateId] === undefined) throw (`Undefined templateCost for chain ${chain}`);
     //check for correct amount and correct recipient (this servers' LTO wallet)
-    if (data.amount < this.packageInfo.templateCost.chain[templateId]) throw ('Wrong LTO amount for Template');
+    if (data.amount < this.packageInfo.templateCost[chain.toString()][templateId]) throw ('Wrong LTO amount for Template');
     if (data.recipient != thisServerAddress) throw ('Wrong recipient! Use Server LTO Wallet address');
 
     return {
@@ -151,11 +151,9 @@ export class UploadZipService implements OnModuleInit {
     let cids: string[] = new Array();
     try {
       const files = readdirSync(`${this.pathToCids}/`);
-      files.forEach(file => {
-        if (file.match(/.json$/g)) {
-          cids.push(file.replace(".json", ""))
-        }
-      })
+      files.forEach(file => {                 
+        cids.push(file)          
+    })
 
     } catch (err) {
       console.log(err);
@@ -163,19 +161,56 @@ export class UploadZipService implements OnModuleInit {
     }
     return cids;
   }
-  async getRequestIDs() {
+
+  async getClaimableRequestIDs(ltoUserAddress: string): Promise<string[]> {
     let requestIDs: string[] = new Array();
+    
+    if (!(await fileExists(`${this.pathToUserRids}/${ltoUserAddress}`))) {
+      throw (`No entries for LTO user address: ${ltoUserAddress}`);
+    }
+
     try {
-      const files = readdirSync(`${this.pathToRids}/`);
+      console.log(`Fetching available request IDs for LTO user address: ${ltoUserAddress}`)
+      const files = readdirSync(`${this.pathToUserRids}/${ltoUserAddress}/`);
       files.forEach(file => {
-        if (file.match(/.zip$/g)) {
-          requestIDs.push(file.replace(".zip", ""))
+        if (file.match(/_claimable$/g)) {
+          requestIDs.push(file.replace("_claimable", ""))
         }
       })
-
     } catch (err) {
       console.log(err);
+    }
+    return requestIDs;
+  }
 
+  async getRequestIDs(ltoUserAddress?: string): Promise<string[]> {
+    let requestIDs: string[] = new Array();
+
+    if(ltoUserAddress === undefined) {
+      console.log("No LTO user address specified. Fetching all available request IDs on server")
+      try {
+        const files = readdirSync(`${this.pathToRids}/`);
+        files.forEach(file => {                 
+            requestIDs.push(file)          
+        })
+      } catch (err) {
+        console.log(err);
+      }
+    } else {
+      try {
+        if (!(await fileExists(`${this.pathToUserRids}/${ltoUserAddress}`))) {
+          throw (`No entries for LTO user address: ${ltoUserAddress}`);
+        }
+        console.log(`Fetching available request IDs for LTO user address: ${ltoUserAddress}`)
+        const files = readdirSync(`${this.pathToUserRids}/${ltoUserAddress}/`);
+        files.forEach(file => {
+          if (file.match(/_startet$/g)) {
+            requestIDs.push(file.replace("_startet", ""))
+          }
+        })
+      } catch (err) {
+        console.log(err);
+      }
     }
     return requestIDs;
   }
@@ -216,9 +251,9 @@ export class UploadZipService implements OnModuleInit {
         console.log("All good! Genesis signer correct")
       }
 
-      writeFileSync(`${this.pathToCids}/${pkg.cid}.json`, JSON.stringify(chain));
+      writeFileSync(`${this.pathToCids}/${pkg.cid}/${pkg.cid}.json`, JSON.stringify(chain));
 
-      const file = readFileSync(`${this.pathToCids}/${pkg.cid}.json`, { encoding: 'utf8' });
+      const file = readFileSync(`${this.pathToCids}/${pkg.cid}/${pkg.cid}.json`, { encoding: 'utf8' });
       buf = Buffer.from(file, 'utf8');
 
       // Checking the import of the EvenChain json if this still works (e.g. for ownable-sdk)
@@ -241,10 +276,10 @@ export class UploadZipService implements OnModuleInit {
   }
 
   public templateCost(templateId: number, chain:string) {
-    if (this.packageInfo.templateCost[chain][templateId] === undefined) {
+    console.log("templateId", templateId, "chain", chain, " cost: ", this.packageInfo.templateCost[chain][templateId]);
+    if (this.packageInfo.templateCost[chain.toString()][templateId] === undefined) {
       throw (`Undefined Template cost for template number ${templateId} and chain: ${chain}`);
     }
-    console.log("templateId", templateId, " cost: ", this.packageInfo.templateCost[chain][templateId]);
     return {
       'ethereum': (this.packageInfo.templateCost.ethereum[templateId]).toString(),
       'arbitrum': (this.packageInfo.templateCost.arbitrum[templateId]).toString(),
@@ -253,7 +288,7 @@ export class UploadZipService implements OnModuleInit {
 
   }
 
-  private async readJsonFileFromZip(files: Map<string, Buffer>) {
+  private async readOwnableDataFromZip(files: Map<string, Buffer>) {
     try {
       return JSON.parse(files.get('ownableData.json').toString())[0];
     } catch (error) {
@@ -284,7 +319,7 @@ export class UploadZipService implements OnModuleInit {
     if (verbose) console.log("nftTokenURI", nftTokenURI);
     if (verbose) console.log("NFT_BLOCKCHAIN", jsonFile.NFT_BLOCKCHAIN);
 
-    const nftcount = 78;
+    const nftcount = 78; // TODO: enable next line again which has been disabled to save eth during debugging and testing
     // const nftcount = await this.nft.mintNFT(nftContractAddress, nftOwner, nftTokenURI);
     if (verbose) console.log("nftcount", nftcount);
 
@@ -297,34 +332,36 @@ export class UploadZipService implements OnModuleInit {
 
   }
 
-  public async store(data: Uint8Array, verbose?: boolean): Promise<string> {
+  public async store(data: Uint8Array, templateId: number, verbose?: boolean): Promise<string> {
     try {
 
-      if (verbose) console.log("unzipping data...");
+      if (verbose) console.log("unzipping data into memory...");
       const requestIdFiles = await this.unzip(data);
 
       if (verbose) console.log("checking for userOwnable.json existance...");
       if (!requestIdFiles.has('ownableData.json')) throw new Error("Invalid package: 'ownableData.json' is missing");
 
       if (verbose) console.log("reading JSON info data from zip for Ownable modification...");
-      const jsonFile = await this.readJsonFileFromZip(requestIdFiles);
+      const jsonFile = await this.readOwnableDataFromZip(requestIdFiles);
       if (verbose) console.log("ownableData.json", jsonFile);
 
       if (verbose) console.log("LTO ACCOUNT:", this.getLTOAccountAddress());
       if (verbose) console.log("checking LTO transaction ID...", jsonFile.OWNABLE_LTO_TRANSACTION_ID);
 
-      const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID, 1, "arbitrum");
+      const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, "arbitrum");
       if (verbose) console.log("transactionIdData:", transactionIdData);
+      mkdirSync(`${this.pathToUserRids}/${transactionIdData.sender}`, { recursive: true });
 
       if (verbose) console.log("getting request ID of input requestIdFiles...");
       const requestId = await this.getUniqueId(requestIdFiles);
 
       // if (verbose) console.log("checking for existance of already stored RID template...");
       // if (await this.existsRidTemplate(requestId)) return requestId;
-
-      if (!(await this.existsRid(requestId))) {
-        await this.storeFiles(this.pathToRids, requestId, requestIdFiles);
-        await this.storeZip(this.pathToRids, requestId, data);
+      
+      if (verbose) console.log("Skip storing request ID files if already exist...");
+      if (!(await this.existsRid(requestId))) {  
+        await this.storeFiles(`${this.pathToRids}/${requestId}`, requestId, requestIdFiles);
+        await this.storeZip(`${this.pathToRids}/${requestId}`, requestId, data);
       }
 
       // Before creating the Ownable a new NFT is minted with NFT id and the user NFT input data is checked
@@ -333,6 +370,7 @@ export class UploadZipService implements OnModuleInit {
       if (verbose) console.log(`creating template with request ID ${requestId} and modifying requestIdFiles...`);
       await this.startOwnableCreation(requestId, jsonFile, nftInfo, transactionIdData.sender, verbose);
 
+      await this.executeCommand(`touch ${this.pathToUserRids}/${transactionIdData.sender}/${requestId}_startet`);
       return requestId;
 
     } catch (err) {
@@ -364,24 +402,23 @@ export class UploadZipService implements OnModuleInit {
   }
 
 
-  private async watchFileCreation(fileName: string, jsonFile: any, nftInfo: NftInfo, sender: string, verbose: boolean) {
+  private async watchFileCreation(fileName: string, jsonFile: any, nftInfo: NftInfo, sender: string, rid: string, verbose: boolean) {
     console.log("watching for file creation ", fileName);
     const watcher = chokidar.watch(fileName).on('add', async (event, path1) => {
       console.log("Watcher: created Ownable Zip File done:", event);
-      // console.log("event", event); // Filename:  ../ownable-sdk/ownables/ownable_first_create_ownable.zip
-      // console.log("path", path);
-      const ownableZip = `${this.pathToCids}/created_ownable.zip`;
-      // console.log("cpSync", ownableZip);
-      cpSync(event, ownableZip);
-      // rmSync(event);
+     
       if (verbose) console.log("unzipping the created ownable to produce unique cid...");
-      const cidFiles = await this.unzip(ownableZip);
-
-      if (verbose) console.log("getting unique chain ID from created ownable zip files...");
+      const cidFiles = await this.unzip(event);
+      
+      if (verbose) console.log("getting unique chain ID from created ownable zip files ...");
       const cid = await this.getUniqueId(cidFiles);
+      
+      const ownableZip = `${this.pathToCids}/${cid}/created_ownable.zip`;
+      if (verbose) console.log("Storing new Ownable zip file and deleting the source Ownable zip ...");   
+      cpSync(event, ownableZip);
+      rmSync(event);
 
-
-      // Creating the EventChain ...
+      if (verbose) console.log("Creating the EventChain for the new Ownable ...");
       const pkgOwnable: TypedPackage = {
         isDynamic: true,
         hasMetadata: false,
@@ -402,68 +439,64 @@ export class UploadZipService implements OnModuleInit {
       const chainBuffer: Buffer = await this.createEventChain(pkgOwnable, nftInfo, sender); // sender from TX ID is new ownable owner
       //adding eventChain to cidFiles
       cidFiles.set('chain.json', chainBuffer);
-
-
-
-      // const file = path.join(this.pathToCids, `${cid}_claim.zip`);
-      // if (verbose) console.log("checking for existance of already stored RID template...");
-      // if (await this.existsCid(cid) == false) {
-      await this.storeFiles(this.pathToCids, cid, cidFiles);
-      cpSync(ownableZip, `${this.pathToCids}/${cid}.zip`);
+      
+      await this.storeFiles(`${this.pathToCids}/${cid}`, cid, cidFiles);
+      cpSync(ownableZip, `${this.pathToCids}/${cid}/${cid}.zip`);
       rmSync(ownableZip);
       console.log("PATH", `${this.pathToCids}/${cid}`);
 
       var new_zip = new JSZip();
 
-      const zipFile: Buffer = readFileSync(`${this.pathToCids}/${cid}.zip`)
+      const zipFile: Buffer = readFileSync(`${this.pathToCids}/${cid}/${cid}.zip`)
       await new_zip.loadAsync(zipFile);
 
-      const eventChainJsonFile: Buffer = readFileSync(`${this.pathToCids}/${pkgOwnable.cid}.json`)
+      const eventChainJsonFile: Buffer = readFileSync(`${this.pathToCids}/${cid}/${pkgOwnable.cid}.json`)
       new_zip.file('eventChain.json', eventChainJsonFile);
 
-      const claimFileName = `${this.pathToCids}/${cid}_claim.zip`;
+      const claimFileName = `${this.pathToRids}/${rid}/${rid}_claim.zip`;
 
 
       const content = await new_zip.generateAsync({ type: "uint8array" });
       console.log("claimFile", claimFileName)
-      console.log("cid", cid)
+      console.log("rid", rid)
       writeFileSync(claimFileName, content);
-
+      await this.executeCommand(`touch ${this.pathToUserRids}/${sender}/${rid}_claimable`);
       watcher.unwatch(fileName);
     });
   }
 
 
   private async startOwnableCreation(rid: string, jsonFile: any, nftInfo: NftInfo, sender: string, verbose: boolean) {
-    // await this.executeCommand("ls -la");
+    if (verbose) console.log("creating directory for template", `${this.pathToRids}/${rid}/${rid}_template`);
+    mkdirSync(`${this.pathToRids}/${rid}/${rid}_template`, { recursive: true });
 
-    mkdirSync(`${this.pathToRids}/${rid}_template`, { recursive: true });
+    if (verbose) console.log("copying template 1 to template directory for midification");
+    cpSync(`${this.pathToTemplates}/template1`, `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
+    if (verbose) console.log("copying image file into template");
+    cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.PLACEHOLDER2_IMG}`, `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`);
 
-    cpSync(`${this.pathToTemplates}/template1`, `${this.pathToRids}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
-    cpSync(`${this.pathToRids}/${rid}/${jsonFile.PLACEHOLDER2_IMG}`, `${this.pathToRids}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`);
+    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_NAME".toString(), `"${jsonFile.PLACEHOLDER1_NAME}"`.toString());
+    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_DESCRIPTION".toString(), `"${jsonFile.PLACEHOLDER1_DESCRIPTION}"`.toString());
+    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_VERSION".toString(), `"${jsonFile.PLACEHOLDER1_VERSION}"`.toString());
+    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_AUTHORS".toString(), `"${jsonFile.PLACEHOLDER1_AUTHORS}"`.toString());
+    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_KEYWORDS".toString(), arrayToString(jsonFile.PLACEHOLDER1_KEYWORDS));
 
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_NAME".toString(), `"${jsonFile.PLACEHOLDER1_NAME}"`.toString());
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_DESCRIPTION".toString(), `"${jsonFile.PLACEHOLDER1_DESCRIPTION}"`.toString());
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_VERSION".toString(), `"${jsonFile.PLACEHOLDER1_VERSION}"`.toString());
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_AUTHORS".toString(), `"${jsonFile.PLACEHOLDER1_AUTHORS}"`.toString());
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_KEYWORDS".toString(), arrayToString(jsonFile.PLACEHOLDER1_KEYWORDS));
+    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/assets/index.html`.toString(), "PLACEHOLDER2_TITLE".toString(), `${jsonFile.PLACEHOLDER2_TITLE}`);
+    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/assets/index.html`.toString(), "PLACEHOLDER2_IMG".toString(), `"${jsonFile.PLACEHOLDER2_IMG}"`.toString());
 
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/assets/index.html`.toString(), "PLACEHOLDER2_TITLE".toString(), `${jsonFile.PLACEHOLDER2_TITLE}`);
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/assets/index.html`.toString(), "PLACEHOLDER2_IMG".toString(), `"${jsonFile.PLACEHOLDER2_IMG}"`.toString());
+    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/examples/schema.rs`.toString(), "PLACEHOLDER3_MSG".toString(), `${jsonFile.PLACEHOLDER1_NAME}`);
+    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/examples/schema.rs`.toString(), "PLACEHOLDER3_STATE".toString(), `${jsonFile.PLACEHOLDER1_NAME}`);
 
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/examples/schema.rs`.toString(), "PLACEHOLDER3_MSG".toString(), `${jsonFile.PLACEHOLDER1_NAME}`);
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/examples/schema.rs`.toString(), "PLACEHOLDER3_STATE".toString(), `${jsonFile.PLACEHOLDER1_NAME}`);
-
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_CONTRACT_NAME".toString(), `"crates.io:${jsonFile.PLACEHOLDER1_NAME}"`.toString());
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_TYPE".toString(), `"${jsonFile.PLACEHOLDER4_TYPE}"`.toString());
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_DESCRIPTION".toString(), `"${jsonFile.PLACEHOLDER4_DESCRIPTION}"`.toString());
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_NAME".toString(), `"${jsonFile.PLACEHOLDER4_NAME}"`.toString());
-
-    cpSync(`${this.pathToRids}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`, `../ownable-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
+    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_CONTRACT_NAME".toString(), `"crates.io:${jsonFile.PLACEHOLDER1_NAME}"`.toString());
+    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_TYPE".toString(), `"${jsonFile.PLACEHOLDER4_TYPE}"`.toString());
+    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_DESCRIPTION".toString(), `"${jsonFile.PLACEHOLDER4_DESCRIPTION}"`.toString());
+    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_NAME".toString(), `"${jsonFile.PLACEHOLDER4_NAME}"`.toString());
+    if (verbose) console.log("copying modified template into ownable-sdk for ownable creation based on user inputs", `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`);
+    cpSync(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`, `../ownable-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
 
     console.log("Building Ownable...");
     await this.executeCommand(`cd ../ownable-sdk/; npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}; cd ../ownable-nft-server/`);
-    await this.watchFileCreation(`../ownable-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, verbose);
+    await this.watchFileCreation(`../ownable-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, rid, verbose);
 
     console.log("Ownable creation startet. Waiting for Zip File to be created...");
 
@@ -472,9 +505,7 @@ export class UploadZipService implements OnModuleInit {
   private async unzip(data: Uint8Array | string): Promise<Map<string, Buffer>> {
     let archive: JSZip;
     if (typeof data === "string") {
-      const data1 = readFileSync(data);
-      archive = await this.zip.loadAsync(data1, { createFolders: true });
-
+      archive = await this.zip.loadAsync(readFileSync(data), { createFolders: true });
     } else {
       archive = await this.zip.loadAsync(data, { createFolders: true });
     }
@@ -502,20 +533,19 @@ export class UploadZipService implements OnModuleInit {
     throw new Error('Failed to calculate directory CID: importer did not find a directory entry in the input files');
   }
 
-  private async storeZip(destPath: string, cid: string, data: Uint8Array): Promise<void> {
-    const file = path.join(destPath, `${cid}.zip`);
+  private async storeZip(destPath: string, uniqueId: string, data: Uint8Array): Promise<void> {
+    const file = path.join(destPath, `${uniqueId}.zip`);
     writeFileSync(file, data);
   }
 
 
   async claim(requestId: string, signer?: Account): Promise<StreamableFile> {
-    console.log("chainId", requestId);
-
-    if (!(await fileExists(`${this.pathToCids}/${requestId}_claim.zip`))) {
+    
+    if (!(await fileExists(`${this.pathToRids}/${requestId}/${requestId}_claim.zip`))) {
       throw (`Request ID ${requestId} does not have a claimable Ownable`);
     }
 
-    const file = createReadStream(`${this.pathToCids}/${requestId}_claim.zip`);
+    const file = createReadStream(`${this.pathToRids}/${requestId}/${requestId}_claim.zip`);
     return new StreamableFile(file);
 
 

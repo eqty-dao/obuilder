@@ -7,6 +7,7 @@
   "license": "MIT",
   "ownableRidPath": "./storage/ownable-rids",
   "ownableCidPath": "./storage/ownable-cids",
+  "userRidsPath": "./storage/user-rids",
   "ownableTemplatesPath": "./storage/ownable-templates",
   "templateCost": {
     "ethereum": {
