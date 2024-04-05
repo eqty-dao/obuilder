@@ -1,6 +1,7 @@
 template1.txt
 /storage/ownable-rids
 /storage/ownable-cids
+/storage/user-rids
 # compiled output
 /dist
 /node_modules
