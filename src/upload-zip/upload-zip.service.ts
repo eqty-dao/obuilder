@@ -505,15 +505,13 @@ export class UploadZipService implements OnModuleInit {
 
   private async unzip(data: Uint8Array | string): Promise<Map<string, Buffer>> {
     let archive: JSZip;
-    var zip1 = new JSZip();
+    var zip = new JSZip();
     if (typeof data === "string") {
-      console.log("data === string")
       // archive = await this.zip.loadAsync(readFileSync(data), { createFolders: true });
-      archive = await zip1.loadAsync(readFileSync(data));
+      archive = await zip.loadAsync(readFileSync(data));
     } else {
-      console.log("data !== string")
       //archive = await this.zip.loadAsync(data, { createFolders: true });
-      archive = await zip1.loadAsync(data);
+      archive = await zip.loadAsync(data);
     }
 
     // const archive = await this.zip.loadAsync(data, { createFolders: true });
@@ -563,8 +561,9 @@ export class UploadZipService implements OnModuleInit {
   }
 
   async zipped(cid: string): Promise<JSZip> {
+    const zip = new JSZip();
     const data = readFileSync(`${this.pathToCids}/${cid}.zip`, 'utf8');
-    return await this.zip.loadAsync(data, { createFolders: true });
+    return await zip.loadAsync(data, { createFolders: true });
   }
 
   private async storeFiles(destPath: string, cid: string, files: Map<string, Buffer>): Promise<void> {
