@@ -114,16 +114,10 @@ export class UploadZipService implements OnModuleInit {
     // const url = `${this.config.get('lto.node')}/transactions/info/${ltoTransactionId}`;
     // const response = await fetch(url);
     // const data = await response.json();
+
     const thisServerAddress = this.getLTOAccountAddress();
-    
-    // for debugging...
-    // const data = {
-    //   type: 4,
-    //   sender: "3N5vwNey9aFkyrQ5KUzMt3qfuwg5jKKzrLB",
-    //   recipient: thisServerAddress,
-    //   amount: this.packageInfo.templateCost.template1,
-    // };
-    console.log("LTO Transaction data", data);
+
+    // console.log("LTO Transaction data", data);
     // Must be a transaction type
     if (data.type != 4) throw ('Wrong Transaction type');
     if (this.packageInfo.templateCost[chain.toString()][templateId] === undefined) throw (`Undefined templateCost for chain ${chain}`);
@@ -151,9 +145,9 @@ export class UploadZipService implements OnModuleInit {
     let cids: string[] = new Array();
     try {
       const files = readdirSync(`${this.pathToCids}/`);
-      files.forEach(file => {                 
-        cids.push(file)          
-    })
+      files.forEach(file => {
+        cids.push(file)
+      })
 
     } catch (err) {
       console.log(err);
@@ -164,7 +158,7 @@ export class UploadZipService implements OnModuleInit {
 
   async getClaimableRequestIDs(ltoUserAddress: string): Promise<string[]> {
     let requestIDs: string[] = new Array();
-    
+
     if (!(await fileExists(`${this.pathToUserRids}/${ltoUserAddress}`))) {
       throw (`No entries for LTO user address: ${ltoUserAddress}`);
     }
@@ -186,12 +180,12 @@ export class UploadZipService implements OnModuleInit {
   async getRequestIDs(ltoUserAddress?: string): Promise<string[]> {
     let requestIDs: string[] = new Array();
 
-    if(ltoUserAddress === undefined) {
+    if (ltoUserAddress === undefined) {
       console.log("No LTO user address specified. Fetching all available request IDs on server")
       try {
         const files = readdirSync(`${this.pathToRids}/`);
-        files.forEach(file => {                 
-            requestIDs.push(file)          
+        files.forEach(file => {
+          requestIDs.push(file)
         })
       } catch (err) {
         console.log(err);
@@ -275,7 +269,7 @@ export class UploadZipService implements OnModuleInit {
     return this.getLTOAccountAddress();
   }
 
-  public templateCost(templateId: number, chain:string) {
+  public templateCost(templateId: number, chain: string) {
     console.log("templateId", templateId, "chain", chain, " cost: ", this.packageInfo.templateCost[chain][templateId]);
     if (this.packageInfo.templateCost[chain.toString()][templateId] === undefined) {
       throw (`Undefined Template cost for template number ${templateId} and chain: ${chain}`);
@@ -334,43 +328,49 @@ export class UploadZipService implements OnModuleInit {
 
   public async store(data: Uint8Array, templateId: number, verbose?: boolean): Promise<string> {
     try {
-
+      console.log("data", data);
       if (verbose) console.log("unzipping data into memory...");
       const requestIdFiles = await this.unzip(data);
-
-      if (verbose) console.log("checking for userOwnable.json existance...");
-      if (!requestIdFiles.has('ownableData.json')) throw new Error("Invalid package: 'ownableData.json' is missing");
-
-      if (verbose) console.log("reading JSON info data from zip for Ownable modification...");
-      const jsonFile = await this.readOwnableDataFromZip(requestIdFiles);
-      if (verbose) console.log("ownableData.json", jsonFile);
-
-      if (verbose) console.log("LTO ACCOUNT:", this.getLTOAccountAddress());
-      if (verbose) console.log("checking LTO transaction ID...", jsonFile.OWNABLE_LTO_TRANSACTION_ID);
-
-      const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, "arbitrum");
-      if (verbose) console.log("transactionIdData:", transactionIdData);
-      mkdirSync(`${this.pathToUserRids}/${transactionIdData.sender}`, { recursive: true });
+      console.log("requestIdFiles", requestIdFiles);
 
       if (verbose) console.log("getting request ID of input requestIdFiles...");
       const requestId = await this.getUniqueId(requestIdFiles);
+      if (verbose) console.log("Unique request ID:", requestId);
 
-      // if (verbose) console.log("checking for existance of already stored RID template...");
-      // if (await this.existsRidTemplate(requestId)) return requestId;
-      
-      if (verbose) console.log("Skip storing request ID files if already exist...");
-      if (!(await this.existsRid(requestId))) {  
+      if (!(await this.existsRid(requestId))) {
+        if (verbose) console.log("checking for userOwnable.json existance...");
+        if (!requestIdFiles.has('ownableData.json')) throw new Error("Invalid package: 'ownableData.json' is missing");
+
+        if (verbose) console.log("reading JSON info data from zip for Ownable modification...");
+        const jsonFile = await this.readOwnableDataFromZip(requestIdFiles);
+        if (verbose) console.log("ownableData.json", jsonFile);
+
+        if (verbose) console.log("LTO ACCOUNT:", this.getLTOAccountAddress());
+        if (verbose) console.log("checking LTO transaction ID...", jsonFile.OWNABLE_LTO_TRANSACTION_ID);
+
+        const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, "arbitrum");
+        if (verbose) console.log("transactionIdData:", transactionIdData);
+
+        if (!(await this.existsRid(`${this.pathToUserRids}/${transactionIdData.sender}`))) {
+          mkdirSync(`${this.pathToUserRids}/${transactionIdData.sender}`, { recursive: true });
+        } else {
+          if (verbose) console.log("Path already exists:", `${this.pathToUserRids}/${transactionIdData.sender}`);
+        }
+
+
+        // if (await this.existsRidTemplate(requestId)) return requestId;
+
+        if (verbose) console.log("Skip storing request ID files if already exist...");
+        if (verbose) console.log("file exists?", await this.existsRid(requestId));
+        
         await this.storeFiles(`${this.pathToRids}/${requestId}`, requestId, requestIdFiles);
         await this.storeZip(`${this.pathToRids}/${requestId}`, requestId, data);
+        // Before creating the Ownable a new NFT is minted with NFT id and the user NFT input data is checked
+        const nftInfo: NftInfo = await this.mintNewNft(jsonFile, verbose);
+        if (verbose) console.log(`creating template with request ID ${requestId} and modifying requestIdFiles...`);
+        await this.startOwnableCreation(requestId, jsonFile, nftInfo, transactionIdData.sender, verbose);
+        await this.executeCommand(`touch ${this.pathToUserRids}/${transactionIdData.sender}/${requestId}_startet`);
       }
-
-      // Before creating the Ownable a new NFT is minted with NFT id and the user NFT input data is checked
-      const nftInfo: NftInfo = await this.mintNewNft(jsonFile, verbose);
-
-      if (verbose) console.log(`creating template with request ID ${requestId} and modifying requestIdFiles...`);
-      await this.startOwnableCreation(requestId, jsonFile, nftInfo, transactionIdData.sender, verbose);
-
-      await this.executeCommand(`touch ${this.pathToUserRids}/${transactionIdData.sender}/${requestId}_startet`);
       return requestId;
 
     } catch (err) {
@@ -403,18 +403,18 @@ export class UploadZipService implements OnModuleInit {
 
 
   private async watchFileCreation(fileName: string, jsonFile: any, nftInfo: NftInfo, sender: string, rid: string, verbose: boolean) {
-    console.log("watching for file creation ", fileName);
+    if (verbose) console.log("watching for file creation ", fileName);
     const watcher = chokidar.watch(fileName).on('add', async (event, path1) => {
-      console.log("Watcher: created Ownable Zip File done:", event);
-     
+      if (verbose) console.log("Watcher: created Ownable Zip File done:", event);
+
       if (verbose) console.log("unzipping the created ownable to produce unique cid...");
       const cidFiles = await this.unzip(event);
-      
+
       if (verbose) console.log("getting unique chain ID from created ownable zip files ...");
       const cid = await this.getUniqueId(cidFiles);
-      
+
       const ownableZip = `${this.pathToCids}/${cid}/created_ownable.zip`;
-      if (verbose) console.log("Storing new Ownable zip file and deleting the source Ownable zip ...");   
+      if (verbose) console.log("Storing new Ownable zip file and deleting the source Ownable zip ...");
       cpSync(event, ownableZip);
       rmSync(event);
 
@@ -439,26 +439,26 @@ export class UploadZipService implements OnModuleInit {
       const chainBuffer: Buffer = await this.createEventChain(pkgOwnable, nftInfo, sender); // sender from TX ID is new ownable owner
       //adding eventChain to cidFiles
       cidFiles.set('chain.json', chainBuffer);
-      
+
       await this.storeFiles(`${this.pathToCids}/${cid}`, cid, cidFiles);
       cpSync(ownableZip, `${this.pathToCids}/${cid}/${cid}.zip`);
       rmSync(ownableZip);
-      console.log("PATH", `${this.pathToCids}/${cid}`);
+      if (verbose) console.log("PATH", `${this.pathToCids}/${cid}`);
 
       var new_zip = new JSZip();
 
       const zipFile: Buffer = readFileSync(`${this.pathToCids}/${cid}/${cid}.zip`)
       await new_zip.loadAsync(zipFile);
 
-      const eventChainJsonFile: Buffer = readFileSync(`${this.pathToCids}/${cid}/${pkgOwnable.cid}.json`)
+      const eventChainJsonFile: Buffer = readFileSync(`${this.pathToCids}/${cid}/${cid}.json`)
       new_zip.file('eventChain.json', eventChainJsonFile);
 
       const claimFileName = `${this.pathToRids}/${rid}/${rid}_claim.zip`;
 
 
       const content = await new_zip.generateAsync({ type: "uint8array" });
-      console.log("claimFile", claimFileName)
-      console.log("rid", rid)
+      if (verbose) console.log("claimFile", claimFileName)
+      if (verbose) console.log("rid", rid)
       writeFileSync(claimFileName, content);
       await this.executeCommand(`touch ${this.pathToUserRids}/${sender}/${rid}_claimable`);
       watcher.unwatch(fileName);
@@ -499,16 +499,21 @@ export class UploadZipService implements OnModuleInit {
     if (verbose) console.log("Starting file watcher for zip file:", `../ownable-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`);
     await this.watchFileCreation(`../ownable-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, rid, verbose);
 
-    console.log("Ownable creation startet. Waiting for Zip File to be created...");
+    if (verbose) console.log("Ownable creation startet. Waiting for Zip File to be created...");
 
   }
 
   private async unzip(data: Uint8Array | string): Promise<Map<string, Buffer>> {
     let archive: JSZip;
+    var zip1 = new JSZip();
     if (typeof data === "string") {
-      archive = await this.zip.loadAsync(readFileSync(data), { createFolders: true });
+      console.log("data === string")
+      // archive = await this.zip.loadAsync(readFileSync(data), { createFolders: true });
+      archive = await zip1.loadAsync(readFileSync(data));
     } else {
-      archive = await this.zip.loadAsync(data, { createFolders: true });
+      console.log("data !== string")
+      //archive = await this.zip.loadAsync(data, { createFolders: true });
+      archive = await zip1.loadAsync(data);
     }
 
     // const archive = await this.zip.loadAsync(data, { createFolders: true });
@@ -523,13 +528,18 @@ export class UploadZipService implements OnModuleInit {
   }
 
   private async getUniqueId(files: Map<string, Buffer>): Promise<string> {
+    console.log("getUniqueId Files:",  files)
     const source = Array.from(files.entries()).map(([filename, content]) => ({
       path: `./${filename}`,
       content,
     }));
-
+    
     for await (const entry of this.ipfs.addAll(source, { onlyHash: true, cidVersion: 1 })) {
-      if (entry.path === entry.cid.toString() && !!entry.mode) return entry.cid.toString();
+      //if (entry.path === entry.cid.toString() && !!entry.mode) return entry.cid.toString();
+      if (entry.path === entry.cid.toString()) { 
+        console.log("ENTRY", entry);
+        return entry.cid.toString();
+      }
     }
     throw new Error('Failed to calculate directory CID: importer did not find a directory entry in the input files');
   }
@@ -541,7 +551,7 @@ export class UploadZipService implements OnModuleInit {
 
 
   async claim(requestId: string, signer?: Account): Promise<StreamableFile> {
-    
+
     if (!(await fileExists(`${this.pathToRids}/${requestId}/${requestId}_claim.zip`))) {
       throw (`Request ID ${requestId} does not have a claimable Ownable`);
     }

@@ -21,13 +21,14 @@ export class UploadZipController {
     // console.log("inputUploadFile.name", inputUploadFile.name);
     // console.log("inputUploadFile.id", inputUploadFile.id);
     // console.log("inputUploadFile.nummer", inputUploadFile.nummer);
-
+    // console.log("file.buffer",file.buffer);
     const buffer = file.buffer;
     if (!buffer || Object.getPrototypeOf(buffer) === null || Object.prototype.isPrototypeOf(buffer) == false) {
       //return res.status(400).send('Failed to read data from HTTP request');
       throw ('Failed to read data from HTTP request');
     }
-    let requestId;
+
+    let requestId:string;
     try {
       requestId = await this.uploadZipService.store(buffer, 1, true); // 1 == template 1 => TODO: make this a POST input variable for future
       return {
