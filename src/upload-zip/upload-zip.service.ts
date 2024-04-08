@@ -156,8 +156,8 @@ export class UploadZipService implements OnModuleInit {
     return cids;
   }
 
-  async getClaimableRequestIDs(ltoUserAddress: string): Promise<string[]> {
-    let requestIDs: string[] = new Array();
+  async getClaimableRequestIDs(ltoUserAddress: string): Promise<JSON[]> {
+    let requestIDs: JSON[] = new Array();
 
     if (!(await fileExists(`${this.pathToUserRids}/${ltoUserAddress}`))) {
       throw (`No entries for LTO user address: ${ltoUserAddress}`);
@@ -166,9 +166,10 @@ export class UploadZipService implements OnModuleInit {
     try {
       console.log(`Fetching available request IDs for LTO user address: ${ltoUserAddress}`)
       const files = readdirSync(`${this.pathToUserRids}/${ltoUserAddress}/`);
-      files.forEach(file => {
-        if (file.match(/_claimable$/g)) {
-          requestIDs.push(file.replace("_claimable", ""))
+
+      files.forEach(file => {        
+        if (file.match(/_claimable$/g)) {    
+          requestIDs.push(JSON.parse(readFileSync(`${this.pathToUserRids}/${ltoUserAddress}/${file}`).toString()));
         }
       })
     } catch (err) {
@@ -426,15 +427,13 @@ export class UploadZipService implements OnModuleInit {
         isConsumable: false,
         isConsumer: false,
         isTransferable: true,
-        title: "ownableTitle",
-        name: "ownableName",
-        description: "ownableDescription",
-        cid: "",
-        versions: [],
-        keywords: []
+        title: jsonFile.PLACEHOLDER2_TITLE.toString(),
+        name: jsonFile.PLACEHOLDER1_NAME.toString(),
+        description: jsonFile.PLACEHOLDER1_DESCRIPTION.toString(),
+        cid: `${cid}`,
+        versions: [jsonFile.PLACEHOLDER1_VERSION.toString()],
+        keywords: jsonFile.PLACEHOLDER1_KEYWORDS
       };
-      pkgOwnable.cid = `${cid}`;
-      pkgOwnable.keywords = jsonFile.PLACEHOLDER1_KEYWORDS;
 
       const chainBuffer: Buffer = await this.createEventChain(pkgOwnable, nftInfo, sender); // sender from TX ID is new ownable owner
       //adding eventChain to cidFiles
@@ -460,7 +459,22 @@ export class UploadZipService implements OnModuleInit {
       if (verbose) console.log("claimFile", claimFileName)
       if (verbose) console.log("rid", rid)
       writeFileSync(claimFileName, content);
-      await this.executeCommand(`touch ${this.pathToUserRids}/${sender}/${rid}_claimable`);
+
+      const claimableInfo = {
+        "RID": rid.toString(),
+        "CID": cid.toString(),
+        "NAME": jsonFile.PLACEHOLDER1_NAME.toString(),
+        "description": jsonFile.PLACEHOLDER1_DESCRIPTION.toString(),
+        "NFT_BLOCKCHAIN": jsonFile.NFT_BLOCKCHAIN.toString(),
+        "NFT_ID": nftInfo.id,
+        "NFT_TOKEN_URI": jsonFile.NFT_TOKEN_URI.toString(),
+        "NFT_PUBLIC_USER_WALLET_ADDRESS": jsonFile.NFT_PUBLIC_USER_WALLET_ADDRESS.toString(),
+        "CLAIMED": false,
+      }
+      const claimableFile = `${this.pathToUserRids}/${sender}/${rid}_claimable`;
+      writeFileSync(claimableFile, JSON.stringify(claimableInfo));
+      await this.executeCommand(`touch ${this.pathToRids}/${rid}/${sender}_USER`);
+
       watcher.unwatch(fileName);
     });
   }
@@ -508,10 +522,10 @@ export class UploadZipService implements OnModuleInit {
     var zip = new JSZip();
     if (typeof data === "string") {
       // archive = await this.zip.loadAsync(readFileSync(data), { createFolders: true });
-      archive = await zip.loadAsync(readFileSync(data));
+      archive = await zip.loadAsync(readFileSync(data), { createFolders: true });
     } else {
       //archive = await this.zip.loadAsync(data, { createFolders: true });
-      archive = await zip.loadAsync(data);
+      archive = await zip.loadAsync(data, { createFolders: true });
     }
 
     // const archive = await this.zip.loadAsync(data, { createFolders: true });
@@ -526,7 +540,6 @@ export class UploadZipService implements OnModuleInit {
   }
 
   private async getUniqueId(files: Map<string, Buffer>): Promise<string> {
-    console.log("getUniqueId Files:",  files)
     const source = Array.from(files.entries()).map(([filename, content]) => ({
       path: `./${filename}`,
       content,
@@ -535,7 +548,6 @@ export class UploadZipService implements OnModuleInit {
     for await (const entry of this.ipfs.addAll(source, { onlyHash: true, cidVersion: 1 })) {
       //if (entry.path === entry.cid.toString() && !!entry.mode) return entry.cid.toString();
       if (entry.path === entry.cid.toString()) { 
-        console.log("ENTRY", entry);
         return entry.cid.toString();
       }
     }
@@ -553,6 +565,23 @@ export class UploadZipService implements OnModuleInit {
     if (!(await fileExists(`${this.pathToRids}/${requestId}/${requestId}_claim.zip`))) {
       throw (`Request ID ${requestId} does not have a claimable Ownable`);
     }
+    let user: string;
+    try {
+      const files = readdirSync(`${this.pathToRids}/${requestId}/`);
+      files.forEach(file => {
+        if (file.match(/_USER$/g)) {
+          user = file.replace("_USER", "");
+        }
+      })
+    }catch(e) {
+      throw(e);
+    }
+
+    const claimableInfo = JSON.parse(readFileSync(`${this.pathToUserRids}/${user}/${requestId}_claimable`).toString());
+    claimableInfo.CLAIMED=true;
+
+    const claimableFile = `${this.pathToUserRids}/${user}/${requestId}_claimable`;
+    writeFileSync(claimableFile, JSON.stringify(claimableInfo));
 
     const file = createReadStream(`${this.pathToRids}/${requestId}/${requestId}_claim.zip`);
     return new StreamableFile(file);

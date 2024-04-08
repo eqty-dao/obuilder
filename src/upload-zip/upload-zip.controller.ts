@@ -41,14 +41,14 @@ export class UploadZipController {
 
   }
 
-  @Get('CIDs')
-  async getCIDs() {
-    try {
-      return await this.uploadZipService.getCIDs();
-    } catch (e) {
-      return { "error": `${e}` };
-    }
-  }
+  // @Get('CIDs')
+  // async getCIDs() {
+  //   try {
+  //     return await this.uploadZipService.getCIDs();
+  //   } catch (e) {
+  //     return { "error": `${e}` };
+  //   }
+  // }
 
     
   @Get('requestIDs')
@@ -60,7 +60,6 @@ export class UploadZipController {
         return { "error": `${e}` };
       }
     } else {
-
       try {
         return await this.uploadZipService.getClaimableRequestIDs(ltoUserAddress)
       }catch (e) {
@@ -83,7 +82,7 @@ export class UploadZipController {
   async claim(
     @Param('requestId') requestId: string,
     @Signer() signer?: Account,
-  ): Promise<StreamableFile> {
+  ): Promise<StreamableFile> {    
     return await this.uploadZipService.claim(requestId, signer);
   }
 
