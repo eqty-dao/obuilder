@@ -250,7 +250,7 @@ export class UploadZipService implements OnModuleInit {
       const file = readFileSync(`${this.pathToCids}/${pkg.cid}/${pkg.cid}.json`, { encoding: 'utf8' });
       buf = Buffer.from(file, 'utf8');
 
-      // Checking the import of the EvenChain json if this still works (e.g. for ownable-sdk)
+      // Checking the import of the EvenChain json if this still works (e.g. for ownables-sdk)
       const data: IEventChainJSON = JSON.parse(JSON.stringify(chain));
       const chain1 = EventChain.from(data);
       chain1.validate();
@@ -491,13 +491,13 @@ export class UploadZipService implements OnModuleInit {
     await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_TYPE".toString(), `"${jsonFile.PLACEHOLDER4_TYPE}"`.toString());
     await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_DESCRIPTION".toString(), `"${jsonFile.PLACEHOLDER4_DESCRIPTION}"`.toString());
     await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_NAME".toString(), `"${jsonFile.PLACEHOLDER4_NAME}"`.toString());
-    if (verbose) console.log("copying modified template into ownable-sdk for ownable creation based on user inputs", `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`);
-    cpSync(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`, `../ownable-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
+    if (verbose) console.log("copying modified template into ownables-sdk for ownable creation based on user inputs", `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`);
+    cpSync(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`, `../ownables-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
 
     if (verbose) console.log("Building Ownable...");
-    await this.executeCommand(`cd ../ownable-sdk/; npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}; cd ../ownable-nft-server/`);
-    if (verbose) console.log("Starting file watcher for zip file:", `../ownable-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`);
-    await this.watchFileCreation(`../ownable-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, rid, verbose);
+    await this.executeCommand(`cd ../ownables-sdk/; npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}; cd ../ownable-nft-server/`);
+    if (verbose) console.log("Starting file watcher for zip file:", `../ownables-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`);
+    await this.watchFileCreation(`../ownables-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, rid, verbose);
 
     if (verbose) console.log("Ownable creation startet. Waiting for Zip File to be created...");
 
