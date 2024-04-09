@@ -26,6 +26,7 @@ export class UploadZipService implements OnModuleInit {
   private pathToRids: string;
   private pathToCids: string;
   private pathToUserRids: string;
+  private pathToUsedTxids: string;
   private pathToTemplates: string;
   private packageInfo: any;
   private lto = new LTO(this.config.get('lto.networkId'));
@@ -35,7 +36,7 @@ export class UploadZipService implements OnModuleInit {
   constructor(
     private readonly httpService: HttpService,
     private readonly config: ConfigService,
-    private readonly zip: JSZip,
+    // private readonly zip: JSZip,
     private nft: NFTService,
     @Inject('IPFS') private readonly ipfs: IPFS,
   ) { }
@@ -45,10 +46,12 @@ export class UploadZipService implements OnModuleInit {
     this.pathToRids = this.packageInfo.ownableRidPath;
     this.pathToCids = this.packageInfo.ownableCidPath;
     this.pathToUserRids = this.packageInfo.userRidsPath;
+    this.pathToUsedTxids = this.packageInfo.usedTxidsPath;
     this.pathToTemplates = this.packageInfo.ownableTemplatesPath;
     mkdirSync(this.pathToRids, { recursive: true });
     mkdirSync(this.pathToCids, { recursive: true });
     mkdirSync(this.pathToUserRids, { recursive: true });
+    mkdirSync(this.pathToUsedTxids, { recursive: true });
   }
 
   public async GetServerETHBalance(): Promise<string> {
@@ -90,7 +93,28 @@ export class UploadZipService implements OnModuleInit {
     return await fileExists(`${this.pathToCids}/${cid}/${cid}.zip`);
   }
 
-  private async checkLtoTransactionId(ltoTransactionId: string, templateId: number, chain: String): Promise<TransactionIdData> {
+  private async checkReuseOfTxId(ltoTransactionId: string, requestId: string) {
+    
+      console.log(`Checking if TX ID ${ltoTransactionId} has already been used for a previous request`)
+      const files = readdirSync(`${this.pathToUsedTxids}/`);
+      let myReg = new RegExp(`${ltoTransactionId}_`,'g');
+
+      files.forEach(file => {        
+        if (file.match(myReg)) {          
+          const filesArray = file.split("_");
+          if(filesArray[1] === requestId) {
+            console.log("TX ID matches previous request ID - OK")
+          }else {
+            throw (`LTO TX ID ${ltoTransactionId} has already been used with request ID: ${filesArray[1]}`);
+          }
+        }
+      })
+    
+    // Link request ID to this lto TX ID to prevent using TX ID twice for another ownable creation request
+    await this.executeCommand(`touch ${this.pathToUsedTxids}/${ltoTransactionId}_${requestId}`);
+  }
+
+  private async checkLtoTransactionId(ltoTransactionId: string, templateId: number, chain: String, requestId: string): Promise<TransactionIdData> {
     // FIRST WORKING METHOD
     const data = await this.httpService.axiosRef
       .get(`${this.config.get('lto.node')}/transactions/info/${ltoTransactionId}`)
@@ -117,13 +141,17 @@ export class UploadZipService implements OnModuleInit {
 
     const thisServerAddress = this.getLTOAccountAddress();
 
-    // console.log("LTO Transaction data", data);
-    // Must be a transaction type
+    
+    // Must be of type "transaction"
     if (data.type != 4) throw ('Wrong Transaction type');
     if (this.packageInfo.templateCost[chain.toString()][templateId] === undefined) throw (`Undefined templateCost for chain ${chain}`);
     //check for correct amount and correct recipient (this servers' LTO wallet)
     if (data.amount < this.packageInfo.templateCost[chain.toString()][templateId]) throw ('Wrong LTO amount for Template');
     if (data.recipient != thisServerAddress) throw ('Wrong recipient! Use Server LTO Wallet address');
+    
+    await this.checkReuseOfTxId(ltoTransactionId, requestId);
+    // Link request ID to this lto TX ID to prevent using TX ID twice for another ownable creation request
+    await this.executeCommand(`touch ${this.pathToUsedTxids}/${ltoTransactionId}_${requestId}`);
 
     return {
       type: data.type,
@@ -167,8 +195,8 @@ export class UploadZipService implements OnModuleInit {
       console.log(`Fetching available request IDs for LTO user address: ${ltoUserAddress}`)
       const files = readdirSync(`${this.pathToUserRids}/${ltoUserAddress}/`);
 
-      files.forEach(file => {        
-        if (file.match(/_claimable$/g)) {    
+      files.forEach(file => {
+        if (file.match(/_claimable$/g)) {
           requestIDs.push(JSON.parse(readFileSync(`${this.pathToUserRids}/${ltoUserAddress}/${file}`).toString()));
         }
       })
@@ -335,7 +363,7 @@ export class UploadZipService implements OnModuleInit {
       console.log("requestIdFiles", requestIdFiles);
 
       if (verbose) console.log("getting request ID of input requestIdFiles...");
-      const requestId = await this.getUniqueId(requestIdFiles);
+      const requestId: string = await this.getUniqueId(requestIdFiles);
       if (verbose) console.log("Unique request ID:", requestId);
 
       if (!(await this.existsRid(requestId))) {
@@ -349,7 +377,8 @@ export class UploadZipService implements OnModuleInit {
         if (verbose) console.log("LTO ACCOUNT:", this.getLTOAccountAddress());
         if (verbose) console.log("checking LTO transaction ID...", jsonFile.OWNABLE_LTO_TRANSACTION_ID);
 
-        const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, "arbitrum");
+        // TODO: enable also ethereum and Polygon
+        const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, "arbitrum", requestId);
         if (verbose) console.log("transactionIdData:", transactionIdData);
 
         if (!(await this.existsRid(`${this.pathToUserRids}/${transactionIdData.sender}`))) {
@@ -363,7 +392,7 @@ export class UploadZipService implements OnModuleInit {
 
         if (verbose) console.log("Skip storing request ID files if already exist...");
         if (verbose) console.log("file exists?", await this.existsRid(requestId));
-        
+
         await this.storeFiles(`${this.pathToRids}/${requestId}`, requestId, requestIdFiles);
         await this.storeZip(`${this.pathToRids}/${requestId}`, requestId, data);
         // Before creating the Ownable a new NFT is minted with NFT id and the user NFT input data is checked
@@ -371,6 +400,9 @@ export class UploadZipService implements OnModuleInit {
         if (verbose) console.log(`creating template with request ID ${requestId} and modifying requestIdFiles...`);
         await this.startOwnableCreation(requestId, jsonFile, nftInfo, transactionIdData.sender, verbose);
         await this.executeCommand(`touch ${this.pathToUserRids}/${transactionIdData.sender}/${requestId}_startet`);
+      }
+      else {
+        console.log(`Request ID for this Ownable create request does already exist: ${requestId}`);
       }
       return requestId;
 
@@ -521,14 +553,10 @@ export class UploadZipService implements OnModuleInit {
     let archive: JSZip;
     var zip = new JSZip();
     if (typeof data === "string") {
-      // archive = await this.zip.loadAsync(readFileSync(data), { createFolders: true });
       archive = await zip.loadAsync(readFileSync(data), { createFolders: true });
     } else {
-      //archive = await this.zip.loadAsync(data, { createFolders: true });
       archive = await zip.loadAsync(data, { createFolders: true });
     }
-
-    // const archive = await this.zip.loadAsync(data, { createFolders: true });
 
     const entries: Array<[string, Buffer]> = await Promise.all(
       Object.entries(archive.files)
@@ -544,10 +572,10 @@ export class UploadZipService implements OnModuleInit {
       path: `./${filename}`,
       content,
     }));
-    
+
     for await (const entry of this.ipfs.addAll(source, { onlyHash: true, cidVersion: 1 })) {
       //if (entry.path === entry.cid.toString() && !!entry.mode) return entry.cid.toString();
-      if (entry.path === entry.cid.toString()) { 
+      if (entry.path === entry.cid.toString()) {
         return entry.cid.toString();
       }
     }
@@ -562,7 +590,8 @@ export class UploadZipService implements OnModuleInit {
 
   async claim(requestId: string, signer?: Account): Promise<StreamableFile> {
 
-    if (!(await fileExists(`${this.pathToRids}/${requestId}/${requestId}_claim.zip`))) {
+    const claimableZipFile = `${this.pathToRids}/${requestId}/${requestId}_claim.zip`;
+    if (!(await fileExists(claimableZipFile))) {
       throw (`Request ID ${requestId} does not have a claimable Ownable`);
     }
     let user: string;
@@ -573,27 +602,27 @@ export class UploadZipService implements OnModuleInit {
           user = file.replace("_USER", "");
         }
       })
-    }catch(e) {
-      throw(e);
+    } catch (e) {
+      throw (e);
     }
 
-    const claimableInfo = JSON.parse(readFileSync(`${this.pathToUserRids}/${user}/${requestId}_claimable`).toString());
-    claimableInfo.CLAIMED=true;
+    const claimableFileInfo = `${this.pathToUserRids}/${user}/${requestId}_claimable`;
+    const claimableInfo = JSON.parse(readFileSync(claimableFileInfo).toString());
+    claimableInfo.CLAIMED = true;
 
-    const claimableFile = `${this.pathToUserRids}/${user}/${requestId}_claimable`;
-    writeFileSync(claimableFile, JSON.stringify(claimableInfo));
+    writeFileSync(claimableFileInfo, JSON.stringify(claimableInfo));
 
-    const file = createReadStream(`${this.pathToRids}/${requestId}/${requestId}_claim.zip`);
+    const file = createReadStream(claimableZipFile);
     return new StreamableFile(file);
 
 
   }
 
-  async zipped(cid: string): Promise<JSZip> {
-    const zip = new JSZip();
-    const data = readFileSync(`${this.pathToCids}/${cid}.zip`, 'utf8');
-    return await zip.loadAsync(data, { createFolders: true });
-  }
+  // async zipped(cid: string): Promise<JSZip> {
+  //   const zip = new JSZip();
+  //   const data = readFileSync(`${this.pathToCids}/${cid}.zip`, 'utf8');
+  //   return await zip.loadAsync(data, { createFolders: true });
+  // }
 
   private async storeFiles(destPath: string, cid: string, files: Map<string, Buffer>): Promise<void> {
     const packageDir = path.join(destPath, cid);
@@ -603,26 +632,26 @@ export class UploadZipService implements OnModuleInit {
       Array.from(files.entries()).map(([filename, content]) => writeFileSync(path.join(packageDir, filename), content)),
     );
   }
-  uploadFile(file: Express.Multer.File) {
-    return file;
-  }
-  create(createUploadZipDto: CreateUploadZipDto) {
-    return 'This action adds a new uploadZip';
-  }
+  // uploadFile(file: Express.Multer.File) {
+  //   return file;
+  // }
+  // create(createUploadZipDto: CreateUploadZipDto) {
+  //   return 'This action adds a new uploadZip';
+  // }
 
-  findAll() {
-    return `This action returns all uploadZip`;
-  }
+  // findAll() {
+  //   return `This action returns all uploadZip`;
+  // }
 
-  findOne(id: number) {
-    return `This action returns a #${id} uploadZip`;
-  }
+  // findOne(id: number) {
+  //   return `This action returns a #${id} uploadZip`;
+  // }
 
-  update(id: number, updateUploadZipDto: UpdateUploadZipDto) {
-    return `This action updates a #${id} uploadZip`;
-  }
+  // update(id: number, updateUploadZipDto: UpdateUploadZipDto) {
+  //   return `This action updates a #${id} uploadZip`;
+  // }
 
-  remove(id: number) {
-    return `This action removes a #${id} uploadZip`;
-  }
+  // remove(id: number) {
+  //   return `This action removes a #${id} uploadZip`;
+  // }
 }

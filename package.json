@@ -8,6 +8,7 @@
   "ownableRidPath": "./storage/ownable-rids",
   "ownableCidPath": "./storage/ownable-cids",
   "userRidsPath": "./storage/user-rids",
+  "usedTxidsPath": "./storage/used-txids",
   "ownableTemplatesPath": "./storage/ownable-templates",
   "templateCost": {
     "ethereum": {
