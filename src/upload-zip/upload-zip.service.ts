@@ -354,8 +354,11 @@ export class UploadZipService implements OnModuleInit {
     }
 
   }
+  private wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
 
   public async store(data: Uint8Array, templateId: number, verbose?: boolean): Promise<string> {
+    if (verbose) console.log("Waiting 10 seconds for a possible TX ID that needs to be populated into LTO node network...");
+    await this.wait(10000);
     try {
       console.log("data", data);
       if (verbose) console.log("unzipping data into memory...");
