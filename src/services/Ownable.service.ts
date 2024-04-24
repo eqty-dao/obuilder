@@ -64,46 +64,46 @@ export default class OwnableService {
 //     this._rpc.delete(id);
 //   }
 
-  static create(pkg: TypedPackage, nft?: NftInfo): EventChain {
-    const account = LTOService.account;
-    const chain = EventChain.create(account);
-    // const chain = new EventChain(account);
-    let nftContractAddress = "";
-    let nftNetwork = "";
+  // static create(pkg: TypedPackage, nft?: NftInfo): EventChain {
+  //   const account = LTOService.account;
+  //   const chain = EventChain.create(account);
+  //   // const chain = new EventChain(account);
+  //   let nftContractAddress = "";
+  //   let nftNetwork = "";
     
 
-    if(nft?.network.toString() === "Ethereum") {
-      nftContractAddress="N/A";
-      nftNetwork ="eip155:1";
-    }else if(nft?.network.toString() === "Polygon") {
-      // https://mumbai.polygonscan.com/address/0x0eb02E5382944EA6Bf3B79D3253b68289b5d7078#readContract
-      nftContractAddress="0x0eb02E5382944EA6Bf3B79D3253b68289b5d7078"; // Mumbai Polygon
-      nftNetwork ="eip155:2";
-    }else if(nft?.network.toString() === "ArbitrumOne") {
-      // https://sepolia.arbiscan.io/address/0x122aaFBA5668978378506417d75d4ef85CD55D61#readContract
-      nftContractAddress="0x122aaFBA5668978378506417d75d4ef85CD55D61"; // Sepolia Arbitrum
-      nftNetwork ="eip155:3";
-    }
+  //   if(nft?.network.toString() === "Ethereum") {
+  //     nftContractAddress="N/A";
+  //     nftNetwork ="eip155:1";
+  //   }else if(nft?.network.toString() === "Polygon") {
+  //     // https://mumbai.polygonscan.com/address/0x0eb02E5382944EA6Bf3B79D3253b68289b5d7078#readContract
+  //     nftContractAddress="0x0eb02E5382944EA6Bf3B79D3253b68289b5d7078"; // Mumbai Polygon
+  //     nftNetwork ="eip155:2";
+  //   }else if(nft?.network.toString() === "ArbitrumOne") {
+  //     // https://sepolia.arbiscan.io/address/0x122aaFBA5668978378506417d75d4ef85CD55D61#readContract
+  //     nftContractAddress="0x122aaFBA5668978378506417d75d4ef85CD55D61"; // Sepolia Arbitrum
+  //     nftNetwork ="eip155:3";
+  //   }
    
-    if (pkg.isDynamic) {
-      const msg = {
-        "@context": "instantiate_msg.json",
-        ownable_id: chain.id,
-        package: pkg.cid,
-        network_id: LTOService.networkId,
-        keywords: pkg.keywords,
-        nft: {
-          network: nftNetwork, id: nft?.id.toString(), address: nftContractAddress,
-        },
-      };
+  //   if (pkg.isDynamic) {
+  //     const msg = {
+  //       "@context": "instantiate_msg.json",
+  //       ownable_id: chain.id,
+  //       package: pkg.cid,
+  //       network_id: LTOService.networkId,
+  //       keywords: pkg.keywords,
+  //       nft: {
+  //         network: nftNetwork, id: nft?.id.toString(), address: nftContractAddress,
+  //       },
+  //     };
 
-      new Event(msg)
-        .addTo(chain)
-        .signWith(account);
-    }
+  //     new Event(msg)
+  //       .addTo(chain)
+  //       .signWith(account);
+  //   }
 
-    return chain;
-  }
+  //   return chain;
+  // }
 
 //   static async init(chain: EventChain, pkg: string, rpc: OwnableRPC): Promise<void> {
 //     if (this._rpc.has(chain.id)) {

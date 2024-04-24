@@ -18,6 +18,7 @@ import { TransactionIdData } from '../interfaces/TransactionIdData';
 import { TypedPackage } from "../interfaces/TypedPackage";
 import { NFTService } from '../nft/nft.service';
 import { IEventChainJSON } from '@ltonetwork/lto/interfaces';
+import { throwError } from 'rxjs';
 // import { json } from 'node:stream/consumers';
 // import { stringify } from 'querystring';
 
@@ -271,7 +272,7 @@ export class UploadZipService implements OnModuleInit {
       if (!chain.isCreatedBy(genesisSigner))
         throw new Error('Event chain hijacking: genesis event not signed by chain creator');
       else {
-        console.log("All good! Genesis signer correct")
+        console.log("All good! Genesis signer correct after creating the Ownable")
       }
 
       writeFileSync(`${this.pathToCids}/${pkg.cid}/${pkg.cid}.json`, JSON.stringify(chain));
@@ -286,7 +287,7 @@ export class UploadZipService implements OnModuleInit {
       if (!chain1.isCreatedBy(genesisSigner))
         throw new Error('Event chain hijacking: genesis event not signed by chain creator');
       else {
-        console.log("All good! Genesis signer correct")
+        console.log("All good! Genesis signer correct after reading EventChain from disk")
       }
     }
 
@@ -342,7 +343,7 @@ export class UploadZipService implements OnModuleInit {
     if (verbose) console.log("nftTokenURI", nftTokenURI);
     if (verbose) console.log("NFT_BLOCKCHAIN", jsonFile.NFT_BLOCKCHAIN);
 
-    const nftcount = 78; // TODO: enable next line again which has been disabled to save eth during debugging and testing
+    const nftcount = 1; // TODO: enable next line again which has been disabled to save eth during debugging and testing
     // const nftcount = await this.nft.mintNFT(nftContractAddress, nftOwner, nftTokenURI);
     if (verbose) console.log("nftcount", nftcount);
 
@@ -357,7 +358,8 @@ export class UploadZipService implements OnModuleInit {
 
   public async store(data: Uint8Array, templateId: number, verbose?: boolean): Promise<string> {
     if (verbose) console.log("Waiting 10 seconds for a possible TX ID that needs to be populated into LTO node network...");
-    await this.wait(10000);
+    // TODO: enable wait 10 sec
+    // await this.wait(10000);
     try {
       console.log("data", data);
       if (verbose) console.log("unzipping data into memory...");
@@ -376,6 +378,9 @@ export class UploadZipService implements OnModuleInit {
         const jsonFile = await this.readOwnableDataFromZip(requestIdFiles);
         if (verbose) console.log("ownableData.json", jsonFile);
 
+        if(!(jsonFile.NFT_BLOCKCHAIN === 'arbitrum') && !(jsonFile.NFT_BLOCKCHAIN === 'ethereum') ) {
+          throw new Error(`Error: Unsupported network: ${jsonFile.NFT_BLOCKCHAIN}`);
+        }
         if (verbose) console.log("LTO ACCOUNT:", this.getLTOAccountAddress());
         if (verbose) console.log("checking LTO transaction ID...", jsonFile.OWNABLE_LTO_TRANSACTION_ID);
 
@@ -500,7 +505,7 @@ export class UploadZipService implements OnModuleInit {
         "NAME": jsonFile.PLACEHOLDER1_NAME.toString(),
         "description": jsonFile.PLACEHOLDER1_DESCRIPTION.toString(),
         "NFT_BLOCKCHAIN": jsonFile.NFT_BLOCKCHAIN.toString(),
-        "NFT_ID": nftInfo.id,
+        "NFT_ID": (nftInfo.id).toString(),
         "NFT_TOKEN_URI": jsonFile.NFT_TOKEN_URI.toString(),
         "NFT_PUBLIC_USER_WALLET_ADDRESS": jsonFile.NFT_PUBLIC_USER_WALLET_ADDRESS.toString(),
         "CLAIMED": false,
