@@ -1,8 +1,8 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { ethers, HDNodeWallet } from 'ethers';
+import { ethers } from 'ethers';
 import { ConfigService } from '../config/config.service';
 import * as abis from './abi';
-// import { Networkish, getNetwork, JsonRpcProvider, AlchemyProvider, Provider } from '@ethersproject/providers';
+// import { Networkish } from '@ethersproject/networks';
 
 // type NetworkSettings = {
 //   id: number;
@@ -13,27 +13,66 @@ import * as abis from './abi';
 
 @Injectable()
 export class EthersService implements OnModuleInit {
-  private wallet: ethers.Wallet;
+  // private wallet: ethers.Wallet;
   private signer: ethers.HDNodeWallet;
   private alchemyProvider: ethers.AlchemyProvider;
+  private network: ethers.Networkish;
   private readonly providers: Map<string | number, ethers.Provider> = new Map();
 
   constructor(private config: ConfigService) { }
 
   onModuleInit(): void {
-    
-    const network:ethers.Networkish = { name: 'arbitrum-sepolia', chainId: 421614}; // new Network('arbitrum-sepolia', 421614)
-    this.alchemyProvider = new ethers.AlchemyProvider(network, this.config.get('eth.account.arbitrum_alchemy_api_key'));
+    this.network = { name: 'arbitrum-sepolia', chainId: 421614 };
+    this.alchemyProvider = new ethers.AlchemyProvider(
+      this.network,
+      this.config.get('eth.account.arbitrum_alchemy_api_key'),
+    );
     this.signer = ethers.Wallet.fromPhrase(this.config.get('eth.account.mnemonic'), this.alchemyProvider);
-    // this.initProviders();
   }
+
   public signMessage(message: string | Uint8Array): Promise<string> {
-    return this.wallet.signMessage(message);
+    return this.signer.signMessage(message);
   }
 
   public async GetServerETHBalance(): Promise<string> {
     // console.log("Blocknumber:", await this.alchemyProvider.getBlockNumber());
-    return (ethers.formatUnits(await this.alchemyProvider.getBalance(this.signer.address),"ether").toString());
+    return ethers.formatUnits(await this.alchemyProvider.getBalance(this.signer.address), 'ether').toString();
+  }
+
+  private getNetwork(networkName: string): [string, number, string] {
+    // https://docs.ethers.org/v6/api/providers/thirdparty/#AlchemyProvider
+    const networkId = this.config.get('lto.networkId');
+    switch (networkName) {
+      case 'eip155:ethereum':
+        if (networkId === 'T')
+          return ['sepolia', 11155111, this.config.get('eth.account.eth_alchemy_api_key')]; // Sepolia Testnet
+        else return ['mainnet', 1, this.config.get('eth.account.eth_alchemy_api_key')]; // Ethereum Mainnet
+      case 'eip155:arbitrum':
+        if (networkId === 'T')
+          // Arbitrum Sepolia Testnet
+          return ['arbitrum-sepolia', 421614, this.config.get('eth.account.arbitrum_alchemy_api_key')];
+        else return ['arbitrum', 42161, this.config.get('eth.account.arbitrum_alchemy_api_key')]; // Arbitrum Mainnet
+      case 'eip155:polygon':
+        if (networkId === 'T')
+          return ['matic-amoy', 80002, this.config.get('eth.account.polygon_alchemy_api_key')]; // Polygon Amoy Testnet
+        else return ['matic', 137, this.config.get('eth.account.polygon_alchemy_api_key')]; // Polygon mainnet
+      // case 'base':
+      //   if (networkId === 'T') return ['base-sepolia', 84532,this.config.get('eth.account.base_alchemy_api_key')]; // Base Sepolia Testnet
+      //   else return ['base', 8453,this.config.get('eth.account.base_alchemy_api_key')]; // Base mainnet
+    }
+  }
+
+  public getContract(type: keyof typeof abis, networkName: string, address: string): ethers.Contract {
+    if (!(type in abis)) throw new Error(`No ABI for ${type}`);
+    const [alchemyNetworkNameMapped, chainId, providerApiKey] = this.getNetwork(networkName);
+    this.network = { name: alchemyNetworkNameMapped, chainId: chainId };
+
+    this.alchemyProvider = new ethers.AlchemyProvider(this.network, providerApiKey);
+
+    this.signer = ethers.Wallet.fromPhrase(this.config.get('eth.account.mnemonic'), this.alchemyProvider);
+
+    const nftContract: ethers.Contract = new ethers.Contract(address, abis[type], this.signer);
+    return nftContract;
   }
   
   public async mintNFT(type: keyof typeof abis, contractAddress: string, nftOwner: string, nftTokenURI: string): Promise<number> {
@@ -48,46 +87,6 @@ export class EthersService implements OnModuleInit {
     return nftcount;
   }
   
-  // private initProviders() {
-  //   const networks = this.config.get('eth.networks');
-  //   const providerKeys = this.config.get('eth.providers');
-
-  //   for (const network of networks) {
-  //     const provider = this.createProvider(network, providerKeys);
-  //     this.providers.set(network.id, provider);
-  //     this.providers.set(network.name, provider);
-  //   }
-  // }
-
-  // private createProvider(network: NetworkSettings, providerKeys: { [_: string]: string }): ethers.Provider {
-  //   switch (network.provider) {
-  //     case 'jsonrpc':
-  //       return new ethers.JsonRpcProvider(network.url, {
-  //         name: network.name,
-  //         chainId: network.id,
-  //       });
-  //     case 'etherscan':
-  //       return new ethers.EtherscanProvider(network.id, providerKeys.etherscan);
-  //     case 'infura':
-  //       return new ethers.InfuraProvider(network.id, providerKeys.infura);
-  //     case 'alchemy':
-  //       return new ethers.AlchemyProvider(network.id, providerKeys.alchemy);      
-  //     case 'pocket':
-  //       return new ethers.PocketProvider(network.id, providerKeys.pocket);
-  //     case 'ankr':
-  //       return new ethers.AnkrProvider(network.id, providerKeys.ankr);
-  //   }
-  // }
-
-  // public getContract(type: keyof typeof abis, network: Networkish, address: string): ethers.Contract {
-  //   if (!(type in abis)) throw new Error(`No ABI for ${type}`);
-
-  //   const networkId = typeof network === 'object' ? network.chainId : network;
-  //   const provider = this.providers.get(networkId);
-  //   if (!provider) throw new Error(`No provider for network ${networkId}`);
-
-  //   return new ethers.Contract(address, abis[type], provider);
-  // }
-
+   
   
 }

@@ -249,7 +249,7 @@ export class UploadZipService implements OnModuleInit {
         network_id: this.networkId,
         keywords: pkg.keywords,
         nft: {
-          network: nftInfo.network, id: nftInfo.id.toString(), address: nftInfo.contractAddress, lock_service: nftInfo.lock_service,
+          network: nftInfo.network, id: nftInfo.id.toString(), address: nftInfo.contractAddress,
         },
       };
 
@@ -324,13 +324,13 @@ export class UploadZipService implements OnModuleInit {
     let nftContractAddress: string;
     if (jsonFile.NFT_BLOCKCHAIN === 'ethereum') {
       nftContractAddress = this.config.get('eth.contracts.ethereum');
-      nftNetwork = "eip155:1"; // Sven TODO These need to be checked as testnets have other IDs !
+      nftNetwork = "eip155:ethereum"; // Sven TODO These need to be checked as testnets have other IDs !
     } else if (jsonFile.NFT_BLOCKCHAIN === 'arbitrum') {
       nftContractAddress = this.config.get('eth.contracts.arbitrum');
-      nftNetwork = "eip155:2";
+      nftNetwork = "eip155:arbitrum";
     } else if (jsonFile.NFT_BLOCKCHAIN === 'polygon') {
       nftContractAddress = this.config.get('eth.contracts.polygon');
-      nftNetwork = "eip155:3";
+      nftNetwork = "eip155:polygon";
     } else {
       throw (`Unsupported Blockchain: ${jsonFile.NFT_BLOCKCHAIN}`);
     }
@@ -349,8 +349,7 @@ export class UploadZipService implements OnModuleInit {
     return {
       network: nftNetwork,    // eip155:1
       contractAddress: nftContractAddress,  // 0x341...
-      id: nftcount, // 1, 2, 3
-      lock_service: "",
+      id: nftcount, // 1, 2, 3      
     }
 
   }

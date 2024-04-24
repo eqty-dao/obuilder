@@ -67,6 +67,7 @@ export default class OwnableService {
   static create(pkg: TypedPackage, nft?: NftInfo): EventChain {
     const account = LTOService.account;
     const chain = EventChain.create(account);
+    // const chain = new EventChain(account);
     let nftContractAddress = "";
     let nftNetwork = "";
     
@@ -92,7 +93,7 @@ export default class OwnableService {
         network_id: LTOService.networkId,
         keywords: pkg.keywords,
         nft: {
-          network: nftNetwork, id: nft?.id.toString(), address: nftContractAddress, lock_service: nft?.lock_service,
+          network: nftNetwork, id: nft?.id.toString(), address: nftContractAddress,
         },
       };
 

@@ -1,20 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { EthersService } from '../../common/ethers/ethers.service';
-// import { NFTInfo } from '../../interfaces/OwnableInfo';
+//import { NftInfo } from '../../interfaces/OwnableInfo';
 
 @Injectable()
 export class EthereumService {
   constructor(private ethers: EthersService) {}
 
-  // public async getUnlockProof(nft: NFTInfo): Promise<string> {
-  //   const nftContract = this.ethers.getContract('IERC721Lockable', nft.network, nft.address);
+  // public async getUnlockProof(nft: NftInfo): Promise<string> {
+  //   const nftContract = this.ethers.getContract('LockableNFT', nft.network, nft.contractAddress);
   //   const challenge = await nftContract.unlockChallenge(nft.id);
 
   //   return await this.ethers.signMessage(challenge);
   // }
 
-  // public async getIssuer(nft: NFTInfo): Promise<string> {
-  //   const nftContract = this.ethers.getContract('Ownable', nft.network, nft.address);
+  // public async getIssuer(nft: NftInfo): Promise<string> {
+  //   const nftContract = this.ethers.getContract('LockableNFT', nft.network, nft.contractAddress);
   //   return await nftContract.owner();
   // }
   public async GetServerETHBalance(): Promise<string> {
