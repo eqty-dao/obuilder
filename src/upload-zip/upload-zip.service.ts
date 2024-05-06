@@ -325,7 +325,7 @@ export class UploadZipService implements OnModuleInit {
     let nftContractAddress: string;
     if (jsonFile.NFT_BLOCKCHAIN === 'ethereum') {
       nftContractAddress = this.config.get('eth.contracts.ethereum');
-      nftNetwork = "eip155:ethereum"; // Sven TODO These need to be checked as testnets have other IDs !
+      nftNetwork = "eip155:ethereum";
     } else if (jsonFile.NFT_BLOCKCHAIN === 'arbitrum') {
       nftContractAddress = this.config.get('eth.contracts.arbitrum');
       nftNetwork = "eip155:arbitrum";
@@ -343,8 +343,8 @@ export class UploadZipService implements OnModuleInit {
     if (verbose) console.log("nftTokenURI", nftTokenURI);
     if (verbose) console.log("NFT_BLOCKCHAIN", jsonFile.NFT_BLOCKCHAIN);
 
-    const nftcount = 1; // TODO: enable next line again which has been disabled to save eth during debugging and testing
-    // const nftcount = await this.nft.mintNFT(nftContractAddress, nftOwner, nftTokenURI);
+    // const nftcount = 1; // TODO: enable next line again which has been disabled to save eth during debugging and testing
+    const nftcount = await this.nft.mintNFT(nftContractAddress, nftOwner, nftTokenURI);
     if (verbose) console.log("nftcount", nftcount);
 
     return {
@@ -430,12 +430,6 @@ export class UploadZipService implements OnModuleInit {
   }
 
   private async replaceLineInFile(file: string, key: string, value: string) {
-    // console.log("file", file);
-    // console.log("key", key);
-    // console.log("value", value);
-    // const data = readFileSync(file, 'utf8');
-    // var formatted = data.replace(key, value);
-    // writeFileSync(file, formatted, 'utf8');
     const data = readFileSync(file, 'utf8');
     var formatted = data.replace(key, value);
     writeFileSync(file, formatted, 'utf8');
