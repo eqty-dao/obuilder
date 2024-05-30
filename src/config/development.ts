@@ -14,8 +14,8 @@ export default {
       eth_alchemy_api_key: 'oI9B3F4SsW2kFEuEKwfIgn_Wxz5NoEz9',
     },
     contracts: {
-      ethereum: '0xaCAD060e94E34AA6026E531fddd7f3F2B854a7AC',  // Ethereum sepolia
-      arbitrum: '0x50581c978933af5798f5dbE7FDb0f1bdBa10A171', // Arbitrum sepolia
+      ethereum: '0x56213ECA28860d8fb5DAF6A8dCdA7bB28d7c360F',  // Ethereum sepolia
+      arbitrum: '0x1527f2f8Cd41b000e1E8F70906012bEFab993AD9', // Arbitrum sepolia
       polygon: '', // Polygon Amoy
     },
   },

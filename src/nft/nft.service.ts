@@ -1,26 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { EthereumService } from './ethereum/ethereum.service';
-// import { NftInfo } from '../interfaces/OwnableInfo';
+import { NftInfo } from '../interfaces/OwnableInfo';
 
 @Injectable()
 export class NFTService {
   constructor(private ethereum: EthereumService) {}
 
-  // async getUnlockProof(nft: NftInfo): Promise<string> {
-  //   if (nft.network.startsWith('eip155:')) {
-  //     return await this.ethereum.getUnlockProof(nft);
-  //   }
-
-  //   throw new Error(`Unknown network ${nft.network}`);
-  // }
-
-  // async getIssuer(nft: NftInfo): Promise<string> {
-  //   if (nft.network.startsWith('eip155:')) {
-  //     return await this.ethereum.getIssuer(nft);
-  //   }
-
-  //   throw new Error(`Unknown network ${nft.network}`);
-  // }
+  
+  public async getNFTcount(nft: NftInfo): Promise<string> {
+    return await this.ethereum.getNFTcount(nft);
+  }
 
   public async GetServerETHBalance(): Promise<string> {
     return await this.ethereum.GetServerETHBalance();

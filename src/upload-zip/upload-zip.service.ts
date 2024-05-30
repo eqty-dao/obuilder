@@ -67,12 +67,22 @@ export class UploadZipService implements OnModuleInit {
   public async getLTOAccountBalance(address?: string) {
     if (!address) address = this.getLTOAccountAddress();
     const url = `${this.config.get('lto.node')}/addresses/balance/${address}`;
-
-    const response = await fetch(url);
-    if (response.status == 200) {
-      const data = await response.json();
-      return data;
-    } else { throw new Error(`Error fetching balance of address: ${address}`) }
+    
+    const data = await this.httpService.axiosRef
+      .get(url)
+      .then((res) => res.data)
+      .catch((err) => {
+        throw new Error(
+          err?.message + ': ' + JSON.stringify(err?.response?.data),
+        );
+      });
+    // console.log("data", data);
+    return data;
+    // const response = await fetch(url);
+    // if (response.status == 200) {
+    //   const data = await response.json();
+    //   return data;
+    // } else { throw new Error(`Error fetching balance of address: ${address}`) }
 
   }
 
@@ -161,7 +171,44 @@ export class UploadZipService implements OnModuleInit {
       amount: data.amount,
     };
   }
+  
+  public async getAvailableNftChains(): Promise<JSON> {
+    const nftInfoETH: NftInfo = {
+      network: 'eip155:ethereum',
+      id: 0,
+      address: this.config.get('eth.contracts.ethereum'),
+    };
 
+    const nftInfoARB: NftInfo = {
+      network: 'eip155:arbitrum',
+      id: 0,
+      address: this.config.get('eth.contracts.arbitrum'),
+    };
+
+    // const nftInfoPOL: NFTInfo = {
+    //   network: 'eip155:polygon',
+    //   id: '0',
+    //   address: this.config.get('eth.contracts.polygon'),
+    // };
+
+    const nftCountETH = await this.nft.getNFTcount(nftInfoETH);
+    const nftCountARB = await this.nft.getNFTcount(nftInfoARB);
+    // const nftCountPOL = await this.nft.getNFTcount(nftInfoPOL);
+
+    const availableChains = {
+      ethereum: 'eip155:ethereum',
+      arbitrum: 'eip155:arbitrum',
+      // polygon: 'eip155:polygon',
+      ethereumContractAddress: this.config.get('eth.contracts.ethereum'),
+      arbitrumContractAddress: this.config.get('eth.contracts.arbitrum'),
+      // polygonContractAddress: this.config.get('eth.contracts.polygon'),
+      totalAmountethereumNFTs: nftCountETH.toString(),
+      totalAmountarbitrumNFTs: nftCountARB.toString(),
+      // polygonNFTcount: nftCountPOL,
+    };
+
+    return JSON.parse(JSON.stringify(availableChains));
+  }
   // const capabilitiesOwnable = {
   //   isDynamic: true,
   //   hasMetadata: false,
@@ -210,7 +257,7 @@ export class UploadZipService implements OnModuleInit {
   async getRequestIDs(ltoUserAddress?: string): Promise<string[]> {
     let requestIDs: string[] = new Array();
 
-    if (ltoUserAddress === undefined) {
+    if (ltoUserAddress === undefined) { // TODO: this should be removed.. actually only the http signer should be allowed!
       console.log("No LTO user address specified. Fetching all available request IDs on server")
       try {
         const files = readdirSync(`${this.pathToRids}/`);
@@ -250,7 +297,7 @@ export class UploadZipService implements OnModuleInit {
         network_id: this.networkId,
         keywords: pkg.keywords,
         nft: {
-          network: nftInfo.network, id: nftInfo.id.toString(), address: nftInfo.contractAddress,
+          network: nftInfo.network, id: nftInfo.id.toString(), address: nftInfo.address,
         },
       };
 
@@ -299,15 +346,18 @@ export class UploadZipService implements OnModuleInit {
     return this.getLTOAccountAddress();
   }
 
-  public templateCost(templateId: number, chain: string) {
-    console.log("templateId", templateId, "chain", chain, " cost: ", this.packageInfo.templateCost[chain][templateId]);
-    if (this.packageInfo.templateCost[chain.toString()][templateId] === undefined) {
-      throw (`Undefined Template cost for template number ${templateId} and chain: ${chain}`);
+  public templateCost(templateId: number) {
+    //console.log("templateId", templateId, "chain", chain, " cost: ", this.packageInfo.templateCost[chain][templateId]);
+    // if (this.packageInfo.templateCost[chain.toString()][templateId] === undefined) {
+    //   throw (`Undefined Template cost for template number ${templateId} and chain: ${chain}`);
+    // }
+    if (templateId != 1) {
+      throw (`Currently only Template ID 1 is support`);
     }
     return {
       'ethereum': (this.packageInfo.templateCost.ethereum[templateId]).toString(),
       'arbitrum': (this.packageInfo.templateCost.arbitrum[templateId]).toString(),
-      'polygon': (this.packageInfo.templateCost.polygon[templateId]).toString()
+      //'polygon': (this.packageInfo.templateCost.polygon[templateId]).toString()
     }
 
   }
@@ -329,12 +379,13 @@ export class UploadZipService implements OnModuleInit {
     } else if (jsonFile.NFT_BLOCKCHAIN === 'arbitrum') {
       nftContractAddress = this.config.get('eth.contracts.arbitrum');
       nftNetwork = "eip155:arbitrum";
-    } else if (jsonFile.NFT_BLOCKCHAIN === 'polygon') {
-      nftContractAddress = this.config.get('eth.contracts.polygon');
-      nftNetwork = "eip155:polygon";
     } else {
       throw (`Unsupported Blockchain: ${jsonFile.NFT_BLOCKCHAIN}`);
     }
+    // else if (jsonFile.NFT_BLOCKCHAIN === 'polygon') {
+    //   nftContractAddress = this.config.get('eth.contracts.polygon');
+    //   nftNetwork = "eip155:polygon";
+    // } 
     if (verbose) console.log(`minting via NFT contract at: ${nftContractAddress} `);
 
     const nftOwner = jsonFile.NFT_PUBLIC_USER_WALLET_ADDRESS;
@@ -349,7 +400,7 @@ export class UploadZipService implements OnModuleInit {
 
     return {
       network: nftNetwork,    // eip155:1
-      contractAddress: nftContractAddress,  // 0x341...
+      address: nftContractAddress,  // 0x341...
       id: nftcount, // 1, 2, 3      
     }
 
@@ -385,7 +436,7 @@ export class UploadZipService implements OnModuleInit {
         if (verbose) console.log("checking LTO transaction ID...", jsonFile.OWNABLE_LTO_TRANSACTION_ID);
 
         // TODO: enable also ethereum and Polygon
-        const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, "arbitrum", requestId);
+        const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, jsonFile.NFT_BLOCKCHAIN, requestId);
         if (verbose) console.log("transactionIdData:", transactionIdData);
 
         if (!(await this.existsRid(`${this.pathToUserRids}/${transactionIdData.sender}`))) {
@@ -483,10 +534,12 @@ export class UploadZipService implements OnModuleInit {
       await new_zip.loadAsync(zipFile);
 
       const eventChainJsonFile: Buffer = readFileSync(`${this.pathToCids}/${cid}/${cid}.json`)
-      new_zip.file('eventChain.json', eventChainJsonFile);
+      new_zip.file('chain.json', eventChainJsonFile);
 
       const claimFileName = `${this.pathToRids}/${rid}/${rid}_claim.zip`;
 
+      const nftToCidMappingFile = `${this.pathToCids}/${cid}/${nftInfo.network}_${nftInfo.address}_${nftInfo.id}_${cid}_mapped`;
+      await this.executeCommand(`touch ${nftToCidMappingFile}`);
 
       const content = await new_zip.generateAsync({ type: "uint8array" });
       if (verbose) console.log("claimFile", claimFileName)
@@ -590,7 +643,10 @@ export class UploadZipService implements OnModuleInit {
 
 
   async claim(requestId: string, signer?: Account): Promise<StreamableFile> {
-
+    console.log("HTTP Authentication SIGNER: ", signer);
+    if(typeof signer !== 'undefined') {
+      console.log("HTTP Authentication SIGNER LTO ADDRESS: ", signer.address);
+    }
     const claimableZipFile = `${this.pathToRids}/${requestId}/${requestId}_claim.zip`;
     if (!(await fileExists(claimableZipFile))) {
       throw (`Request ID ${requestId} does not have a claimable Ownable`);

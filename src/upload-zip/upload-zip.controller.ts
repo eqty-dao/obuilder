@@ -28,7 +28,7 @@ export class UploadZipController {
       throw ('Failed to read data from HTTP request');
     }
 
-    let requestId:string;
+    let requestId: string;
     try {
       requestId = await this.uploadZipService.store(buffer, 1, true); // 1 == template 1 => TODO: make this a POST input variable for future
       return {
@@ -50,39 +50,40 @@ export class UploadZipController {
   //   }
   // }
 
-    
-  @Get('requestIDs')
-  async getRequestIDs(@Query('onlyClaimable') onlyClaimable?: boolean, @Query('ltoUserAddress') ltoUserAddress?: string) {
-    if(onlyClaimable === undefined) {
-      try {
-        return await this.uploadZipService.getRequestIDs(ltoUserAddress);
-      } catch (e) {
-        return { "error": `${e}` };
-      }
-    } else {
-      try {
-        return await this.uploadZipService.getClaimableRequestIDs(ltoUserAddress)
-      }catch (e) {
-        return { "error": `${e}` };
-      }
+  @Get('availableChains')
+  async GetAvailableNftChains() {
+    try {
+      return await this.uploadZipService.getAvailableNftChains();
+    } catch (e) {
+      return { error: `${e}` };
     }
+  }
+  @Get('requestIDs')
+  async getRequestIDs(@Query('ltoUserAddress') ltoUserAddress?: string) {
+
+    try {
+      return await this.uploadZipService.getClaimableRequestIDs(ltoUserAddress)
+    } catch (e) {
+      return { "error": `${e}` };
+    }
+
   }
   //needs additional Query parameter to get different costs for template 1,2,3...
   @Get('templateCost')
-  templateCost(@Query('templateId') templateId: number, @Query('chain') chain: string) {
+  templateCost(@Query('templateId') templateId: number) {
     try {
-      return this.uploadZipService.templateCost(templateId, chain.toLowerCase().toString());
+      return this.uploadZipService.templateCost(templateId);
     } catch (e) {
       return { "error": `${e}` };
     }
   }
 
-  @Get('claim/:requestId')
+  @Get('claim/')
   @Header('Content-type', 'application/zip')
   async claim(
-    @Param('requestId') requestId: string,
+    @Query('requestId') requestId: string,
     @Signer() signer?: Account,
-  ): Promise<StreamableFile> {    
+  ): Promise<StreamableFile> {
     return await this.uploadZipService.claim(requestId, signer);
   }
 
