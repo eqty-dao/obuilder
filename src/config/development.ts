@@ -8,7 +8,7 @@ export default {
   },
   eth: {
     account: {
-      mnemonic: '',
+      mnemonic: 'sell globe farm embody menu tennis cruise hero crawl universe stock enrich',
       arbitrum_alchemy_api_key: 'udkYo9BHmW6DqIzQohVDeDDsHjf_97pg',
       // polygon_alchemy_api_key: '7BXCsiKVO6RNJ7cPllx17hQHTa-nEx_I',
       eth_alchemy_api_key: 'm7wpMjKVPvrU_NMGEwEntAzGtk6ygVDF',
