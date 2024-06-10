@@ -3,6 +3,7 @@ template1.txt
 /storage/ownable-cids
 /storage/user-rids
 /storage/user-txids
+/storage/used-txids
 # compiled output
 /dist
 /node_modules
