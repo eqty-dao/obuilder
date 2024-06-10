@@ -162,7 +162,7 @@ export class UploadZipService implements OnModuleInit {
     console.log("data.amount",data.amount.toString())
     console.log("Template Cost",this.packageInfo.templateCost[chain.toString()][templateId].toString());
 
-    if (data.fee.toString() !== this.packageInfo.templateCost[chain.toString()][templateId].toString()) throw ('Wrong LTO amount for Template');
+    if (data.amount.toString() !== this.packageInfo.templateCost[chain.toString()][templateId].toString()) throw ('Wrong LTO amount for Template');
     if (data.recipient != thisServerAddress) throw ('Wrong recipient! Use Server LTO Wallet address');
     
     await this.checkReuseOfTxId(ltoTransactionId, requestId);
