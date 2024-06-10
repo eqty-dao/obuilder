@@ -127,6 +127,7 @@ export class UploadZipService implements OnModuleInit {
 
   private async checkLtoTransactionId(ltoTransactionId: string, templateId: number, chain: String, requestId: string): Promise<TransactionIdData> {
     // FIRST WORKING METHOD
+    console.log("HTTP Request sent to:",`${this.config.get('lto.node')}/transactions/info/${ltoTransactionId}`);
     const data = await this.httpService.axiosRef
       .get(`${this.config.get('lto.node')}/transactions/info/${ltoTransactionId}`)
       .then((res) => res.data)
@@ -157,7 +158,11 @@ export class UploadZipService implements OnModuleInit {
     if (data.type != 4) throw ('Wrong Transaction type');
     if (this.packageInfo.templateCost[chain.toString()][templateId] === undefined) throw (`Undefined templateCost for chain ${chain}`);
     //check for correct amount and correct recipient (this servers' LTO wallet)
-    if (data.amount < this.packageInfo.templateCost[chain.toString()][templateId]) throw ('Wrong LTO amount for Template');
+    console.log("data.fee",data.fee.toString())
+    console.log("data.amount",data.amount.toString())
+    console.log("Template Cost",this.packageInfo.templateCost[chain.toString()][templateId].toString());
+
+    if (data.fee.toString() !== this.packageInfo.templateCost[chain.toString()][templateId].toString()) throw ('Wrong LTO amount for Template');
     if (data.recipient != thisServerAddress) throw ('Wrong recipient! Use Server LTO Wallet address');
     
     await this.checkReuseOfTxId(ltoTransactionId, requestId);
@@ -394,8 +399,8 @@ export class UploadZipService implements OnModuleInit {
     if (verbose) console.log("nftTokenURI", nftTokenURI);
     if (verbose) console.log("NFT_BLOCKCHAIN", jsonFile.NFT_BLOCKCHAIN);
 
-    // const nftcount = 1; // TODO: enable next line again which has been disabled to save eth during debugging and testing
-    const nftcount = await this.nft.mintNFT(nftContractAddress, nftOwner, nftTokenURI);
+    const nftcount = 1; // TODO: enable next line again which has been disabled to save eth during debugging and testing
+    // const nftcount = await this.nft.mintNFT(nftContractAddress, nftOwner, nftTokenURI);
     if (verbose) console.log("nftcount", nftcount);
 
     return {

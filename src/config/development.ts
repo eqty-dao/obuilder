@@ -8,15 +8,15 @@ export default {
   },
   eth: {
     account: {
-      mnemonic: 'sell globe farm embody menu tennis cruise hero crawl universe stock enrich',
-      arbitrum_alchemy_api_key: 'dN8Sr0rKWmfbfV2GsKpFbl98_QkeiR6j',
-      polygon_alchemy_api_key: '7BXCsiKVO6RNJ7cPllx17hQHTa-nEx_I',
-      eth_alchemy_api_key: 'oI9B3F4SsW2kFEuEKwfIgn_Wxz5NoEz9',
+      mnemonic: '',
+      arbitrum_alchemy_api_key: 'udkYo9BHmW6DqIzQohVDeDDsHjf_97pg',
+      // polygon_alchemy_api_key: '7BXCsiKVO6RNJ7cPllx17hQHTa-nEx_I',
+      eth_alchemy_api_key: 'm7wpMjKVPvrU_NMGEwEntAzGtk6ygVDF',
     },
     contracts: {
       ethereum: '0x56213ECA28860d8fb5DAF6A8dCdA7bB28d7c360F',  // Ethereum sepolia
       arbitrum: '0x1527f2f8Cd41b000e1E8F70906012bEFab993AD9', // Arbitrum sepolia
-      polygon: '', // Polygon Amoy
+      // polygon: '', // Polygon Amoy
     },
   },
   ipfs: {
