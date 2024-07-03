@@ -1,0 +1,7 @@
+dist/
+node_modules/
+test/
+Dockerfile
+README.md
+src/config/development.ts
+.env

@@ -1,0 +1,17 @@
+version: "3.2"
+
+services:
+  ownable-generator:
+    container_name: ownable-generator
+    build: .
+    volumes:
+      - ownable-generator-storage:/storage
+    ports:
+      - "3000:3000"
+    environment:
+      - INBOX_STORAGE=/storage      
+
+  
+volumes:
+  ownable-generator-storage:
+  
