@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QueryMsg",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "get_info"
+      ],
+      "properties": {
+        "get_info": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "is_locked"
+      ],
+      "properties": {
+        "is_locked": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_metadata"
+      ],
+      "properties": {
+        "get_metadata": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_widget_state"
+      ],
+      "properties": {
+        "get_widget_state": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
+}

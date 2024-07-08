@@ -152,7 +152,7 @@ export class UploadZipService implements OnModuleInit {
     // const data = await response.json();
 
     const thisServerAddress = this.getLTOAccountAddress();
-
+    
     
     // Must be of type "transaction"
     if (data.type != 4) throw ('Wrong Transaction type');
@@ -162,8 +162,16 @@ export class UploadZipService implements OnModuleInit {
     console.log("data.amount",data.amount.toString())
     console.log("Template Cost",this.packageInfo.templateCost[chain.toString()][templateId].toString());
 
-    if (data.amount.toString() !== this.packageInfo.templateCost[chain.toString()][templateId].toString()) throw ('Wrong LTO amount for Template');
-    if (data.recipient != thisServerAddress) throw ('Wrong recipient! Use Server LTO Wallet address');
+    if (data.amount.toString() !== this.packageInfo.templateCost[chain.toString()][templateId].toString()) {
+      console.log("templateCost", this.packageInfo.templateCost[chain.toString()][templateId].toString());
+      console.log("amount expected", data.amount.toString());
+      throw ('Wrong LTO amount for Template');
+    }
+    if (data.recipient != thisServerAddress) {
+      console.log("thisServerAddress", thisServerAddress);
+      console.log("data.recipient", data.recipient);
+      throw ('Wrong recipient! Use Server LTO Wallet address');
+    }
     
     await this.checkReuseOfTxId(ltoTransactionId, requestId);
     // Link request ID to this lto TX ID to prevent using TX ID twice for another ownable creation request
@@ -596,13 +604,13 @@ export class UploadZipService implements OnModuleInit {
     await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_TYPE".toString(), `"${jsonFile.PLACEHOLDER4_TYPE}"`.toString());
     await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_DESCRIPTION".toString(), `"${jsonFile.PLACEHOLDER4_DESCRIPTION}"`.toString());
     await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_NAME".toString(), `"${jsonFile.PLACEHOLDER4_NAME}"`.toString());
-    if (verbose) console.log("copying modified template into ownables-sdk for ownable creation based on user inputs", `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`);
-    cpSync(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`, `../ownables-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
+    if (verbose) console.log("copying modified template into ownables for ownable creation based on user inputs", `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`);
+    cpSync(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`, `ownables/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
 
     if (verbose) console.log("Building Ownable...");
-    await this.executeCommand(`cd ../ownables-sdk/; npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}; cd ../ownable-nft-server/`);
-    if (verbose) console.log("Starting file watcher for zip file:", `../ownables-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`);
-    await this.watchFileCreation(`../ownables-sdk/ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, rid, verbose);
+    await this.executeCommand(`npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}`);
+    if (verbose) console.log("Starting file watcher for zip file:", `ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`);
+    await this.watchFileCreation(`ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, rid, verbose);
 
     if (verbose) console.log("Ownable creation startet. Waiting for Zip File to be created...");
 

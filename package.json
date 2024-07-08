@@ -12,17 +12,17 @@
   "ownableTemplatesPath": "./storage/ownable-templates",
   "templateCost": {
     "ethereum": {
-      "1": "200000000",
+      "1": "30000000",
       "2": "100000000",
       "3": "300000000"
     },
     "arbitrum": {
-      "1": "100000000",
+      "1": "30000000",
       "2": "200000000",
       "3": "300000000"
     },
     "polygon": {
-      "1": "100000000",
+      "1": "30000000",
       "2": "100000000",
       "3": "100000000"
     }
@@ -34,6 +34,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
+    "ownables:build": "if test -f ./ownables/$npm_config_package/Cargo.toml; then rm -rf ./ownables/$npm_config_package/pkg/ && wasm-pack build --out-name ownable --target web ./ownables/$npm_config_package/ && cd ./ownables/$npm_config_package/ && cargo schema && cd ../../ && zip -r -j ./ownables/$npm_config_package.zip ./ownables/$npm_config_package/assets/ ./ownables/$npm_config_package/pkg/*.js ./ownables/$npm_config_package/pkg/*.wasm ./ownables/$npm_config_package/pkg/package.json ./ownables/$npm_config_package/schema/*.json; else zip -r -j ./ownables/$npm_config_package.zip ./ownables/$npm_config_package/*; fi",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",

@@ -17,6 +17,8 @@ WORKDIR /usr/src
 COPY --from=build /usr/src/dist ./dist
 COPY --from=build /usr/src/node_modules ./node_modules
 COPY --from=build /usr/src/package*.json ./
+COPY --from=build /usr/src/ownables ./ownables
+COPY --from=build /usr/src/storage ./storage
 
 EXPOSE 3000
 CMD ["node", "dist/main.js"]
