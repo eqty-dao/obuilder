@@ -423,7 +423,7 @@ export class UploadZipService implements OnModuleInit {
   public async store(data: Uint8Array, templateId: number, verbose?: boolean): Promise<string> {
     if (verbose) console.log("Waiting 10 seconds for a possible TX ID that needs to be populated into LTO node network...");
     // TODO: enable wait 10 sec
-    await this.wait(10000);
+    // await this.wait(10000);
     try {
       console.log("data", data);
       if (verbose) console.log("unzipping data into memory...");
@@ -483,15 +483,27 @@ export class UploadZipService implements OnModuleInit {
   }
   private async executeCommand(command: string) {
     return new Promise((resolve, reject) => {
-      exec(command, (error, stdout, stderr) => {
+      exec(command, { env: { ...process.env, PATH: `${process.env.PATH}:/root/.cargo/bin` } }, (error, stdout, stderr) => {
         if (error) {
           console.log(`error: ${error.message}`);
-          throw new Error(`error: ${error.message}`);
+          reject(new Error(`error: ${error.message}`));
+          return;
         }
         resolve(stdout ? stdout : stderr);
       });
     });
   }
+  // private async executeCommand(command: string) {
+  //   return new Promise((resolve, reject) => {
+  //     exec(command, (error, stdout, stderr) => {
+  //       if (error) {
+  //         console.log(`error: ${error.message}`);
+  //         throw new Error(`error: ${error.message}`);
+  //       }
+  //       resolve(stdout ? stdout : stderr);
+  //     });
+  //   });
+  // }
 
   private async replaceLineInFile(file: string, key: string, value: string) {
     const data = readFileSync(file, 'utf8');
@@ -608,6 +620,26 @@ export class UploadZipService implements OnModuleInit {
     cpSync(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`, `ownables/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
 
     if (verbose) console.log("Building Ownable...");
+    // await this.executeCommand(`ls -lart`);
+    try {
+      const output = await this.executeCommand('cargo --version');
+      console.log(output);
+    } catch (error) {
+      console.error('Error executing cargo command:', error);
+    }
+    try {
+      const output = await this.executeCommand('ls -la /root/.cargo/bin');
+      console.log(output);
+    } catch (error) {
+      console.error('Error executing ls -la /root/.cargo/bin command:', error);
+    }
+    try {
+      const output = await this.executeCommand('wasm-pack --version');
+      console.log(output);
+    } catch (error) {
+      console.error('Error executing wasm-pack command:', error);
+    }
+    
     await this.executeCommand(`npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}`);
     if (verbose) console.log("Starting file watcher for zip file:", `ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`);
     await this.watchFileCreation(`ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, rid, verbose);

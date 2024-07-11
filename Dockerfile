@@ -1,24 +1,71 @@
+# Build Stage
 FROM node:20 AS build
-WORKDIR /usr/src
 
-# Copy package.json and package-lock.json (if exists)
+# Set up environment variables
+ENV PATH="/root/.cargo/bin:$PATH"
+
+RUN apt-get update && apt-get install -y clang
+
+# Install Rust and wasm-pack
+RUN yes "1" | curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+# Install wasm-pack
+RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+# Set default Rust toolchain and add WebAssembly target
+RUN rustup default stable \
+    && rustup update stable \
+    && rustup target add wasm32-unknown-unknown
+
+# Debugging: Verify installation paths
+RUN cargo --version
+RUN wasm-pack --version
+RUN ls -lh /root/.cargo/bin/
+
+# Set working directory and copy necessary files
+WORKDIR /usr/src
 COPY package*.json ./
 RUN npm install
 
-# Copy the rest of the application code n build
+# Copy the rest of the application code and build
 COPY . .
 RUN npm run build
 
-# Run it
-FROM node:20-alpine AS runtime
-WORKDIR /usr/src
+# Runtime Stage (node version needs to be the same as build stage)
+FROM node:20 AS runtime
 
-# Copy necessary files from the build stage
+# Set working directory
+WORKDIR /usr/src/app
+
+# Copy installed Rust tools from build stage
+COPY --from=build /root/.cargo /root/.cargo
+
+# Set up environment variables
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Set Rustup default toolchain in runtime
+RUN /root/.cargo/bin/rustup default stable
+RUN /root/.cargo/bin/rustup update stable
+RUN /root/.cargo/bin/rustup target add wasm32-unknown-unknown
+
+# Verify the Rust toolchain in runtime
+# RUN which cargo
+# RUN cargo --version
+# RUN wasm-pack --version
+# RUN ls -lh /root/.cargo/bin/
+# RUN ls -lh /root/.cargo/env
+# RUN file /root/.cargo/bin/cargo
+# RUN ldd /root/.cargo/bin/cargo
+# RUN sh -c '. /root/.cargo/env && cargo --version'
+# RUN sh -c '. /root/.cargo/env && rustup --version'
+
+# Copy application files
 COPY --from=build /usr/src/dist ./dist
 COPY --from=build /usr/src/node_modules ./node_modules
 COPY --from=build /usr/src/package*.json ./
 COPY --from=build /usr/src/ownables ./ownables
 COPY --from=build /usr/src/storage ./storage
 
+# Expose port and define command to run the application
 EXPOSE 3000
 CMD ["node", "dist/main.js"]
