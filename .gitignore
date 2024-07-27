@@ -9,6 +9,10 @@ template1.txt
 /node_modules
 /build
 
+ownables/car
+
+package-lock.json
+
 # Logs
 logs
 *.log

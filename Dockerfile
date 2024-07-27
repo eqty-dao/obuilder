@@ -50,6 +50,21 @@ COPY --from=build /root/.cargo /root/.cargo
 
 # Set up environment variables
 ENV PATH="/root/.cargo/bin:${PATH}"
+
+ENV NODE_ENV='staging'
+ENV LTO_NODE='https://testnet.lto.network'
+ENV LTO_NETWORK_ID='T'
+ENV LTO_ACCOUNT_SEED='test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12'
+
+ENV IPFS_START=false
+
+ENV ACCOUNT_MNEMONIC='sell globe farm embody menu tennis cruise hero crawl universe stock enrich'
+ENV ARBITRUM_ALCHEMY_API_KEY='udkYo9BHmW6DqIzQohVDeDDsHjf_97pg'
+ENV ETH_ALCHEMY_API_KEY='m7wpMjKVPvrU_NMGEwEntAzGtk6ygVDF'
+ENV ETHEREUM_NFT_CONTRACT_ADDR='0x56213ECA28860d8fb5DAF6A8dCdA7bB28d7c360F'
+ENV ARBITRUM_NFT_CONTRACT_ADDR='0x1527f2f8Cd41b000e1E8F70906012bEFab993AD9'
+ENV POLYGON_NFT_CONTRACT_ADDR=''
+
 RUN which clang
 RUN clang -v
 

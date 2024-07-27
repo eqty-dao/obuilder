@@ -67,7 +67,7 @@ export class UploadZipService implements OnModuleInit {
   public async getLTOAccountBalance(address?: string) {
     if (!address) address = this.getLTOAccountAddress();
     const url = `${this.config.get('lto.node')}/addresses/balance/${address}`;
-    
+
     const data = await this.httpService.axiosRef
       .get(url)
       .then((res) => res.data)
@@ -105,29 +105,32 @@ export class UploadZipService implements OnModuleInit {
   }
 
   private async checkReuseOfTxId(ltoTransactionId: string, requestId: string) {
-    
-      console.log(`Checking if TX ID ${ltoTransactionId} has already been used for a previous request`)
-      const files = readdirSync(`${this.pathToUsedTxids}/`);
-      let myReg = new RegExp(`${ltoTransactionId}_`,'g');
 
-      files.forEach(file => {        
-        if (file.match(myReg)) {          
+    console.log(`Checking if TX ID ${ltoTransactionId} has already been used for a previous request`)
+    if(fileExists(`${this.pathToUsedTxids}/`)) {
+
+      const files = readdirSync(`${this.pathToUsedTxids}/`);
+      let myReg = new RegExp(`${ltoTransactionId}_`, 'g');
+
+      files.forEach(file => {
+        if (file.match(myReg)) {
           const filesArray = file.split("_");
-          if(filesArray[1] === requestId) {
+          if (filesArray[1] === requestId) {
             console.log("TX ID matches previous request ID - OK")
-          }else {
+          } else {
             throw (`LTO TX ID ${ltoTransactionId} has already been used with request ID: ${filesArray[1]}`);
           }
         }
       })
-    
+    }
+
     // Link request ID to this lto TX ID to prevent using TX ID twice for another ownable creation request
     await this.executeCommand(`touch ${this.pathToUsedTxids}/${ltoTransactionId}_${requestId}`);
   }
 
   private async checkLtoTransactionId(ltoTransactionId: string, templateId: number, chain: String, requestId: string): Promise<TransactionIdData> {
     // FIRST WORKING METHOD
-    console.log("HTTP Request sent to:",`${this.config.get('lto.node')}/transactions/info/${ltoTransactionId}`);
+    console.log("HTTP Request sent to:", `${this.config.get('lto.node')}/transactions/info/${ltoTransactionId}`);
     const data = await this.httpService.axiosRef
       .get(`${this.config.get('lto.node')}/transactions/info/${ltoTransactionId}`)
       .then((res) => res.data)
@@ -152,19 +155,19 @@ export class UploadZipService implements OnModuleInit {
     // const data = await response.json();
 
     const thisServerAddress = this.getLTOAccountAddress();
-    
-    
+
+
     // Must be of type "transaction"
     if (data.type != 4) throw ('Wrong Transaction type');
     if (this.packageInfo.templateCost[chain.toString()][templateId] === undefined) throw (`Undefined templateCost for chain ${chain}`);
     //check for correct amount and correct recipient (this servers' LTO wallet)
-    console.log("data.fee",data.fee.toString())
-    console.log("data.amount",data.amount.toString())
-    console.log("Template Cost",this.packageInfo.templateCost[chain.toString()][templateId].toString());
+    console.log("data.fee", data.fee.toString())
+    console.log("data.amount", data.amount.toString())
+    console.log("Template Cost", this.packageInfo.templateCost[chain.toString()][templateId].toString());
 
     if (data.amount.toString() !== this.packageInfo.templateCost[chain.toString()][templateId].toString()) {
       console.log("templateCost", this.packageInfo.templateCost[chain.toString()][templateId].toString());
-      console.log("amount expected", data.amount.toString());
+      console.log("amount sent", data.amount.toString());
       throw ('Wrong LTO amount for Template');
     }
     if (data.recipient != thisServerAddress) {
@@ -172,7 +175,7 @@ export class UploadZipService implements OnModuleInit {
       console.log("data.recipient", data.recipient);
       throw ('Wrong recipient! Use Server LTO Wallet address');
     }
-    
+
     await this.checkReuseOfTxId(ltoTransactionId, requestId);
     // Link request ID to this lto TX ID to prevent using TX ID twice for another ownable creation request
     await this.executeCommand(`touch ${this.pathToUsedTxids}/${ltoTransactionId}_${requestId}`);
@@ -184,7 +187,7 @@ export class UploadZipService implements OnModuleInit {
       amount: data.amount,
     };
   }
-  
+
   public async getAvailableNftChains(): Promise<JSON> {
     const nftInfoETH: NftInfo = {
       network: 'eip155:ethereum',
@@ -303,16 +306,27 @@ export class UploadZipService implements OnModuleInit {
     const chain = new EventChain(this._ltoAccount);
     var buf: Buffer;
     if (pkg.isDynamic) {
-      const msg = {
-        "@context": "instantiate_msg.json",
-        ownable_id: chain.id,
-        package: pkg.cid,
-        network_id: this.networkId,
-        keywords: pkg.keywords,
-        nft: {
-          network: nftInfo.network, id: nftInfo.id.toString(), address: nftInfo.address,
-        },
-      };
+      let msg;
+      if(nftInfo.id != 0){
+        msg = {
+          "@context": "instantiate_msg.json",
+          ownable_id: chain.id,
+          package: pkg.cid,
+          network_id: this.networkId,
+          keywords: pkg.keywords,
+          nft: {
+            network: nftInfo.network, id: nftInfo.id.toString(), address: nftInfo.address,
+          },
+        };
+      } else {
+        msg = {
+          "@context": "instantiate_msg.json",
+          ownable_id: chain.id,
+          package: pkg.cid,
+          network_id: this.networkId,
+          keywords: pkg.keywords, 
+        };         
+      }
 
       new Event(msg)
         .addTo(chain)
@@ -420,13 +434,15 @@ export class UploadZipService implements OnModuleInit {
   }
   private wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
 
+  // 1) unzip user input zip file into memory
+  // 2) 
   public async store(data: Uint8Array, templateId: number, verbose?: boolean): Promise<string> {
     if (verbose) console.log("Waiting 10 seconds for a possible TX ID that needs to be populated into LTO node network...");
-    // TODO: enable wait 10 sec
+
     // await this.wait(10000);
     try {
-      console.log("data", data);
-      if (verbose) console.log("unzipping data into memory...");
+      // console.log("data", data);
+      if (verbose) console.log("unzipping user input file into memory...");
       const requestIdFiles = await this.unzip(data);
       console.log("requestIdFiles", requestIdFiles);
 
@@ -441,14 +457,17 @@ export class UploadZipService implements OnModuleInit {
         if (verbose) console.log("reading JSON info data from zip for Ownable modification...");
         const jsonFile = await this.readOwnableDataFromZip(requestIdFiles);
         if (verbose) console.log("ownableData.json", jsonFile);
-
-        if(!(jsonFile.NFT_BLOCKCHAIN === 'arbitrum') && !(jsonFile.NFT_BLOCKCHAIN === 'ethereum') ) {
-          throw new Error(`Error: Unsupported network: ${jsonFile.NFT_BLOCKCHAIN}`);
+        if (jsonFile.CREATE_NFT === 'true') {
+          if (!(jsonFile.NFT_BLOCKCHAIN === 'arbitrum') && !(jsonFile.NFT_BLOCKCHAIN === 'ethereum')) {
+            throw new Error(`Error: Unsupported network: ${jsonFile.NFT_BLOCKCHAIN}`);
+          }
+        } else {
+          jsonFile.NFT_BLOCKCHAIN = 'noNFT';
         }
         if (verbose) console.log("LTO ACCOUNT:", this.getLTOAccountAddress());
         if (verbose) console.log("checking LTO transaction ID...", jsonFile.OWNABLE_LTO_TRANSACTION_ID);
 
-        // TODO: enable also ethereum and Polygon
+
         const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, jsonFile.NFT_BLOCKCHAIN, requestId);
         if (verbose) console.log("transactionIdData:", transactionIdData);
 
@@ -467,7 +486,19 @@ export class UploadZipService implements OnModuleInit {
         await this.storeFiles(`${this.pathToRids}/${requestId}`, requestId, requestIdFiles);
         await this.storeZip(`${this.pathToRids}/${requestId}`, requestId, data);
         // Before creating the Ownable a new NFT is minted with NFT id and the user NFT input data is checked
-        const nftInfo: NftInfo = await this.mintNewNft(jsonFile, verbose);
+        let nftInfo: NftInfo;
+
+        if (jsonFile.CREATE_NFT === 'true') {
+          nftInfo = await this.mintNewNft(jsonFile, verbose);
+          jsonFile.PLACEHOLDER1_KEYWORDS.push("hasNFT");
+        } else {
+          nftInfo = {
+            network: "",    // eip155:1
+            address: "",  // 0x341...
+            id: 0, // 1, 2, 3      
+          }
+          jsonFile.PLACEHOLDER1_KEYWORDS.push("noNFT");
+        }
         if (verbose) console.log(`creating template with request ID ${requestId} and modifying requestIdFiles...`);
         await this.startOwnableCreation(requestId, jsonFile, nftInfo, transactionIdData.sender, verbose);
         await this.executeCommand(`touch ${this.pathToUserRids}/${transactionIdData.sender}/${requestId}_startet`);
@@ -481,6 +512,7 @@ export class UploadZipService implements OnModuleInit {
       throw (err);
     }
   }
+
   private async executeCommand(command: string) {
     return new Promise((resolve, reject) => {
       exec(command, { env: { ...process.env, PATH: `${process.env.PATH}:/root/.cargo/bin` } }, (error, stdout, stderr) => {
@@ -527,6 +559,7 @@ export class UploadZipService implements OnModuleInit {
       if (verbose) console.log("Storing new Ownable zip file and deleting the source Ownable zip ...");
       cpSync(event, ownableZip);
       rmSync(event);
+      rmSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}`, {recursive: true});
 
       if (verbose) console.log("Creating the EventChain for the new Ownable ...");
       const pkgOwnable: TypedPackage = {
@@ -599,11 +632,15 @@ export class UploadZipService implements OnModuleInit {
     cpSync(`${this.pathToTemplates}/template1`, `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
     if (verbose) console.log("copying image file into template");
     cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.PLACEHOLDER2_IMG}`, `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`);
+    if (verbose) console.log("copying thumbnail image file into template");
+    cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.OWNABLE_THUMBNAIL}`, `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.OWNABLE_THUMBNAIL}`);
 
+    if (verbose) console.log("Replacing Placeholder texts of template with user input data");
     await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_NAME".toString(), `"${jsonFile.PLACEHOLDER1_NAME}"`.toString());
     await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_DESCRIPTION".toString(), `"${jsonFile.PLACEHOLDER1_DESCRIPTION}"`.toString());
     await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_VERSION".toString(), `"${jsonFile.PLACEHOLDER1_VERSION}"`.toString());
     await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_AUTHORS".toString(), `"${jsonFile.PLACEHOLDER1_AUTHORS}"`.toString());
+
     await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_KEYWORDS".toString(), arrayToString(jsonFile.PLACEHOLDER1_KEYWORDS));
 
     await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/assets/index.html`.toString(), "PLACEHOLDER2_TITLE".toString(), `${jsonFile.PLACEHOLDER2_TITLE}`);
@@ -619,27 +656,30 @@ export class UploadZipService implements OnModuleInit {
     if (verbose) console.log("copying modified template into ownables for ownable creation based on user inputs", `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`);
     cpSync(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`, `ownables/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
 
-    if (verbose) console.log("Building Ownable...");
-    // await this.executeCommand(`ls -lart`);
+    if (verbose) console.log("Checking Cargo, Wasm-Pack and Rustup existance...");
     try {
       const output = await this.executeCommand('cargo --version');
       console.log(output);
     } catch (error) {
-      console.error('Error executing cargo command:', error);
+      console.error('Cargo command failed, but essential for Ownable creation:', error);
+      throw (error);
     }
     try {
-      const output = await this.executeCommand('ls -la /root/.cargo/bin');
+      const output = await this.executeCommand('rustup --version');
       console.log(output);
     } catch (error) {
-      console.error('Error executing ls -la /root/.cargo/bin command:', error);
+      console.error('Rustup command failed, but essential for Ownable creation:', error);
+      throw (error);
     }
     try {
       const output = await this.executeCommand('wasm-pack --version');
       console.log(output);
     } catch (error) {
-      console.error('Error executing wasm-pack command:', error);
+      console.error('Wasm-Pack command failed, but essential for Ownable creation:', error);
+      throw (error);
     }
-    
+
+    if (verbose) console.log("Building Ownable...");
     await this.executeCommand(`npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}`);
     if (verbose) console.log("Starting file watcher for zip file:", `ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`);
     await this.watchFileCreation(`ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, rid, verbose);
@@ -689,7 +729,7 @@ export class UploadZipService implements OnModuleInit {
 
   async claim(requestId: string, signer?: Account): Promise<StreamableFile> {
     console.log("HTTP Authentication SIGNER: ", signer);
-    if(typeof signer !== 'undefined') {
+    if (typeof signer !== 'undefined') {
       console.log("HTTP Authentication SIGNER LTO ADDRESS: ", signer.address);
     }
     const claimableZipFile = `${this.pathToRids}/${requestId}/${requestId}_claim.zip`;
