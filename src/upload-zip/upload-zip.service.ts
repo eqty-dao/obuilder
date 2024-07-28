@@ -108,7 +108,7 @@ export class UploadZipService implements OnModuleInit {
 
     console.log(`Checking if TX ID ${ltoTransactionId} has already been used for a previous request`)
     if(fileExists(`${this.pathToUsedTxids}/`)) {
-
+      console.log(`Directory exists: ${this.pathToUsedTxids}/`);
       const files = readdirSync(`${this.pathToUsedTxids}/`);
       let myReg = new RegExp(`${ltoTransactionId}_`, 'g');
 
@@ -439,7 +439,7 @@ export class UploadZipService implements OnModuleInit {
   public async store(data: Uint8Array, templateId: number, verbose?: boolean): Promise<string> {
     if (verbose) console.log("Waiting 10 seconds for a possible TX ID that needs to be populated into LTO node network...");
 
-    // await this.wait(10000);
+    await this.wait(10000);
     try {
       // console.log("data", data);
       if (verbose) console.log("unzipping user input file into memory...");

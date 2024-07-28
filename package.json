@@ -54,7 +54,7 @@
     "@babel/core": "^7.23.9",
     "@ethersproject/providers": "^5.7.2",
     "@ltonetwork/http-message-signatures": "^0.1.8",
-    "@ltonetwork/lto": "^0.12.3",
+    "@ltonetwork/lto": "^0.15.16",
     "@nestjs/axios": "^3.0.2",
     "@nestjs/common": "^10.0.0",
     "@nestjs/config": "^3.2.0",

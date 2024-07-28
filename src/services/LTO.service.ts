@@ -95,25 +95,26 @@ export default class LTOService {
     }
   }
 
-  public static async broadcast(transaction: Transaction) {
-    const url = this.apiUrl('/transactions/broadcast');
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(transaction)
-    });
+  // public static async broadcast(transaction: Transaction) {
+  //   const url = this.apiUrl('/transactions/broadcast');
+  //   const response = await fetch(url, {
+  //     method: 'POST',
+  //     headers: {
+  //       'Content-Type': 'application/json'
+  //     },
+  //     body: JSON.stringify(transaction)
+  //   });
 
-    if (response.status >= 400) throw new Error('Broadcast transaction failed: ' + await response.text());
-  }
+  //   if (response.status >= 400) throw new Error('Broadcast transaction failed: ' + await response.text());
+  // }
 
   public static async anchor(...anchors: Array<{key: Binary, value: Binary}>|Array<Binary>): Promise<void> {
-    if (anchors[0] instanceof Uint8Array) {
-      await lto.anchor(this.account, ...anchors as Array<Binary>);
-    } else {
-      await lto.mappedAnchor(this.account, ...anchors as Array<{key: Binary, value: Binary}>);
-    }
+    await lto.anchor(this.account, ...anchors as Array<Binary>);
+    // if (anchors[0] instanceof Uint8Array) {
+    //   await lto.anchor(this.account, ...anchors as Array<Binary>);
+    // } else {
+    //   await lto.mappedAnchor(this.account, ...anchors as Array<{key: Binary, value: Binary}>);
+    // }
   }
 
   public static async verifyAnchors(...anchors: Array<{key: Binary, value: Binary}>|Array<Binary>): Promise<any> {
