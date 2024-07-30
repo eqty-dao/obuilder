@@ -15,7 +15,7 @@ export class UploadZipController {
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadFile(@Body() inputUploadFile: InputUploadFileDto, @UploadedFile() file: Express.Multer.File) {
+  async uploadFile(@Body() inputUploadFile: InputUploadFileDto, @UploadedFile() file: Express.Multer.File, @Signer() signer?: Account,) {
     console.log("file.fieldname", file.fieldname);
     console.log("file.originalname", file.originalname);
     // console.log("inputUploadFile.name", inputUploadFile.name);
@@ -30,7 +30,7 @@ export class UploadZipController {
 
     let requestId: string;
     try {
-      requestId = await this.uploadZipService.store(buffer, 1, true); // 1 == template 1 => TODO: make this a POST input variable for future
+      requestId = await this.uploadZipService.store(buffer, 1, signer, true); // 1 == template 1 => TODO: make this a POST input variable for future
       return {
         REQUEST_ID: requestId, // res.status(201).json({ file: file.originalname })
       }

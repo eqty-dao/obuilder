@@ -33,6 +33,14 @@ export default {
         env: 'LTO_ACCOUNT_SEED',
       },
     },
+    relay: {
+      default: 'https://relay.lto.network',
+      env: 'REACT_APP_RELAY',
+    },
+    local_relay: {
+      default: 'http://localhost:3000',
+      env: 'REACT_APP_LOCAL_RELAY',
+    },
   },
   eth: {
     account: {

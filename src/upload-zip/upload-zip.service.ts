@@ -10,7 +10,7 @@ import path from 'path';
 import { HttpService } from '@nestjs/axios';
 // import { catchError, firstValueFrom } from 'rxjs';
 // import { AxiosError } from 'axios';
-import { Account, Binary, LTO, Transaction, Event, EventChain } from "@ltonetwork/lto";
+import { Account, Binary, LTO, Transaction, Event, EventChain, Message, Relay } from "@ltonetwork/lto";
 import { exec } from 'child_process';
 import chokidar from 'chokidar';
 import { NftInfo, OwnableInfo } from '../interfaces/OwnableInfo';
@@ -85,6 +85,41 @@ export class UploadZipService implements OnModuleInit {
     // } else { throw new Error(`Error fetching balance of address: ${address}`) }
 
   }
+  public async sendFile(content: Uint8Array, sender: Account, recipient: string) {
+    try {
+      let message: Message;
+      if (sender && recipient) {
+        message = new Message(content).to(recipient).signWith(sender);
+      } else {
+        console.log("provide the signer and recipient");
+        return;
+      }
+      await this.lto.relay.send(message);
+    } catch {
+      return true;
+    }
+  }
+  public async sendOwnable(recipient: string, content?: Uint8Array) {
+    // const url = `${this.config.get('lto.node')}/addresses/balance/${address}`;
+
+    // REACT_APP_RELAY = https://relay.lto.network
+    // REACT_APP_LOCAL_RELAY = http://localhost:3000
+
+    const relayURL =`${this.config.get('lto.relay')}` || `${this.config.get('lto.local_relay')}`;
+      // process.env.REACT_APP_RELAY || process.env.REACT_APP_LOCAL_RELAY;
+    this.lto.relay = new Relay(`${relayURL}/`);
+    const relay = this.lto.relay;
+
+    try {
+      if (recipient) {
+        await this.sendFile(content, this._ltoAccount, recipient);
+      } else {
+        throw new Error("No recipient provided");
+      }
+    } catch (error) {
+      throw new Error(`Error sending message: ${error}`);
+    }
+  }
 
   public getLTOAccount(): Account {
     if (!this._ltoAccount) {
@@ -107,7 +142,7 @@ export class UploadZipService implements OnModuleInit {
   private async checkReuseOfTxId(ltoTransactionId: string, requestId: string) {
 
     console.log(`Checking if TX ID ${ltoTransactionId} has already been used for a previous request`)
-    if(fileExists(`${this.pathToUsedTxids}/`)) {
+    if (fileExists(`${this.pathToUsedTxids}/`)) {
       console.log(`Directory exists: ${this.pathToUsedTxids}/`);
       const files = readdirSync(`${this.pathToUsedTxids}/`);
       let myReg = new RegExp(`${ltoTransactionId}_`, 'g');
@@ -307,7 +342,7 @@ export class UploadZipService implements OnModuleInit {
     var buf: Buffer;
     if (pkg.isDynamic) {
       let msg;
-      if(nftInfo.id != 0){
+      if (nftInfo.id != 0) {
         msg = {
           "@context": "instantiate_msg.json",
           ownable_id: chain.id,
@@ -324,8 +359,8 @@ export class UploadZipService implements OnModuleInit {
           ownable_id: chain.id,
           package: pkg.cid,
           network_id: this.networkId,
-          keywords: pkg.keywords, 
-        };         
+          keywords: pkg.keywords,
+        };
       }
 
       new Event(msg)
@@ -421,8 +456,8 @@ export class UploadZipService implements OnModuleInit {
     if (verbose) console.log("nftTokenURI", nftTokenURI);
     if (verbose) console.log("NFT_BLOCKCHAIN", jsonFile.NFT_BLOCKCHAIN);
 
-    const nftcount = 1; // TODO: enable next line again which has been disabled to save eth during debugging and testing
-    // const nftcount = await this.nft.mintNFT(nftContractAddress, nftOwner, nftTokenURI);
+    // const nftcount = 1; // TODO: enable next line again which has been disabled to save eth during debugging and testing
+    const nftcount = await this.nft.mintNFT(nftContractAddress, nftOwner, nftTokenURI);
     if (verbose) console.log("nftcount", nftcount);
 
     return {
@@ -436,7 +471,16 @@ export class UploadZipService implements OnModuleInit {
 
   // 1) unzip user input zip file into memory
   // 2) 
-  public async store(data: Uint8Array, templateId: number, verbose?: boolean): Promise<string> {
+  public async store(data: Uint8Array, templateId: number, signer: Account, verbose?: boolean): Promise<string> {
+
+    console.log("HTTP Authentication SIGNER: ", signer);
+    if (typeof signer !== 'undefined') {
+      console.log("HTTP Authentication SIGNER LTO ADDRESS: ", signer.address);
+    } else {
+      throw ('Undefined HTTP Authentication SIGNER LTO Wallet Address!');
+    }
+
+
     if (verbose) console.log("Waiting 10 seconds for a possible TX ID that needs to be populated into LTO node network...");
 
     await this.wait(10000);
@@ -500,12 +544,14 @@ export class UploadZipService implements OnModuleInit {
           jsonFile.PLACEHOLDER1_KEYWORDS.push("noNFT");
         }
         if (verbose) console.log(`creating template with request ID ${requestId} and modifying requestIdFiles...`);
-        await this.startOwnableCreation(requestId, jsonFile, nftInfo, transactionIdData.sender, verbose);
+        await this.startOwnableCreation(requestId, jsonFile, nftInfo, transactionIdData.sender, signer, verbose);
         await this.executeCommand(`touch ${this.pathToUserRids}/${transactionIdData.sender}/${requestId}_startet`);
       }
       else {
         console.log(`Request ID for this Ownable create request does already exist: ${requestId}`);
       }
+
+
       return requestId;
 
     } catch (err) {
@@ -544,7 +590,7 @@ export class UploadZipService implements OnModuleInit {
   }
 
 
-  private async watchFileCreation(fileName: string, jsonFile: any, nftInfo: NftInfo, sender: string, rid: string, verbose: boolean) {
+  private async watchFileCreation(fileName: string, jsonFile: any, nftInfo: NftInfo, sender: string, signer: Account, rid: string, verbose: boolean) {
     if (verbose) console.log("watching for file creation ", fileName);
     const watcher = chokidar.watch(fileName).on('add', async (event, path1) => {
       if (verbose) console.log("Watcher: created Ownable Zip File done:", event);
@@ -559,7 +605,7 @@ export class UploadZipService implements OnModuleInit {
       if (verbose) console.log("Storing new Ownable zip file and deleting the source Ownable zip ...");
       cpSync(event, ownableZip);
       rmSync(event);
-      rmSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}`, {recursive: true});
+      rmSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}`, { recursive: true });
 
       if (verbose) console.log("Creating the EventChain for the new Ownable ...");
       const pkgOwnable: TypedPackage = {
@@ -594,15 +640,15 @@ export class UploadZipService implements OnModuleInit {
       const eventChainJsonFile: Buffer = readFileSync(`${this.pathToCids}/${cid}/${cid}.json`)
       new_zip.file('chain.json', eventChainJsonFile);
 
-      const claimFileName = `${this.pathToRids}/${rid}/${rid}_claim.zip`;
+      const claimableZipFile = `${this.pathToRids}/${rid}/${rid}_claim.zip`;
 
       const nftToCidMappingFile = `${this.pathToCids}/${cid}/${nftInfo.network}_${nftInfo.address}_${nftInfo.id}_${cid}_mapped`;
       await this.executeCommand(`touch ${nftToCidMappingFile}`);
 
       const content = await new_zip.generateAsync({ type: "uint8array" });
-      if (verbose) console.log("claimFile", claimFileName)
+      if (verbose) console.log("claimFile", claimableZipFile)
       if (verbose) console.log("rid", rid)
-      writeFileSync(claimFileName, content);
+      writeFileSync(claimableZipFile, content);
 
       const claimableInfo = {
         "RID": rid.toString(),
@@ -620,11 +666,16 @@ export class UploadZipService implements OnModuleInit {
       await this.executeCommand(`touch ${this.pathToRids}/${rid}/${sender}_USER`);
 
       watcher.unwatch(fileName);
+
+      // sendOwnable(recipient: string, content?: Uint8Array);
+      await this.sendOwnable(signer.address, content);
+
+
     });
   }
 
 
-  private async startOwnableCreation(rid: string, jsonFile: any, nftInfo: NftInfo, sender: string, verbose: boolean) {
+  private async startOwnableCreation(rid: string, jsonFile: any, nftInfo: NftInfo, sender: string, signer: Account, verbose: boolean) {
     if (verbose) console.log("creating directory for template", `${this.pathToRids}/${rid}/${rid}_template`);
     mkdirSync(`${this.pathToRids}/${rid}/${rid}_template`, { recursive: true });
 
@@ -682,7 +733,7 @@ export class UploadZipService implements OnModuleInit {
     if (verbose) console.log("Building Ownable...");
     await this.executeCommand(`npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}`);
     if (verbose) console.log("Starting file watcher for zip file:", `ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`);
-    await this.watchFileCreation(`ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, rid, verbose);
+    await this.watchFileCreation(`ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, signer, rid, verbose);
 
     if (verbose) console.log("Ownable creation startet. Waiting for Zip File to be created...");
 
