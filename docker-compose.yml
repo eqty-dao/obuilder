@@ -1,11 +1,11 @@
 services:
-  ownable-generator:
-    container_name: ownable-generator
+  oBuilder:
+    container_name: oBuilder
     build: .
     volumes:
-      - ownable-generator-storage:/storage
+      - oBuilder-storage:/storage
     ports:
       - "80:80"      
 
 volumes:
-  ownable-generator-storage:
+  oBuilder-storage:
