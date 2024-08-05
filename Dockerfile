@@ -93,5 +93,5 @@ COPY --from=build /usr/src/ownables ./ownables
 COPY --from=build /usr/src/storage ./storage
 
 # Expose port and define command to run the application
-EXPOSE 3000
+EXPOSE 80
 CMD ["node", "dist/main.js"]
