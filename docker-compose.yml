@@ -5,7 +5,7 @@ services:
     volumes:
       - obuilder-storage:/storage
     ports:
-      - "80:80"      
+      - "80:80"
 
 volumes:
   obuilder-storage:
