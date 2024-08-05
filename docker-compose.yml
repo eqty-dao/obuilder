@@ -1,11 +1,11 @@
 services:
-  oBuilder:
-    container_name: oBuilder
+  obuilder:
+    container_name: obuilder
     build: .
     volumes:
-      - oBuilder-storage:/storage
+      - obuilder-storage:/storage
     ports:
       - "80:80"      
 
 volumes:
-  oBuilder-storage:
+  obuilder-storage:
