@@ -21,10 +21,10 @@ async function bootstrap() {
   const packageInfo = require('../package.json');
   
   const options = new DocumentBuilder()
-  .setTitle('LTO')
+  .setTitle('LTO oBuilder')
   .setDescription(packageInfo.description)
   .setVersion(packageInfo.version)
-  .addTag('Creating Ownables and NFTs made easy')
+  .addTag('Building Ownables and NFTs made easy')
   .addBearerAuth()
   .build();
   

@@ -2,10 +2,10 @@ services:
   obuilder:
     container_name: obuilder
     build: .
-    volumes:
-      - obuilder-storage:/storage
     ports:
-      - '80:3000'    
-
-volumes:
-  obuilder-storage:
+      - '80:3000'
+    environment:
+      - NODE_ENV='staging'
+      - LTO_NODE='https://testnet.lto.network'
+      - LTO_NETWORK_ID='T'
+      - IPFS_START=false

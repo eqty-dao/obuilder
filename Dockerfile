@@ -51,12 +51,12 @@ COPY --from=build /root/.cargo /root/.cargo
 # Set up environment variables
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-ENV NODE_ENV='staging'
-ENV LTO_NODE='https://testnet.lto.network'
-ENV LTO_NETWORK_ID='T'
+# ENV NODE_ENV='staging'
+# ENV LTO_NODE='https://testnet.lto.network'
+# ENV LTO_NETWORK_ID='T'
 ENV LTO_ACCOUNT_SEED='test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12'
 
-ENV IPFS_START=false
+# ENV IPFS_START=false
 
 ENV ACCOUNT_MNEMONIC='sell globe farm embody menu tennis cruise hero crawl universe stock enrich'
 ENV ARBITRUM_ALCHEMY_API_KEY='udkYo9BHmW6DqIzQohVDeDDsHjf_97pg'

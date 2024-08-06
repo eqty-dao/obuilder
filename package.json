@@ -1,7 +1,7 @@
 {
-  "name": "@ltonetwork/ownable-nft-server",
+  "name": "@ltonetwork/o-builder",
   "version": "0.0.1",
-  "description": "Create Ownables and NFTs made easy",
+  "description": "Building Ownables and NFTs made easy",
   "author": "LTO Network",
   "private": false,
   "license": "MIT",
