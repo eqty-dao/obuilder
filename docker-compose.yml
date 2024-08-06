@@ -5,7 +5,7 @@ services:
     ports:
       - '80:3000'
     environment:
-      - NODE_ENV=staging
+      - NODE_ENV='staging'
       - LTO_NODE='https://testnet.lto.network'
       - LTO_NETWORK_ID='T'
       - IPFS_START='false'
