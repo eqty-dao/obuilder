@@ -97,53 +97,53 @@ export default {
         env: 'ANKR_KEY',
       },
     },
-    networks: {
-      default: [
-        {
-          id: 421614,
-          name: 'arbitrumSepolia',
-          provider: 'jsonrpc' as 'jsonrpc' | 'etherscan' | 'infura' | 'alchemy' | 'cloudflare' | 'pocket' | 'ankr',
-          url: '',
-        },
-      ],
-      // default: [
-      //   {
-      //     id: 80001,
-      //     name: 'PolygonMumbai',
-      //     provider: 'alchemy' as 'jsonrpc' | 'etherscan' | 'infura' | 'alchemy' | 'cloudflare' | 'pocket' | 'ankr',
-      //     url: `https://polygon-mumbai.g.alchemy.com/v2/${process.env.POLYGON_MUMBAI_ALCHEMY_API_KEY}`,
-      //   },
-      // ],
-      format: 'typed-array',
-      children: {
-        id: {
-          default: 0,
-        },
-        name: {
-          default: '',
-        },
-        provider: {
-          format: ['jsonrpc', 'etherscan', 'infura', 'alchemy', 'cloudflare', 'pocket', 'ankr'],
-          default: 'jsonrpc',
-        },
-        url: {
-          default: '',
-        },
-      },
-    },
+    // networks: {
+    //   default: [
+    //     {
+    //       id: 421614,
+    //       name: 'arbitrumSepolia',
+    //       provider: 'jsonrpc' as 'jsonrpc' | 'etherscan' | 'infura' | 'alchemy' | 'cloudflare' | 'pocket' | 'ankr',
+    //       url: '',
+    //     },
+    //   ],
+    //   // default: [
+    //   //   {
+    //   //     id: 80001,
+    //   //     name: 'PolygonMumbai',
+    //   //     provider: 'alchemy' as 'jsonrpc' | 'etherscan' | 'infura' | 'alchemy' | 'cloudflare' | 'pocket' | 'ankr',
+    //   //     url: `https://polygon-mumbai.g.alchemy.com/v2/${process.env.POLYGON_MUMBAI_ALCHEMY_API_KEY}`,
+    //   //   },
+    //   // ],
+    //   format: 'typed-array',
+    //   children: {
+    //     id: {
+    //       default: 0,
+    //     },
+    //     name: {
+    //       default: '',
+    //     },
+    //     provider: {
+    //       format: ['jsonrpc', 'etherscan', 'infura', 'alchemy', 'cloudflare', 'pocket', 'ankr'],
+    //       default: 'jsonrpc',
+    //     },
+    //     url: {
+    //       default: '',
+    //     },
+    //   },
+    // },
   },
-  log: {
-    level: {
-      default: '',
-      env: 'LOG_LEVEL',
-    },
-  },
-  ssl: {
-    enabled: {
-      default: false,
-      env: 'SSL_ENABLED',
-    },
-  },
+  // log: {
+  //   level: {
+  //     default: '',
+  //     env: 'LOG_LEVEL',
+  //   },
+  // },
+  // ssl: {
+  //   enabled: {
+  //     default: false,
+  //     env: 'SSL_ENABLED',
+  //   },
+  // },
   ipfs: {
     start: {
       default: true,
