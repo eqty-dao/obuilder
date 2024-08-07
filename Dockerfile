@@ -52,7 +52,7 @@ COPY --from=build /root/.cargo /root/.cargo
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 ENV NODE_ENV='staging'
-ENV LTO_NODE='https://testnet.lto.network'
+# ENV LTO_NODE='https://testnet.lto.network'
 ENV LTO_NETWORK_ID='T'
 ENV LTO_ACCOUNT_SEED='test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12'
 
