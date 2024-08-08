@@ -20,11 +20,11 @@ export default {
   },
   lto: {
     node: {
-      default: 'https://testnet.lto.network',
+      default: '',
       env: 'LTO_NODE',
     },
     networkId: {
-      default: 'T',
+      default: '',
       env: 'LTO_NETWORK_ID',
     },
     account: {
