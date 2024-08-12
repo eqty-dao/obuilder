@@ -8,6 +8,8 @@ template1.txt
 /dist
 /node_modules
 /build
+test.html
+example_nginx.conf
 
 ownables/car
 

@@ -9,6 +9,13 @@ async function bootstrap() {
     bodyParser: false,
   });
   // const app = await NestFactory.create(AppModule);
+  
+  // Enable CORS
+  app.enableCors({
+    origin: '*',  // Allows requests from any origin
+    methods: 'GET, POST, PUT, DELETE, OPTIONS',  // Allowed methods
+    allowedHeaders: 'Origin, X-Requested-With, Content-Type, Accept, Authorization',  // Allowed headers
+  });
 
   const config = await app.get<ConfigService>(ConfigService);
   await config.load();
