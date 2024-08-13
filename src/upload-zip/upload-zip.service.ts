@@ -471,13 +471,13 @@ export class UploadZipService implements OnModuleInit {
 
   // 1) unzip user input zip file into memory
   // 2) 
-  public async store(data: Uint8Array, templateId: number, signer: Account, verbose?: boolean): Promise<string> {
+  public async store(data: Uint8Array, templateId: number, signer?: Account, verbose?: boolean): Promise<string> {
 
     console.log("HTTP Authentication SIGNER: ", signer);
     if (typeof signer !== 'undefined') {
       console.log("HTTP Authentication SIGNER LTO ADDRESS: ", signer.address);
     } else {
-      throw ('Undefined HTTP Authentication SIGNER LTO Wallet Address!');
+      // throw ('Undefined HTTP Authentication SIGNER LTO Wallet Address!');
     }
 
 
@@ -668,7 +668,8 @@ export class UploadZipService implements OnModuleInit {
       watcher.unwatch(fileName);
 
       // sendOwnable(recipient: string, content?: Uint8Array);
-      await this.sendOwnable(signer.address, content);
+      // await this.sendOwnable(signer.address, content);
+      await this.sendOwnable(sender, content);
 
 
     });
