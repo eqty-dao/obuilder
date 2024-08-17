@@ -99,13 +99,14 @@ export class UploadZipController {
   @Get('GetServerInfo')
   async GetServerInfo() {
     try {
-      const ethBalance = await this.uploadZipService.GetServerETHBalance();
-      const ltoBalance = await this.uploadZipService.getLTOAccountBalance();
+      const [balanceETH, balanceARB] = await this.uploadZipService.GetServerETHBalance();
+      const balanceLTO = await this.uploadZipService.getLTOAccountBalance();
       const serverLTOwallet = this.uploadZipService.getServerLTOwalletAddress()
       // console.log("balance", balance);
       return {
-        "ServerETHBalance": ethBalance,
-        "ServerLTOBalance": ltoBalance,
+        "ServerBalanceETH": balanceETH,
+        "ServerBalanceARB": balanceARB,
+        "ServerBalanceLTO": balanceLTO,
         "serverLTOwalletAddress": serverLTOwallet
       };
     } catch (e) {

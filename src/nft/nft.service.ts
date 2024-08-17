@@ -11,7 +11,7 @@ export class NFTService {
     return await this.ethereum.getNFTcount(nft);
   }
 
-  public async GetServerETHBalance(): Promise<string> {
+  public async GetServerETHBalance(): Promise<[string,string]> {
     return await this.ethereum.GetServerETHBalance();
   }
   async mintNFT(nftContractAddress: string, nftOwner: string, nftTokenURI:string): Promise<number> {        

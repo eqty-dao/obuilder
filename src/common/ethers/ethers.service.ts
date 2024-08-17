@@ -15,47 +15,54 @@ import * as abis from './abi';
 export class EthersService implements OnModuleInit {
   // private wallet: ethers.Wallet;
   private signer: ethers.HDNodeWallet;
-  private alchemyProvider: ethers.AlchemyProvider;
-  private network: ethers.Networkish;
+  private alchemyProviderETH: ethers.AlchemyProvider;
+  private alchemyProviderARB: ethers.AlchemyProvider;
+  private networkETH: ethers.Networkish;
+  private networkARB: ethers.Networkish;
   private readonly providers: Map<string | number, ethers.Provider> = new Map();
 
   constructor(private config: ConfigService) { }
 
   onModuleInit(): void {
-    this.network = { name: 'arbitrum-sepolia', chainId: 421614 };
-    this.alchemyProvider = new ethers.AlchemyProvider(
-      this.network,
-      this.config.get('eth.account.arbitrum_alchemy_api_key'),
-    );
-    this.signer = ethers.Wallet.fromPhrase(this.config.get('eth.account.mnemonic'), this.alchemyProvider);
+    // this.networkARB = { name: 'arbitrum-sepolia', chainId: 421614 };
+
+    // this.alchemyProviderARB = new ethers.AlchemyProvider(
+    //   this.networkARB,
+    //   this.config.get('eth.account.arbitrum_alchemy_api_key'),
+    // );
+    this.alchemyProviderARB = new ethers.AlchemyProvider(...this.getNetwork('eip155:arbitrum'));
+    this.alchemyProviderETH = new ethers.AlchemyProvider(...this.getNetwork('eip155:ethereum'));
+    this.signer = ethers.Wallet.fromPhrase(this.config.get('eth.account.mnemonic'), this.alchemyProviderARB);
   }
 
   public signMessage(message: string | Uint8Array): Promise<string> {
     return this.signer.signMessage(message);
   }
 
-  public async GetServerETHBalance(): Promise<string> {
+  public async GetServerETHBalance(): Promise<[string,string]> {
     // console.log("Blocknumber:", await this.alchemyProvider.getBlockNumber());
-    return ethers.formatUnits(await this.alchemyProvider.getBalance(this.signer.address), 'ether').toString();
+    const balanceETH:string = ethers.formatUnits(await this.alchemyProviderETH.getBalance(this.signer.address), 'ether').toString();
+    const balanceARB:string = ethers.formatUnits(await this.alchemyProviderARB.getBalance(this.signer.address), 'ether').toString();
+    return [balanceETH,balanceARB];
   }
 
-  private getNetwork(networkName: string): [string, number, string] {
+  private getNetwork(networkName: string): [ethers.Networkish, string] {
     // https://docs.ethers.org/v6/api/providers/thirdparty/#AlchemyProvider
     const networkId = this.config.get('lto.networkId');
     switch (networkName) {
       case 'eip155:ethereum':
-        if (networkId === 'T')
-          return ['sepolia', 11155111, this.config.get('eth.account.eth_alchemy_api_key')]; // Sepolia Testnet
-        else return ['mainnet', 1, this.config.get('eth.account.eth_alchemy_api_key')]; // Ethereum Mainnet
+        if (networkId === 'T')  
+          return [{name: 'sepolia', chainId: 11155111}, this.config.get('eth.account.eth_alchemy_api_key')]; // Sepolia Testnet
+        else return [{name: 'mainnet', chainId: 1}, this.config.get('eth.account.eth_alchemy_api_key')]; // Ethereum Mainnet
       case 'eip155:arbitrum':
         if (networkId === 'T')
           // Arbitrum Sepolia Testnet
-          return ['arbitrum-sepolia', 421614, this.config.get('eth.account.arbitrum_alchemy_api_key')];
-        else return ['arbitrum', 42161, this.config.get('eth.account.arbitrum_alchemy_api_key')]; // Arbitrum Mainnet
+          return [{name: 'arbitrum-sepolia', chainId: 421614}, this.config.get('eth.account.arbitrum_alchemy_api_key')];
+        else return [{name: 'arbitrum', chainId: 42161}, this.config.get('eth.account.arbitrum_alchemy_api_key')]; // Arbitrum Mainnet
       case 'eip155:polygon':
         if (networkId === 'T')
-          return ['matic-amoy', 80002, this.config.get('eth.account.polygon_alchemy_api_key')]; // Polygon Amoy Testnet
-        else return ['matic', 137, this.config.get('eth.account.polygon_alchemy_api_key')]; // Polygon mainnet
+          return [{name: 'matic-amoy', chainId: 80002}, this.config.get('eth.account.polygon_alchemy_api_key')]; // Polygon Amoy Testnet
+        else return [{name: 'matic', chainId: 137}, this.config.get('eth.account.polygon_alchemy_api_key')]; // Polygon mainnet
       // case 'base':
       //   if (networkId === 'T') return ['base-sepolia', 84532,this.config.get('eth.account.base_alchemy_api_key')]; // Base Sepolia Testnet
       //   else return ['base', 8453,this.config.get('eth.account.base_alchemy_api_key')]; // Base mainnet
@@ -63,15 +70,13 @@ export class EthersService implements OnModuleInit {
   }
 
   public getContract(type: keyof typeof abis, networkName: string, address: string): ethers.Contract {
-    if (!(type in abis)) throw new Error(`No ABI for ${type}`);
-    const [alchemyNetworkNameMapped, chainId, providerApiKey] = this.getNetwork(networkName);
-    this.network = { name: alchemyNetworkNameMapped, chainId: chainId };
+    if (!(type in abis)) throw new Error(`No ABI for ${type}`);    
 
-    this.alchemyProvider = new ethers.AlchemyProvider(this.network, providerApiKey);
+    const alchemyProvider = new ethers.AlchemyProvider(...this.getNetwork(networkName));
 
-    this.signer = ethers.Wallet.fromPhrase(this.config.get('eth.account.mnemonic'), this.alchemyProvider);
+    const signer = ethers.Wallet.fromPhrase(this.config.get('eth.account.mnemonic'), alchemyProvider);
 
-    const nftContract: ethers.Contract = new ethers.Contract(address, abis[type], this.signer);
+    const nftContract: ethers.Contract = new ethers.Contract(address, abis[type], signer);
     return nftContract;
   }
   

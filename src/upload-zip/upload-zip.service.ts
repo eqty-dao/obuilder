@@ -55,8 +55,8 @@ export class UploadZipService implements OnModuleInit {
     mkdirSync(this.pathToUsedTxids, { recursive: true });
   }
 
-  public async GetServerETHBalance(): Promise<string> {
-    console.log("nft");
+  public async GetServerETHBalance(): Promise<[string, string]> {
+    // console.log("nft");
     return await this.nft.GetServerETHBalance();
   }
   public getLTOAccountAddress(): string {
