@@ -34,7 +34,7 @@ export default {
       },
     },
     relay: {
-      default: 'https://relay.lto.network',
+      default: '',
       env: 'REACT_APP_RELAY',
     },
     local_relay: {

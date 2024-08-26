@@ -1,8 +1,8 @@
 import { Inject, Injectable, OnModuleInit, StreamableFile } from '@nestjs/common';
 import { CreateUploadZipDto } from './dto/create-upload-zip.dto';
 import { UpdateUploadZipDto } from './dto/update-upload-zip.dto';
-import { ConfigService } from '../common/config/config.service';
 import { rmSync, cpSync, mkdirSync, readFileSync, writeFileSync, readdirSync, createWriteStream, createReadStream } from 'fs';
+import { ConfigService } from '../common/config/config.service';
 import arrayToString from '../utils/arrayToString';
 import JSZip from 'jszip';
 import fileExists from '../utils/fileExists';
@@ -21,6 +21,7 @@ import { IEventChainJSON } from '@ltonetwork/lto/interfaces';
 import { throwError } from 'rxjs';
 // import { json } from 'node:stream/consumers';
 // import { stringify } from 'querystring';
+// import sendFile from '../services/relayhelper.service';
 
 @Injectable()
 export class UploadZipService implements OnModuleInit {
@@ -107,11 +108,18 @@ export class UploadZipService implements OnModuleInit {
 
     const relayURL =`${this.config.get('lto.relay')}` || `${this.config.get('lto.local_relay')}`;
       // process.env.REACT_APP_RELAY || process.env.REACT_APP_LOCAL_RELAY;
+    console.log("relayURL:", `${relayURL}/`);
     this.lto.relay = new Relay(`${relayURL}/`);
     const relay = this.lto.relay;
-
+    const sender: Account= this._ltoAccount;
     try {
       if (recipient) {
+        // await sendFile(
+        //   relay,
+        //   content,
+        //   sender,
+        //   recipient
+        // );
         await this.sendFile(content, this._ltoAccount, recipient);
       } else {
         throw new Error("No recipient provided");
