@@ -50,6 +50,15 @@ export class UploadZipController {
   //   }
   // }
 
+  @Get('isRelayServerUp')
+  async isRelayServerUp() {
+    try {
+      return await this.uploadZipService.isRelayServerUp();
+    } catch (e) {
+      return { error: `${e}` };
+    }
+  }
+  
   @Get('availableChains')
   async GetAvailableNftChains() {
     try {

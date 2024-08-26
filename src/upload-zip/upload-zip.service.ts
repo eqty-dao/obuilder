@@ -100,16 +100,45 @@ export class UploadZipService implements OnModuleInit {
       return true;
     }
   }
+
+  private getRelayUrl(): string {
+    return `${this.config.get('lto.relay')}` || `${this.config.get('lto.local_relay')}`;
+  }
+  
+  private async isRelayUp(url: string | undefined): Promise<boolean> {
+    
+    if (!url) 
+      throw new Error(`Undefined relay URL in oBuilder`);
+    try {
+      const response = await fetch(url, {
+        method: "HEAD",
+      });
+      return response.ok;
+    }catch(e) {
+      throw new Error(`Relay Server ${url} is down: ${e}`);
+    }
+  }
+  
+  public async isRelayServerUp(): Promise<string> {
+    const relayURL = this.getRelayUrl();
+    try {
+      const isUp:boolean =await this.isRelayUp(relayURL);
+      if(isUp) {
+        return `SUCCESS: oRelay Server ${relayURL} is up and running!`;
+      }
+    } catch (error) {
+      throw new Error(`Relay Server ${relayURL} is down: ${error}`);
+    }
+  }
   public async sendOwnable(recipient: string, content?: Uint8Array) {
-    // const url = `${this.config.get('lto.node')}/addresses/balance/${address}`;
+  
 
     // REACT_APP_RELAY = https://relay.lto.network
     // REACT_APP_LOCAL_RELAY = http://localhost:3000
 
-    const relayURL =`${this.config.get('lto.relay')}` || `${this.config.get('lto.local_relay')}`;
-      // process.env.REACT_APP_RELAY || process.env.REACT_APP_LOCAL_RELAY;
-    console.log("relayURL:", `${relayURL}/`);
-    this.lto.relay = new Relay(`${relayURL}/`);
+    const relayURL = this.getRelayUrl();
+    console.log("relayURL:", `${relayURL}`);
+    this.lto.relay = new Relay(`${relayURL}`);
     const relay = this.lto.relay;
     const sender: Account= this._ltoAccount;
     try {
