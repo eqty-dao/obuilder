@@ -38,7 +38,7 @@ export default {
       env: 'REACT_APP_RELAY',
     },
     local_relay: {
-      default: 'http://localhost:3000',
+      default: '',
       env: 'REACT_APP_LOCAL_RELAY',
     },
   },
