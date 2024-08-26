@@ -102,7 +102,9 @@ export class UploadZipService implements OnModuleInit {
   }
 
   private getRelayUrl(): string {
-    return `${this.config.get('lto.relay')}` || `${this.config.get('lto.local_relay')}`;
+    // this.config.get('lto.account.seed')
+    // `${this.config.get('lto.node')}/addresses/balance/${address}`;
+    return this.config.get('lto.relay') || this.config.get('lto.local_relay');
   }
   
   private async isRelayUp(url: string | undefined): Promise<boolean> {
