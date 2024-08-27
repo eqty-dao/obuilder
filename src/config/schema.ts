@@ -35,11 +35,11 @@ export default {
     },
     relay: {
       default: '',
-      env: 'RELAY',
+      env: 'RELAY_SERVER',
     },
     local_relay: {
       default: '',
-      env: 'LOCAL_RELAY',
+      env: 'LOCAL_RELAY_SERVER',
     },
   },
   eth: {

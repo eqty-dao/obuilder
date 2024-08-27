@@ -122,8 +122,8 @@ export class UploadZipService implements OnModuleInit {
   }
   
   public async isRelayServerUp(): Promise<string> {
-    //const relayURL = this.getRelayUrl();
-    const relayURL = this.config.get('lto.relay');
+    const relayURL = this.getRelayUrl();
+    // const relayURL = this.config.get('lto.relay');
     
     try {
       const isUp:boolean =await this.isRelayUp(relayURL);
