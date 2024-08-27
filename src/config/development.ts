@@ -3,8 +3,7 @@ export default {
     //node: 'https://testnet.lto.network',
     node: '',
     networkId: 'T',
-    account: {
-      //seed: 'test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12',
+    account: {      
       seed: '',
     },
     // relay: 'https://relay.lto.network',
@@ -13,7 +12,6 @@ export default {
   },
   eth: {
     account: {
-      // mnemonic: 'sell globe farm embody menu tennis cruise hero crawl universe stock enrich',
       mnemonic: '',
       eth_alchemy_api_key: 'm7wpMjKVPvrU_NMGEwEntAzGtk6ygVDF',
       arbitrum_alchemy_api_key: 'udkYo9BHmW6DqIzQohVDeDDsHjf_97pg',
