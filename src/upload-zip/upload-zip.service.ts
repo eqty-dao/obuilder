@@ -86,7 +86,7 @@ export class UploadZipService implements OnModuleInit {
     // } else { throw new Error(`Error fetching balance of address: ${address}`) }
 
   }
-  public async sendFile(content: Uint8Array, sender: Account, recipient: string) {
+  public async sendFile(relay, content: Uint8Array, sender: Account, recipient: string) {
     try {
       let message: Message;
       if (sender && recipient) {
@@ -95,7 +95,7 @@ export class UploadZipService implements OnModuleInit {
         console.log("provide the signer and recipient");
         return;
       }
-      await this.lto.relay.send(message);
+      await relay.send(message);
     } catch {
       return true;
     }
@@ -124,6 +124,7 @@ export class UploadZipService implements OnModuleInit {
   public async isRelayServerUp(): Promise<string> {
     //const relayURL = this.getRelayUrl();
     const relayURL = this.config.get('lto.relay');
+    
     try {
       const isUp:boolean =await this.isRelayUp(relayURL);
       if(isUp) {
@@ -139,10 +140,13 @@ export class UploadZipService implements OnModuleInit {
     // REACT_APP_RELAY = https://relay.lto.network
     // REACT_APP_LOCAL_RELAY = http://localhost:3000
 
-    const relayURL = this.getRelayUrl();
-    console.log("relayURL:", `${relayURL}`);
-    this.lto.relay = new Relay(`${relayURL}`);
-    const relay = this.lto.relay;
+    // const relayURL = this.getRelayUrl();
+    
+    // console.log("relayURL:", `${relayURL}`);
+    // this.lto.relay = new Relay(`${relayURL}`);
+    const relay = new Relay('http://relay-dev.eba-zrdkspxn.eu-west-1.elasticbeanstalk.com');
+    // const relay = this.lto.relay;
+    
     const sender: Account= this._ltoAccount;
     try {
       if (recipient) {
@@ -152,7 +156,7 @@ export class UploadZipService implements OnModuleInit {
         //   sender,
         //   recipient
         // );
-        await this.sendFile(content, this._ltoAccount, recipient);
+        await this.sendFile(relay, content, this._ltoAccount, recipient);
       } else {
         throw new Error("No recipient provided");
       }
