@@ -34,7 +34,7 @@ export default {
       },
     },
     relay: {
-      default: '',
+      default: 'http://relay-dev.eba-zrdkspxn.eu-west-1.elasticbeanstalk.com',
       env: 'REACT_APP_RELAY',
     },
     local_relay: {
