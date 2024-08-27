@@ -102,8 +102,6 @@ export class UploadZipService implements OnModuleInit {
   }
 
   private getRelayUrl(): string {
-    // this.config.get('lto.account.seed')
-    // `${this.config.get('lto.node')}/addresses/balance/${address}`;
     return this.config.get('lto.relay') || this.config.get('lto.local_relay');
   }
   
@@ -136,9 +134,6 @@ export class UploadZipService implements OnModuleInit {
   }
   public async sendOwnable(recipient: string, content?: Uint8Array) {
   
-
-    // REACT_APP_RELAY = https://relay.lto.network
-    // REACT_APP_LOCAL_RELAY = http://localhost:3000
 
     const relayURL = this.getRelayUrl();
     
