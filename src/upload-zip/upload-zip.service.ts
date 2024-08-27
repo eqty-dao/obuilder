@@ -140,13 +140,13 @@ export class UploadZipService implements OnModuleInit {
     // REACT_APP_RELAY = https://relay.lto.network
     // REACT_APP_LOCAL_RELAY = http://localhost:3000
 
-    // const relayURL = this.getRelayUrl();
+    const relayURL = this.getRelayUrl();
     
     // console.log("relayURL:", `${relayURL}`);
-    // this.lto.relay = new Relay(`${relayURL}`);
-    const relay = new Relay('http://relay-dev.eba-zrdkspxn.eu-west-1.elasticbeanstalk.com');
-    // const relay = this.lto.relay;
+    this.lto.relay = new Relay(`${relayURL}`);
+    // const relay = new Relay('http://relay-dev.eba-zrdkspxn.eu-west-1.elasticbeanstalk.com');
     
+    const relay = this.lto.relay;
     const sender: Account= this._ltoAccount;
     try {
       if (recipient) {
@@ -156,7 +156,7 @@ export class UploadZipService implements OnModuleInit {
         //   sender,
         //   recipient
         // );
-        await this.sendFile(relay, content, this._ltoAccount, recipient);
+        await this.sendFile(relay, content, sender, recipient);
       } else {
         throw new Error("No recipient provided");
       }
