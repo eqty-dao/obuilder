@@ -34,12 +34,12 @@ export default {
       },
     },
     relay: {
-      default: 'http://relay-dev.eba-zrdkspxn.eu-west-1.elasticbeanstalk.com',
-      env: 'REACT_APP_RELAY',
+      default: '',
+      env: 'RELAY',
     },
     local_relay: {
       default: '',
-      env: 'REACT_APP_LOCAL_RELAY',
+      env: 'LOCAL_RELAY',
     },
   },
   eth: {
