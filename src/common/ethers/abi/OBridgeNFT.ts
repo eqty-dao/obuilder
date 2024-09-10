@@ -13,12 +13,17 @@ export default [
       },
       {
         "internalType": "address",
-        "name": "_authority",
+        "name": "_oBuilder",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_oBridge",
         "type": "address"
       },
       {
         "internalType": "string",
-        "name": "_authorityBaseURI",
+        "name": "_oBridgeBaseURI",
         "type": "string"
       }
     ],
@@ -33,7 +38,7 @@ export default [
         "type": "address"
       }
     ],
-    "name": "AddressAlreadyAuthority",
+    "name": "AddressAlreadyBridge",
     "type": "error"
   },
   {
@@ -44,169 +49,17 @@ export default [
         "type": "address"
       }
     ],
-    "name": "AddressIsNotAuthority",
+    "name": "AddressIsNotBridge",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "ECDSAInvalidSignature",
+    "name": "EthDepositNotAllowed",
     "type": "error"
   },
   {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "length",
-        "type": "uint256"
-      }
-    ],
-    "name": "ECDSAInvalidSignatureLength",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "s",
-        "type": "bytes32"
-      }
-    ],
-    "name": "ECDSAInvalidSignatureS",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "sender",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      }
-    ],
-    "name": "ERC721IncorrectOwner",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "operator",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "ERC721InsufficientApproval",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "approver",
-        "type": "address"
-      }
-    ],
-    "name": "ERC721InvalidApprover",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "operator",
-        "type": "address"
-      }
-    ],
-    "name": "ERC721InvalidOperator",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      }
-    ],
-    "name": "ERC721InvalidOwner",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "receiver",
-        "type": "address"
-      }
-    ],
-    "name": "ERC721InvalidReceiver",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "sender",
-        "type": "address"
-      }
-    ],
-    "name": "ERC721InvalidSender",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "ERC721NonexistentToken",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "lockFee",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "msgValue",
-        "type": "uint256"
-      }
-    ],
-    "name": "IncorrectLockFee",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "unlockFee",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "msgValue",
-        "type": "uint256"
-      }
-    ],
-    "name": "IncorrectUnlockFee",
+    "inputs": [],
+    "name": "MintingOnlyToBridge",
     "type": "error"
   },
   {
@@ -224,65 +77,21 @@ export default [
     "inputs": [
       {
         "internalType": "address",
-        "name": "owner",
+        "name": "msgSender",
         "type": "address"
-      }
-    ],
-    "name": "OwnableInvalidOwner",
-    "type": "error"
-  },
-  {
-    "inputs": [
+      },
       {
         "internalType": "address",
-        "name": "account",
+        "name": "obuilder",
         "type": "address"
       }
     ],
-    "name": "OwnableUnauthorizedAccount",
+    "name": "OnlyOBuilderAllowed",
     "type": "error"
   },
   {
     "inputs": [],
     "name": "SendingEthToSafeFailed",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "TokenLocked",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "TokenNotLocked",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bytes",
-        "name": "proof",
-        "type": "bytes"
-      }
-    ],
-    "name": "UnlockVerificationFailed",
     "type": "error"
   },
   {
@@ -297,11 +106,11 @@ export default [
       {
         "indexed": false,
         "internalType": "string",
-        "name": "_authorityBaseURI",
+        "name": "_bridgeBaseURI",
         "type": "string"
       }
     ],
-    "name": "AddAuthority",
+    "name": "AddBridge",
     "type": "event"
   },
   {
@@ -359,18 +168,30 @@ export default [
     "inputs": [
       {
         "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": true,
         "internalType": "uint256",
         "name": "tokenId",
         "type": "uint256"
       },
       {
+        "indexed": true,
+        "internalType": "address",
+        "name": "msgSender",
+        "type": "address"
+      },
+      {
         "indexed": false,
         "internalType": "bytes32",
-        "name": "challenge",
+        "name": "ltoAddress",
         "type": "bytes32"
       }
     ],
-    "name": "Lock",
+    "name": "LtoApprove",
     "type": "event"
   },
   {
@@ -387,12 +208,6 @@ export default [
         "internalType": "address",
         "name": "_to",
         "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "bool",
-        "name": "_locked",
-        "type": "bool"
       },
       {
         "indexed": false,
@@ -433,7 +248,7 @@ export default [
         "type": "address"
       }
     ],
-    "name": "RemoveAuthority",
+    "name": "RemoveBridgeBridge",
     "type": "event"
   },
   {
@@ -462,38 +277,6 @@ export default [
     "type": "event"
   },
   {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "Unlock",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "challenge",
-        "type": "bytes32"
-      }
-    ],
-    "name": "UpdateProof",
-    "type": "event"
-  },
-  {
     "inputs": [
       {
         "internalType": "address",
@@ -502,11 +285,11 @@ export default [
       },
       {
         "internalType": "string",
-        "name": "_authorityBaseURI",
+        "name": "_bridgeBaseURI",
         "type": "string"
       }
     ],
-    "name": "addAuthority",
+    "name": "addBridge",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -527,57 +310,6 @@ export default [
     "name": "approve",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "name": "authorities",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "name": "authoritiesBaseURIs",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "authoritiesCounter",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "_value",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -619,8 +351,40 @@ export default [
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "getBridgeBaseURI",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
-    "name": "getAuthorities",
+    "name": "getBridgeCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getBridges",
     "outputs": [
       {
         "internalType": "address[]",
@@ -634,32 +398,6 @@ export default [
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      }
-    ],
-    "name": "getAuthorityBaseURI",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getEther",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -707,7 +445,7 @@ export default [
         "type": "address"
       }
     ],
-    "name": "isAuthority",
+    "name": "isBridge",
     "outputs": [
       {
         "internalType": "bool",
@@ -721,70 +459,24 @@ export default [
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "isLocked",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
       {
         "internalType": "uint256",
         "name": "tokenId",
         "type": "uint256"
       },
       {
-        "internalType": "bytes",
-        "name": "proof",
-        "type": "bytes"
+        "internalType": "bytes32",
+        "name": "ltoAddress",
+        "type": "bytes32"
       }
     ],
-    "name": "isUnlockProofValid",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "lock",
+    "name": "ltoApprove",
     "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "lockFee",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -795,7 +487,7 @@ export default [
         "type": "uint256"
       }
     ],
-    "name": "lockedTokens",
+    "name": "ltoWallets",
     "outputs": [
       {
         "internalType": "bytes32",
@@ -812,11 +504,6 @@ export default [
         "internalType": "address",
         "name": "_to",
         "type": "address"
-      },
-      {
-        "internalType": "bool",
-        "name": "_locked",
-        "type": "bool"
       },
       {
         "internalType": "string",
@@ -837,6 +524,19 @@ export default [
         "internalType": "string",
         "name": "",
         "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "oBuilder",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -875,19 +575,6 @@ export default [
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "proofNonce",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "_value",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -895,7 +582,7 @@ export default [
         "type": "uint256"
       }
     ],
-    "name": "registeredAuthorities",
+    "name": "registeredBridges",
     "outputs": [
       {
         "internalType": "address",
@@ -914,7 +601,7 @@ export default [
         "type": "address"
       }
     ],
-    "name": "removeAuthority",
+    "name": "removeBridge",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1004,24 +691,11 @@ export default [
       },
       {
         "internalType": "string",
-        "name": "_authorityBaseURI",
+        "name": "_bridgeBaseURI",
         "type": "string"
       }
     ],
-    "name": "setAuthorityBaseURI",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_fee",
-        "type": "uint256"
-      }
-    ],
-    "name": "setLockFee",
+    "name": "setBridgeBaseURI",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1040,19 +714,6 @@ export default [
       }
     ],
     "name": "setTokenURI",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_fee",
-        "type": "uint256"
-      }
-    ],
-    "name": "setUnlockFee",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1084,19 +745,6 @@ export default [
         "internalType": "string",
         "name": "",
         "type": "string"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "tokenIds",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "_value",
-        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -1177,66 +825,7 @@ export default [
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bytes",
-        "name": "proof",
-        "type": "bytes"
-      }
-    ],
-    "name": "unlock",
-    "outputs": [],
     "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "unlockChallenge",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "unlockFee",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "updateProof",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    "type": "receive"
   }
 ];

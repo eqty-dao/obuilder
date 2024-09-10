@@ -7,7 +7,7 @@ export class EthereumService {
   constructor(private ethers: EthersService) {}
 
   public async getNFTcount(nft: NftInfo): Promise<string> {
-    const nftContract = this.ethers.getContract('LockableNFT', nft.network, nft.address);
+    const nftContract = this.ethers.getContract('OBridgeNFT', nft.network, nft.address);
     return (await nftContract.getNftCount()).toString();
   }
 
@@ -15,6 +15,6 @@ export class EthereumService {
     return await this.ethers.GetServerETHBalance();
   }
   public async mintNFT(nftContractAddress: string, nftOwner: string, nftTokenURI:string): Promise<number> {
-    return this.ethers.mintNFT('LockableNFT', nftContractAddress, nftOwner, nftTokenURI);    
+    return this.ethers.mintNFT('OBridgeNFT', nftContractAddress, nftOwner, nftTokenURI);    
   }
 }

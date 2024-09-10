@@ -4,20 +4,20 @@ export default {
     default: 'development',
     env: 'NODE_ENV',
   },
-  port: {
-    default: 80,
-    env: 'PORT',
-  },  
-  accept: {
-    unlockNFT: {
-      default: true,
-      env: 'UNLOCK_NFT',
-    },
-    webhook: {
-      default: '',
-      env: 'ACCEPT_WEBHOOK',
-    },
-  },
+  // port: {
+  //   default: 80,
+  //   env: 'PORT',
+  // },  
+  // accept: {
+  //   unlockNFT: {
+  //     default: true,
+  //     env: 'UNLOCK_NFT',
+  //   },
+  //   webhook: {
+  //     default: '',
+  //     env: 'ACCEPT_WEBHOOK',
+  //   },
+  // },
   lto: {
     node: {
       default: '',
@@ -44,6 +44,10 @@ export default {
   },
   eth: {
     account: {
+      obridge_wallet_address: {
+        default: '',
+        env: 'OBRIDGE_WALLET_ADDR',
+      },
       mnemonic: {
         default: '',
         env: 'ACCOUNT_MNEMONIC',

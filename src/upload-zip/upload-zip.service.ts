@@ -54,6 +54,8 @@ export class UploadZipService implements OnModuleInit {
     mkdirSync(this.pathToCids, { recursive: true });
     mkdirSync(this.pathToUserRids, { recursive: true });
     mkdirSync(this.pathToUsedTxids, { recursive: true });
+    // console.log("NODE", this.config.get('lto.node'));
+    // console.log("NODE_ENV", this.config.get('env'));
   }
 
   public async GetServerETHBalance(): Promise<[string, string]> {
@@ -104,28 +106,28 @@ export class UploadZipService implements OnModuleInit {
   private getRelayUrl(): string {
     return this.config.get('lto.relay') || this.config.get('lto.local_relay');
   }
-  
+
   private async isRelayUp(url: string | undefined): Promise<boolean> {
-    
-    if (!url) 
+
+    if (!url)
       throw new Error(`Undefined relay URL in oBuilder`);
     try {
       const response = await fetch(url, {
         method: "HEAD",
       });
       return response.ok;
-    }catch(e) {
+    } catch (e) {
       throw new Error(`Relay Server ${url} is down: ${e}`);
     }
   }
-  
+
   public async isRelayServerUp(): Promise<string> {
     const relayURL = this.getRelayUrl();
     // const relayURL = this.config.get('lto.relay');
-    
+
     try {
-      const isUp:boolean =await this.isRelayUp(relayURL);
-      if(isUp) {
+      const isUp: boolean = await this.isRelayUp(relayURL);
+      if (isUp) {
         return `SUCCESS: oRelay Server ${relayURL} is up and running!`;
       }
     } catch (error) {
@@ -133,16 +135,16 @@ export class UploadZipService implements OnModuleInit {
     }
   }
   public async sendOwnable(recipient: string, content?: Uint8Array) {
-  
+
 
     const relayURL = this.getRelayUrl();
-    
+
     // console.log("relayURL:", `${relayURL}`);
     this.lto.relay = new Relay(`${relayURL}`);
     // const relay = new Relay('http://relay-dev.eba-zrdkspxn.eu-west-1.elasticbeanstalk.com');
-    
+
     const relay = this.lto.relay;
-    const sender: Account= this._ltoAccount;
+    const sender: Account = this._ltoAccount;
     try {
       if (recipient) {
         // await sendFile(
@@ -489,7 +491,8 @@ export class UploadZipService implements OnModuleInit {
     // } 
     if (verbose) console.log(`minting via NFT contract at: ${nftContractAddress} `);
 
-    const nftOwner = jsonFile.NFT_PUBLIC_USER_WALLET_ADDRESS;
+    // const nftOwner = jsonFile.NFT_PUBLIC_USER_WALLET_ADDRESS;
+    const nftOwner = this.config.get('eth.account.obridge_wallet_address');
     const nftTokenURI = jsonFile.NFT_TOKEN_URI;
     if (verbose) console.log("nftOwner", nftOwner);
     if (verbose) console.log("nftTokenURI", nftTokenURI);
@@ -500,8 +503,8 @@ export class UploadZipService implements OnModuleInit {
     if (verbose) console.log("nftcount", nftcount);
 
     return {
-      network: nftNetwork,    // eip155:1
-      address: nftContractAddress,  // 0x341...
+      network: nftNetwork,    // eip155:ethereum  eip155:arbitrum
+      address: nftContractAddress,  // 0x...
       id: nftcount, // 1, 2, 3      
     }
 
@@ -642,9 +645,22 @@ export class UploadZipService implements OnModuleInit {
 
       const ownableZip = `${this.pathToCids}/${cid}/created_ownable.zip`;
       if (verbose) console.log("Storing new Ownable zip file and deleting the source Ownable zip ...");
-      cpSync(event, ownableZip);
-      rmSync(event);
-      rmSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}`, { recursive: true });
+      try {
+        cpSync(event, ownableZip);
+      } catch (err) {
+        console.log("Error cpSync:", event, err);
+      }
+
+      try {
+        rmSync(event);
+      } catch (err) {
+        console.log("Error rmSync1:", event, err);
+      }
+      try {
+        rmSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}`, { recursive: true });
+      } catch (err) {
+        console.log("Error rmSync2:", event, err);
+      }
 
       if (verbose) console.log("Creating the EventChain for the new Ownable ...");
       const pkgOwnable: TypedPackage = {
@@ -665,10 +681,21 @@ export class UploadZipService implements OnModuleInit {
       const chainBuffer: Buffer = await this.createEventChain(pkgOwnable, nftInfo, sender); // sender from TX ID is new ownable owner
       //adding eventChain to cidFiles
       cidFiles.set('chain.json', chainBuffer);
-
-      await this.storeFiles(`${this.pathToCids}/${cid}`, cid, cidFiles);
-      cpSync(ownableZip, `${this.pathToCids}/${cid}/${cid}.zip`);
-      rmSync(ownableZip);
+      try {
+        await this.storeFiles(`${this.pathToCids}/${cid}`, cid, cidFiles);
+      } catch (err) {
+        console.log("Error storeFiles:", err);
+      }
+      try {
+        cpSync(ownableZip, `${this.pathToCids}/${cid}/${cid}.zip`);
+      } catch (err) {
+        console.log("Error cpSync:", err);
+      }
+      try {
+        rmSync(ownableZip);
+      } catch (err) {
+        console.log("Error rmSync:", err);
+      }
       if (verbose) console.log("PATH", `${this.pathToCids}/${cid}`);
 
       var new_zip = new JSZip();
@@ -682,13 +709,19 @@ export class UploadZipService implements OnModuleInit {
       const claimableZipFile = `${this.pathToRids}/${rid}/${rid}_claim.zip`;
 
       const nftToCidMappingFile = `${this.pathToCids}/${cid}/${nftInfo.network}_${nftInfo.address}_${nftInfo.id}_${cid}_mapped`;
+      try {
       await this.executeCommand(`touch ${nftToCidMappingFile}`);
-
+    } catch (err) {
+      console.log("Error executeCommand touch:", err);
+    }
       const content = await new_zip.generateAsync({ type: "uint8array" });
       if (verbose) console.log("claimFile", claimableZipFile)
       if (verbose) console.log("rid", rid)
+        try {
       writeFileSync(claimableZipFile, content);
-
+    } catch (err) {
+      console.log("Error writeFileSync:", err);
+    }
       const claimableInfo = {
         "RID": rid.toString(),
         "CID": cid.toString(),
@@ -701,8 +734,16 @@ export class UploadZipService implements OnModuleInit {
         "CLAIMED": false,
       }
       const claimableFile = `${this.pathToUserRids}/${sender}/${rid}_claimable`;
+      try {
       writeFileSync(claimableFile, JSON.stringify(claimableInfo));
+    } catch (err) {
+      console.log("Error writeFileSync:", err);
+    }
+    try {
       await this.executeCommand(`touch ${this.pathToRids}/${rid}/${sender}_USER`);
+    } catch (err) {
+      console.log("Error executeCommand touch:", err);
+    }
 
       watcher.unwatch(fileName);
 
