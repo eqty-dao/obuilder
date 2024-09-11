@@ -86,7 +86,7 @@ export class EthersService implements OnModuleInit {
     // contract instance
     const nftContract: ethers.Contract = new ethers.Contract(contractAddress, abis[type], this.signer);
 
-    const response = await nftContract.mint(nftOwner, true, nftTokenURI);
+    const response = await nftContract.mint(nftOwner, nftTokenURI);
     await response.wait();
     const nftcount = await nftContract.getNftCount();
     return nftcount;
