@@ -59,7 +59,7 @@ export class UploadZipController {
     }
   }
   @Get('isEVMAddress')
-  isEVMAddress(@Param('address') address: string) {
+  isEVMAddress(@Query('address') address: string) {
     try {
       return this.uploadZipService.isEVMAddress(address);      
     } catch (e) {
