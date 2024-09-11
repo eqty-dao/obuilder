@@ -58,6 +58,14 @@ export class UploadZipController {
       return { error: `${e}` };
     }
   }
+  @Get('isEVMAddress')
+  isEVMAddress(@Param('address') address: string) {
+    try {
+      return this.uploadZipService.isEVMAddress(address);      
+    } catch (e) {
+      return { error: `${e}` };
+    }
+  }
   
   @Get('availableChains')
   async GetAvailableNftChains() {

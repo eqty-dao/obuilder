@@ -10,6 +10,10 @@ export class EthereumService {
     const nftContract = this.ethers.getContract('OBridgeNFT', nft.network, nft.address);
     return (await nftContract.getNftCount()).toString();
   }
+  
+  public isEVMAddress(_address: string): boolean {
+    return this.ethers.isEVMAddress(_address);    
+  }
 
   public async GetServerETHBalance(): Promise<[string,string]> {
     return await this.ethers.GetServerETHBalance();

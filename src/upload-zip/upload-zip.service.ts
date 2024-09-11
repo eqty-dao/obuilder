@@ -66,7 +66,9 @@ export class UploadZipService implements OnModuleInit {
     if (!!this._ltoAccount) return this._ltoAccount!.address;
     return '';
   }
-
+  public isEVMAddress(address: string): boolean {
+    return this.nft.isEVMAddress(address);    
+  }
   public async getLTOAccountBalance(address?: string) {
     if (!address) address = this.getLTOAccountAddress();
     const url = `${this.config.get('lto.node')}/addresses/balance/${address}`;
@@ -730,7 +732,6 @@ export class UploadZipService implements OnModuleInit {
         "NFT_BLOCKCHAIN": jsonFile.NFT_BLOCKCHAIN.toString(),
         "NFT_ID": (nftInfo.id).toString(),
         "NFT_TOKEN_URI": jsonFile.NFT_TOKEN_URI.toString(),
-        "NFT_PUBLIC_USER_WALLET_ADDRESS": jsonFile.NFT_PUBLIC_USER_WALLET_ADDRESS.toString(),
         "CLAIMED": false,
       }
       const claimableFile = `${this.pathToUserRids}/${sender}/${rid}_claimable`;

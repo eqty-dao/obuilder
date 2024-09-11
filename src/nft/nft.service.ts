@@ -11,6 +11,10 @@ export class NFTService {
     return await this.ethereum.getNFTcount(nft);
   }
 
+  public isEVMAddress(_address: string): boolean {
+    return this.ethereum.isEVMAddress(_address);    
+  }
+  
   public async GetServerETHBalance(): Promise<[string,string]> {
     return await this.ethereum.GetServerETHBalance();
   }

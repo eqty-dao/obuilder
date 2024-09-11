@@ -34,6 +34,10 @@ export class EthersService implements OnModuleInit {
     this.alchemyProviderETH = new ethers.AlchemyProvider(...this.getNetwork('eip155:ethereum'));
     this.signer = ethers.Wallet.fromPhrase(this.config.get('eth.account.mnemonic'), this.alchemyProviderARB);
   }
+  
+  public isEVMAddress(_address: string): boolean {
+    return ethers.isAddress(_address);    
+  }
 
   public signMessage(message: string | Uint8Array): Promise<string> {
     return this.signer.signMessage(message);
