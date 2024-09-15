@@ -1,4 +1,4 @@
-export default [
+[
   {
     "inputs": [
       {
@@ -100,13 +100,13 @@ export default [
       {
         "indexed": true,
         "internalType": "address",
-        "name": "account",
+        "name": "oBridgeAccount",
         "type": "address"
       },
       {
         "indexed": false,
         "internalType": "string",
-        "name": "_bridgeBaseURI",
+        "name": "bridgeBaseURI",
         "type": "string"
       }
     ],
@@ -206,13 +206,13 @@ export default [
       {
         "indexed": true,
         "internalType": "address",
-        "name": "_to",
+        "name": "to",
         "type": "address"
       },
       {
         "indexed": false,
         "internalType": "string",
-        "name": "_tokenURI",
+        "name": "tokenURI",
         "type": "string"
       }
     ],
@@ -244,11 +244,30 @@ export default [
       {
         "indexed": true,
         "internalType": "address",
-        "name": "account",
+        "name": "oBridgeAccount",
         "type": "address"
       }
     ],
-    "name": "RemoveBridgeBridge",
+    "name": "RemoveBridge",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "oBridgeAccount",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "bridgeBaseURI",
+        "type": "string"
+      }
+    ],
+    "name": "SetBridgeBaseURI",
     "type": "event"
   },
   {
@@ -395,6 +414,25 @@ export default [
         "internalType": "string[]",
         "name": "",
         "type": "string[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_userAddress",
+        "type": "address"
+      }
+    ],
+    "name": "getListOfNftIdsPerAddress",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
       }
     ],
     "stateMutability": "view",
@@ -828,4 +866,5 @@ export default [
     "stateMutability": "payable",
     "type": "receive"
   }
-];
+]
+
