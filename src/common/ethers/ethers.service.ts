@@ -30,8 +30,8 @@ export class EthersService implements OnModuleInit {
     //   this.networkARB,
     //   this.config.get('eth.account.arbitrum_alchemy_api_key'),
     // );
-    this.alchemyProviderARB = new ethers.AlchemyProvider(...this.getNetwork('eip155:arbitrum'));
-    this.alchemyProviderETH = new ethers.AlchemyProvider(...this.getNetwork('eip155:ethereum'));
+    this.alchemyProviderARB = new ethers.AlchemyProvider(...this.getNetwork('arbitrum'));
+    this.alchemyProviderETH = new ethers.AlchemyProvider(...this.getNetwork('ethereum'));
     this.signer = ethers.Wallet.fromPhrase(this.config.get('eth.account.mnemonic'), this.alchemyProviderARB);
   }
   
@@ -54,16 +54,16 @@ export class EthersService implements OnModuleInit {
     // https://docs.ethers.org/v6/api/providers/thirdparty/#AlchemyProvider
     const networkId = this.config.get('lto.networkId');
     switch (networkName) {
-      case 'eip155:ethereum':
+      case 'ethereum':
         if (networkId === 'T')  
           return [{name: 'sepolia', chainId: 11155111}, this.config.get('eth.account.eth_alchemy_api_key')]; // Sepolia Testnet
         else return [{name: 'mainnet', chainId: 1}, this.config.get('eth.account.eth_alchemy_api_key')]; // Ethereum Mainnet
-      case 'eip155:arbitrum':
+      case 'arbitrum':
         if (networkId === 'T')
           // Arbitrum Sepolia Testnet
           return [{name: 'arbitrum-sepolia', chainId: 421614}, this.config.get('eth.account.arbitrum_alchemy_api_key')];
         else return [{name: 'arbitrum', chainId: 42161}, this.config.get('eth.account.arbitrum_alchemy_api_key')]; // Arbitrum Mainnet
-      case 'eip155:polygon':
+      case 'polygon':
         if (networkId === 'T')
           return [{name: 'matic-amoy', chainId: 80002}, this.config.get('eth.account.polygon_alchemy_api_key')]; // Polygon Amoy Testnet
         else return [{name: 'matic', chainId: 137}, this.config.get('eth.account.polygon_alchemy_api_key')]; // Polygon mainnet

@@ -72,18 +72,7 @@ export default class OwnableService {
   //   let nftNetwork = "";
     
 
-  //   if(nft?.network.toString() === "Ethereum") {
-  //     nftContractAddress="N/A";
-  //     nftNetwork ="eip155:1";
-  //   }else if(nft?.network.toString() === "Polygon") {
-  //     // https://mumbai.polygonscan.com/address/0x0eb02E5382944EA6Bf3B79D3253b68289b5d7078#readContract
-  //     nftContractAddress="0x0eb02E5382944EA6Bf3B79D3253b68289b5d7078"; // Mumbai Polygon
-  //     nftNetwork ="eip155:2";
-  //   }else if(nft?.network.toString() === "ArbitrumOne") {
-  //     // https://sepolia.arbiscan.io/address/0x122aaFBA5668978378506417d75d4ef85CD55D61#readContract
-  //     nftContractAddress="0x122aaFBA5668978378506417d75d4ef85CD55D61"; // Sepolia Arbitrum
-  //     nftNetwork ="eip155:3";
-  //   }
+  
    
   //   if (pkg.isDynamic) {
   //     const msg = {

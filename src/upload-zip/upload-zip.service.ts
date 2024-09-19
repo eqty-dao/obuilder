@@ -268,19 +268,19 @@ export class UploadZipService implements OnModuleInit {
 
   public async getAvailableNftChains(): Promise<JSON> {
     const nftInfoETH: NftInfo = {
-      network: 'eip155:ethereum',
+      network: 'ethereum',
       id: 0,
       address: this.config.get('eth.contracts.ethereum'),
     };
 
     const nftInfoARB: NftInfo = {
-      network: 'eip155:arbitrum',
+      network: 'arbitrum',
       id: 0,
       address: this.config.get('eth.contracts.arbitrum'),
     };
 
     // const nftInfoPOL: NFTInfo = {
-    //   network: 'eip155:polygon',
+    //   network: 'polygon',
     //   id: '0',
     //   address: this.config.get('eth.contracts.polygon'),
     // };
@@ -290,9 +290,9 @@ export class UploadZipService implements OnModuleInit {
     // const nftCountPOL = await this.nft.getNFTcount(nftInfoPOL);
 
     const availableChains = {
-      ethereum: 'eip155:ethereum',
-      arbitrum: 'eip155:arbitrum',
-      // polygon: 'eip155:polygon',
+      ethereum: 'ethereum',
+      arbitrum: 'arbitrum',
+      // polygon: 'polygon',
       ethereumContractAddress: this.config.get('eth.contracts.ethereum'),
       arbitrumContractAddress: this.config.get('eth.contracts.arbitrum'),
       // polygonContractAddress: this.config.get('eth.contracts.polygon'),
@@ -480,16 +480,16 @@ export class UploadZipService implements OnModuleInit {
     let nftContractAddress: string;
     if (jsonFile.NFT_BLOCKCHAIN === 'ethereum') {
       nftContractAddress = this.config.get('eth.contracts.ethereum');
-      nftNetwork = "eip155:ethereum";
+      nftNetwork = "ethereum";
     } else if (jsonFile.NFT_BLOCKCHAIN === 'arbitrum') {
       nftContractAddress = this.config.get('eth.contracts.arbitrum');
-      nftNetwork = "eip155:arbitrum";
+      nftNetwork = "arbitrum";
     } else {
       throw (`Unsupported Blockchain: ${jsonFile.NFT_BLOCKCHAIN}`);
     }
     // else if (jsonFile.NFT_BLOCKCHAIN === 'polygon') {
     //   nftContractAddress = this.config.get('eth.contracts.polygon');
-    //   nftNetwork = "eip155:polygon";
+    //   nftNetwork = "polygon";
     // } 
     if (verbose) console.log(`minting via NFT contract at: ${nftContractAddress} `);
 
@@ -505,7 +505,7 @@ export class UploadZipService implements OnModuleInit {
     if (verbose) console.log("nftcount", nftcount);
 
     return {
-      network: nftNetwork,    // eip155:ethereum  eip155:arbitrum
+      network: nftNetwork,    // ethereum  or arbitrum
       address: nftContractAddress,  // 0x...
       id: nftcount, // 1, 2, 3      
     }
@@ -581,8 +581,8 @@ export class UploadZipService implements OnModuleInit {
           jsonFile.PLACEHOLDER1_KEYWORDS.push("hasNFT");
         } else {
           nftInfo = {
-            network: "",    // eip155:1
-            address: "",  // 0x341...
+            network: "",    
+            address: "",  
             id: 0, // 1, 2, 3      
           }
           jsonFile.PLACEHOLDER1_KEYWORDS.push("noNFT");

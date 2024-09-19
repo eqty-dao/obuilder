@@ -5,7 +5,7 @@ export interface OwnableInfo {
   nft: NftInfo;
 }
 export interface NftInfo {
-  network: string,    // eip155:1  
-  address: string,  // 0x341...
+  network: string,    
+  address: string,  
   id: number  
 }
