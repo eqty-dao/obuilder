@@ -15,8 +15,6 @@ export class AppService implements OnModuleInit {
       description: packageInfo.description,
       env: process.env['NODE_ENV'] || 'development',
     };
-    console.log("NODE_ENV", process.env['NODE_ENV']);
-    console.log("NODE_ENV", `${process.env.NODE_ENV}`);    
   }
 
   

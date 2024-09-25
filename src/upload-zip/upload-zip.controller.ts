@@ -66,6 +66,15 @@ export class UploadZipController {
       return { error: `${e}` };
     }
   }
+  @Get('isLTOAddress')
+  isLTOAddress(@Query('address') address: string) {
+    try {
+      return this.uploadZipService.isValidLtoAddress(address);      
+    } catch (e) {
+      return false;
+      // return { error: `${e}` };
+    }
+  }
   
   @Get('availableChains')
   async GetAvailableNftChains() {

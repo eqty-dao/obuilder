@@ -59,8 +59,7 @@ export class UploadZipService implements OnModuleInit {
   }
 
   public async GetServerETHBalance(): Promise<[string, string]> {
-    // console.log("nft");
-    return await this.nft.GetServerETHBalance();
+    return await this.nft.getServerETHBalance();
   }
   public getLTOAccountAddress(): string {
     if (!!this._ltoAccount) return this._ltoAccount!.address;
@@ -68,6 +67,9 @@ export class UploadZipService implements OnModuleInit {
   }
   public isEVMAddress(address: string): boolean {
     return this.nft.isEVMAddress(address);    
+  }
+  public isValidLtoAddress(address: string): boolean {
+    return this.lto.isValidAddress(address);
   }
   public async getLTOAccountBalance(address?: string) {
     if (!address) address = this.getLTOAccountAddress();
@@ -290,15 +292,24 @@ export class UploadZipService implements OnModuleInit {
     // const nftCountPOL = await this.nft.getNFTcount(nftInfoPOL);
 
     const availableChains = {
-      ethereum: 'ethereum',
-      arbitrum: 'arbitrum',
-      // polygon: 'polygon',
-      ethereumContractAddress: this.config.get('eth.contracts.ethereum'),
-      arbitrumContractAddress: this.config.get('eth.contracts.arbitrum'),
-      // polygonContractAddress: this.config.get('eth.contracts.polygon'),
-      totalAmountethereumNFTs: nftCountETH.toString(),
-      totalAmountarbitrumNFTs: nftCountARB.toString(),
-      // polygonNFTcount: nftCountPOL,
+      ethereum: {
+        name: 'ethereum',
+        logo: 'https://obuilderassets.s3.eu-west-1.amazonaws.com/ethereum-eth-logo.png',
+        smartContractAddress: this.config.get('eth.contracts.ethereum'),
+        totalAmountNFTs: nftCountETH.toString(),
+        oBridgeCost: {
+          1:(this.packageInfo.templateCost.ethereum[1]).toString()
+        }       
+      },
+      arbitrum: {
+        name: 'arbitrum',
+        logo: 'https://obuilderassets.s3.eu-west-1.amazonaws.com/arbitrum-arb-logo.png',
+        smartContractAddress: this.config.get('eth.contracts.arbitrum'),
+        totalAmountNFTs: nftCountARB.toString(),
+        oBridgeCost: {
+          1:(this.packageInfo.templateCost.arbitrum[1]).toString()
+        }
+      }
     };
 
     return JSON.parse(JSON.stringify(availableChains));
@@ -494,21 +505,22 @@ export class UploadZipService implements OnModuleInit {
     if (verbose) console.log(`minting via NFT contract at: ${nftContractAddress} `);
 
     // const nftOwner = jsonFile.NFT_PUBLIC_USER_WALLET_ADDRESS;
-    const nftOwner = this.config.get('eth.account.obridge_wallet_address');
+    const nftReceiverAddress = this.config.get('eth.account.obridge_wallet_address');
     const nftTokenURI = jsonFile.NFT_TOKEN_URI;
-    if (verbose) console.log("nftOwner", nftOwner);
+    if (verbose) console.log("nftOwner", nftReceiverAddress);
     if (verbose) console.log("nftTokenURI", nftTokenURI);
     if (verbose) console.log("NFT_BLOCKCHAIN", jsonFile.NFT_BLOCKCHAIN);
 
-    // const nftcount = 1; // TODO: enable next line again which has been disabled to save eth during debugging and testing
-    const nftcount = await this.nft.mintNFT(nftContractAddress, nftOwner, nftTokenURI);
+    const nftInfo:NftInfo = {
+      network: nftNetwork,    
+      address: nftContractAddress,  
+      id: 0,  // id is not used when minting a new NFT
+    };
+    
+    const nftcount = await this.nft.mintNFT(nftReceiverAddress, nftTokenURI, nftInfo);
     if (verbose) console.log("nftcount", nftcount);
-
-    return {
-      network: nftNetwork,    // ethereum  or arbitrum
-      address: nftContractAddress,  // 0x...
-      id: nftcount, // 1, 2, 3      
-    }
+    nftInfo.id = nftcount;
+    return nftInfo;
 
   }
   private wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
