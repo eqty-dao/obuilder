@@ -297,7 +297,7 @@ export class UploadZipService implements OnModuleInit {
         logo: 'https://obuilderassets.s3.eu-west-1.amazonaws.com/ethereum-eth-logo.png',
         smartContractAddress: this.config.get('eth.contracts.ethereum'),
         totalAmountNFTs: nftCountETH.toString(),
-        oBridgeCost: {
+        templateCost: {
           1:(this.packageInfo.templateCost.ethereum[1]).toString()
         }       
       },
@@ -306,7 +306,7 @@ export class UploadZipService implements OnModuleInit {
         logo: 'https://obuilderassets.s3.eu-west-1.amazonaws.com/arbitrum-arb-logo.png',
         smartContractAddress: this.config.get('eth.contracts.arbitrum'),
         totalAmountNFTs: nftCountARB.toString(),
-        oBridgeCost: {
+        templateCost: {
           1:(this.packageInfo.templateCost.arbitrum[1]).toString()
         }
       }
@@ -872,38 +872,38 @@ export class UploadZipService implements OnModuleInit {
   }
 
 
-  async claim(requestId: string, signer?: Account): Promise<StreamableFile> {
-    console.log("HTTP Authentication SIGNER: ", signer);
-    if (typeof signer !== 'undefined') {
-      console.log("HTTP Authentication SIGNER LTO ADDRESS: ", signer.address);
-    }
-    const claimableZipFile = `${this.pathToRids}/${requestId}/${requestId}_claim.zip`;
-    if (!(await fileExists(claimableZipFile))) {
-      throw (`Request ID ${requestId} does not have a claimable Ownable`);
-    }
-    let user: string;
-    try {
-      const files = readdirSync(`${this.pathToRids}/${requestId}/`);
-      files.forEach(file => {
-        if (file.match(/_USER$/g)) {
-          user = file.replace("_USER", "");
-        }
-      })
-    } catch (e) {
-      throw (e);
-    }
+  // async claim(requestId: string, signer?: Account): Promise<StreamableFile> {
+  //   console.log("HTTP Authentication SIGNER: ", signer);
+  //   if (typeof signer !== 'undefined') {
+  //     console.log("HTTP Authentication SIGNER LTO ADDRESS: ", signer.address);
+  //   }
+  //   const claimableZipFile = `${this.pathToRids}/${requestId}/${requestId}_claim.zip`;
+  //   if (!(await fileExists(claimableZipFile))) {
+  //     throw (`Request ID ${requestId} does not have a claimable Ownable`);
+  //   }
+  //   let user: string;
+  //   try {
+  //     const files = readdirSync(`${this.pathToRids}/${requestId}/`);
+  //     files.forEach(file => {
+  //       if (file.match(/_USER$/g)) {
+  //         user = file.replace("_USER", "");
+  //       }
+  //     })
+  //   } catch (e) {
+  //     throw (e);
+  //   }
 
-    const claimableFileInfo = `${this.pathToUserRids}/${user}/${requestId}_claimable`;
-    const claimableInfo = JSON.parse(readFileSync(claimableFileInfo).toString());
-    claimableInfo.CLAIMED = true;
+  //   const claimableFileInfo = `${this.pathToUserRids}/${user}/${requestId}_claimable`;
+  //   const claimableInfo = JSON.parse(readFileSync(claimableFileInfo).toString());
+  //   claimableInfo.CLAIMED = true;
 
-    writeFileSync(claimableFileInfo, JSON.stringify(claimableInfo));
+  //   writeFileSync(claimableFileInfo, JSON.stringify(claimableInfo));
 
-    const file = createReadStream(claimableZipFile);
-    return new StreamableFile(file);
+  //   const file = createReadStream(claimableZipFile);
+  //   return new StreamableFile(file);
 
 
-  }
+  // }
 
   // async zipped(cid: string): Promise<JSZip> {
   //   const zip = new JSZip();

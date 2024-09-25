@@ -104,14 +104,14 @@ export class UploadZipController {
     }
   }
 
-  @Get('claim/')
-  @Header('Content-type', 'application/zip')
-  async claim(
-    @Query('requestId') requestId: string,
-    @Signer() signer?: Account,
-  ): Promise<StreamableFile> {
-    return await this.uploadZipService.claim(requestId, signer);
-  }
+  // @Get('claim/')
+  // @Header('Content-type', 'application/zip')
+  // async claim(
+  //   @Query('requestId') requestId: string,
+  //   @Signer() signer?: Account,
+  // ): Promise<StreamableFile> {
+  //   return await this.uploadZipService.claim(requestId, signer);
+  // }
 
   @Get('ServerWalletAddressLTO')
   serverWalletAddressLTO() {
