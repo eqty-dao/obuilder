@@ -4,6 +4,16 @@ export default {
     default: 'development',
     env: 'NODE_ENV',
   },
+  pinata: {
+    jwt: {
+      default: '',
+      env: 'PINATA_JWT',
+    },
+    gateway: {
+      default: '',
+      env: 'PINATA_GATEWAY_URL',
+    }
+  },
   // port: {
   //   default: 80,
   //   env: 'PORT',

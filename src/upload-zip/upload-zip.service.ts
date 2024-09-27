@@ -1,6 +1,5 @@
 import { Inject, Injectable, OnModuleInit, StreamableFile } from '@nestjs/common';
-import { CreateUploadZipDto } from './dto/create-upload-zip.dto';
-import { UpdateUploadZipDto } from './dto/update-upload-zip.dto';
+
 import { rmSync, cpSync, mkdirSync, readFileSync, writeFileSync, readdirSync, createWriteStream, createReadStream } from 'fs';
 import { ConfigService } from '../common/config/config.service';
 import arrayToString from '../utils/arrayToString';
@@ -19,9 +18,11 @@ import { TypedPackage } from "../interfaces/TypedPackage";
 import { NFTService } from '../nft/nft.service';
 import { IEventChainJSON } from '@ltonetwork/lto/interfaces';
 import { throwError } from 'rxjs';
+import { Blob } from 'buffer';
 // import { json } from 'node:stream/consumers';
 // import { stringify } from 'querystring';
 // import sendFile from '../services/relayhelper.service';
+import { PinataSDK } from "pinata";
 
 @Injectable()
 export class UploadZipService implements OnModuleInit {
@@ -34,6 +35,11 @@ export class UploadZipService implements OnModuleInit {
   private lto = new LTO(this.config.get('lto.networkId'));
   private readonly _ltoAccount?: Account = this.lto.account({ seed: this.config.get('lto.account.seed') });
   public readonly networkId = this.lto.networkId;
+  private nodeVersion = process.version;
+  private pinata = new PinataSDK({
+    pinataJwt: this.config.get('pinata.jwt'), // process.env.PINATA_JWT!,
+    pinataGateway: this.config.get('pinata.gateway') // "example-gateway.mypinata.cloud",
+  });
 
   constructor(
     private readonly httpService: HttpService,
@@ -66,7 +72,7 @@ export class UploadZipService implements OnModuleInit {
     return '';
   }
   public isEVMAddress(address: string): boolean {
-    return this.nft.isEVMAddress(address);    
+    return this.nft.isEVMAddress(address);
   }
   public isValidLtoAddress(address: string): boolean {
     return this.lto.isValidAddress(address);
@@ -298,8 +304,8 @@ export class UploadZipService implements OnModuleInit {
         smartContractAddress: this.config.get('eth.contracts.ethereum'),
         totalAmountNFTs: nftCountETH.toString(),
         templateCost: {
-          1:(this.packageInfo.templateCost.ethereum[1]).toString()
-        }       
+          1: (this.packageInfo.templateCost.ethereum[1]).toString()
+        }
       },
       arbitrum: {
         name: 'arbitrum',
@@ -307,7 +313,7 @@ export class UploadZipService implements OnModuleInit {
         smartContractAddress: this.config.get('eth.contracts.arbitrum'),
         totalAmountNFTs: nftCountARB.toString(),
         templateCost: {
-          1:(this.packageInfo.templateCost.arbitrum[1]).toString()
+          1: (this.packageInfo.templateCost.arbitrum[1]).toString()
         }
       }
     };
@@ -486,6 +492,92 @@ export class UploadZipService implements OnModuleInit {
     }
   }
 
+ 
+  public async createPinataPinnedFile(picture: Buffer): Promise<string> {
+  // public async createPinataPinnedFile(): Promise<string> {
+    // const rid = 'bafybeibpmdydk2mhbak2ffhptws24nffzrqyfeby45k4tu55udoomjkk5u';
+    // const picture: Buffer = readFileSync(`${this.pathToRids}/${rid}/${rid}/new-thumb-test.webp`);
+    // const nftInfo: NftInfo = {
+    //   network: "ethereum",
+    //   address: "0x0",
+    //   id: 1
+    // }
+
+
+    let blobPicture: Blob;
+    const pinataMetadata = JSON.stringify({
+      name: "PictureNFT",
+    });
+    const pinataOptions = JSON.stringify({
+      cidVersion: 1,
+    });
+    const JWT = this.config.get('pinata.jwt');
+
+
+    blobPicture = new Blob([picture]);
+    const formDataPicture = new FormData();
+
+    if (this.nodeVersion.startsWith('v18.')) {
+      formDataPicture.append("file", blobPicture);
+    } else if (this.nodeVersion.startsWith('v20.')) {
+      const fileBlob = new File([blobPicture], "OwnableNftPicture", { type: 'image/webp' });
+      formDataPicture.append("file", fileBlob);
+    }
+
+    formDataPicture.append("pinataMetadata", pinataMetadata);
+    formDataPicture.append("pinataOptions", pinataOptions);
+
+    const requestPicture = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${JWT}`
+      },
+      body: formDataPicture,
+    });
+    const responsePicture = await requestPicture.json();
+    // console.log(response);
+    // https://black-rigid-chickadee-743.mypinata.cloud/ipfs/bafkreierxsqjdhgs576mc76idbm2wqhzmjc4uqvalw2fkm43xzjj7247wi
+
+    const pinata_gateway_url = this.config.get('pinata.gateway');
+    // console.log("1 pinata_gateway_url", pinata_gateway_url);
+    // console.log("1 file", `${pinata_gateway_url}/ipfs/${response.IpfsHash}`);
+
+
+
+    let blobJson: Blob;
+    const jsonTest = {      
+      nftImage: `${pinata_gateway_url}/ipfs/${responsePicture.IpfsHash}`
+    }
+
+    var buf = Buffer.from(JSON.stringify(jsonTest));
+
+    blobJson = new Blob([buf]);
+    const formDataJson = new FormData();
+
+    if (this.nodeVersion.startsWith('v18.')) {
+      formDataJson.append("file", blobJson);
+    } else if (this.nodeVersion.startsWith('v20.')) {
+      const fileBlob = new File([blobJson], "OwnableNftJson", { type: 'application/json' });
+      formDataJson.append("file", fileBlob);
+    }
+
+    
+    formDataJson.append("pinataMetadata", pinataMetadata);    
+    formDataJson.append("pinataOptions", pinataOptions);
+
+    const requestJson = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${JWT}`
+      },
+      body: formDataJson,
+    });
+    const responseJson = await requestJson.json();
+    console.log("response1", responseJson);
+
+
+    return `${pinata_gateway_url}/ipfs/${responseJson.IpfsHash}`;
+  }
   private async mintNewNft(jsonFile: any, verbose: boolean): Promise<NftInfo> {
     let nftNetwork: string;
     let nftContractAddress: string;
@@ -506,17 +598,28 @@ export class UploadZipService implements OnModuleInit {
 
     // const nftOwner = jsonFile.NFT_PUBLIC_USER_WALLET_ADDRESS;
     const nftReceiverAddress = this.config.get('eth.account.obridge_wallet_address');
+
+    // const upload = await this.pinata.upload.json({
+    //   id: 2,
+    //   name: "Bob Smith",
+    //   email: "bob.smith@example.com",
+    //   age: 34,
+    //   isActive: false,
+    //   roles: ["user"]
+    // })
+    
     const nftTokenURI = jsonFile.NFT_TOKEN_URI;
+
     if (verbose) console.log("nftOwner", nftReceiverAddress);
     if (verbose) console.log("nftTokenURI", nftTokenURI);
     if (verbose) console.log("NFT_BLOCKCHAIN", jsonFile.NFT_BLOCKCHAIN);
 
-    const nftInfo:NftInfo = {
-      network: nftNetwork,    
-      address: nftContractAddress,  
+    const nftInfo: NftInfo = {
+      network: nftNetwork,
+      address: nftContractAddress,
       id: 0,  // id is not used when minting a new NFT
     };
-    
+
     const nftcount = await this.nft.mintNFT(nftReceiverAddress, nftTokenURI, nftInfo);
     if (verbose) console.log("nftcount", nftcount);
     nftInfo.id = nftcount;
@@ -586,15 +689,20 @@ export class UploadZipService implements OnModuleInit {
         await this.storeFiles(`${this.pathToRids}/${requestId}`, requestId, requestIdFiles);
         await this.storeZip(`${this.pathToRids}/${requestId}`, requestId, data);
         // Before creating the Ownable a new NFT is minted with NFT id and the user NFT input data is checked
+
+
         let nftInfo: NftInfo;
 
-        if (jsonFile.CREATE_NFT === 'true') {
+        if (jsonFile.CREATE_NFT === 'true') {          
+          const picture: Buffer = readFileSync(`${this.pathToRids}/${requestId}/${requestId}/${jsonFile.PLACEHOLDER2_IMG}`);
+          jsonFile.NFT_TOKEN_URI = await this.createPinataPinnedFile(picture);
+
           nftInfo = await this.mintNewNft(jsonFile, verbose);
           jsonFile.PLACEHOLDER1_KEYWORDS.push("hasNFT");
         } else {
           nftInfo = {
-            network: "",    
-            address: "",  
+            network: "",
+            address: "",
             id: 0, // 1, 2, 3      
           }
           jsonFile.PLACEHOLDER1_KEYWORDS.push("noNFT");
@@ -724,18 +832,18 @@ export class UploadZipService implements OnModuleInit {
 
       const nftToCidMappingFile = `${this.pathToCids}/${cid}/${nftInfo.network}_${nftInfo.address}_${nftInfo.id}_${cid}_mapped`;
       try {
-      await this.executeCommand(`touch ${nftToCidMappingFile}`);
-    } catch (err) {
-      console.log("Error executeCommand touch:", err);
-    }
+        await this.executeCommand(`touch ${nftToCidMappingFile}`);
+      } catch (err) {
+        console.log("Error executeCommand touch:", err);
+      }
       const content = await new_zip.generateAsync({ type: "uint8array" });
       if (verbose) console.log("claimFile", claimableZipFile)
       if (verbose) console.log("rid", rid)
-        try {
-      writeFileSync(claimableZipFile, content);
-    } catch (err) {
-      console.log("Error writeFileSync:", err);
-    }
+      try {
+        writeFileSync(claimableZipFile, content);
+      } catch (err) {
+        console.log("Error writeFileSync:", err);
+      }
       const claimableInfo = {
         "RID": rid.toString(),
         "CID": cid.toString(),
@@ -748,20 +856,19 @@ export class UploadZipService implements OnModuleInit {
       }
       const claimableFile = `${this.pathToUserRids}/${sender}/${rid}_claimable`;
       try {
-      writeFileSync(claimableFile, JSON.stringify(claimableInfo));
-    } catch (err) {
-      console.log("Error writeFileSync:", err);
-    }
-    try {
-      await this.executeCommand(`touch ${this.pathToRids}/${rid}/${sender}_USER`);
-    } catch (err) {
-      console.log("Error executeCommand touch:", err);
-    }
+        writeFileSync(claimableFile, JSON.stringify(claimableInfo));
+      } catch (err) {
+        console.log("Error writeFileSync:", err);
+      }
+      try {
+        await this.executeCommand(`touch ${this.pathToRids}/${rid}/${sender}_USER`);
+      } catch (err) {
+        console.log("Error executeCommand touch:", err);
+      }
 
       watcher.unwatch(fileName);
 
-      // sendOwnable(recipient: string, content?: Uint8Array);
-      // await this.sendOwnable(signer.address, content);
+      // sendOwnable(recipient: string, content?: Uint8Array);      
       await this.sendOwnable(sender, content);
 
 
@@ -773,7 +880,7 @@ export class UploadZipService implements OnModuleInit {
     if (verbose) console.log("creating directory for template", `${this.pathToRids}/${rid}/${rid}_template`);
     mkdirSync(`${this.pathToRids}/${rid}/${rid}_template`, { recursive: true });
 
-    if (verbose) console.log("copying template 1 to template directory for midification");
+    if (verbose) console.log("copying template 1 to template directory for modification");
     cpSync(`${this.pathToTemplates}/template1`, `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
     if (verbose) console.log("copying image file into template");
     cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.PLACEHOLDER2_IMG}`, `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`);

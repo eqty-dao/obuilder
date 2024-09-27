@@ -49,7 +49,16 @@ export class UploadZipController {
   //     return { "error": `${e}` };
   //   }
   // }
-
+  
+  // @Get('testPinataPin')
+  // async testPinataPin() {
+  //   try {
+  //     return await this.uploadZipService.createPinataPinnedFile();
+  //   } catch (e) {
+  //     return { error: `${e}` };
+  //   }
+  // }
+  
   @Get('isRelayServerUp')
   async isRelayServerUp() {
     try {
@@ -72,7 +81,6 @@ export class UploadZipController {
       return this.uploadZipService.isValidLtoAddress(address);      
     } catch (e) {
       return false;
-      // return { error: `${e}` };
     }
   }
   
@@ -128,7 +136,6 @@ export class UploadZipController {
       const [balanceETH, balanceARB] = await this.uploadZipService.GetServerETHBalance();
       const balanceLTO = await this.uploadZipService.getLTOAccountBalance();
       const serverLTOwallet = this.uploadZipService.getServerLTOwalletAddress()
-      // console.log("balance", balance);
       return {
         "ServerBalanceETH": balanceETH,
         "ServerBalanceARB": balanceARB,
@@ -139,24 +146,5 @@ export class UploadZipController {
       return { "error": `${e}` };
     }
   }
-
-  // @Get()
-  // findAll() {
-  //   return this.uploadZipService.findAll();
-  // }
-
-  // @Get(':id')
-  // findOne(@Param('id', ParseIntPipe) id: number) {
-  //   return this.uploadZipService.findOne(id);
-  // }
-
-  // @Patch(':id')
-  // update(@Param('id') id: string, @Body() updateUploadZipDto: UpdateUploadZipDto) {
-  //   return this.uploadZipService.update(+id, updateUploadZipDto);
-  // }
-
-  // @Delete(':id')
-  // remove(@Param('id', ParseIntPipe) id: number) {
-  //   return this.uploadZipService.remove(id);
-  // }
+ 
 }
