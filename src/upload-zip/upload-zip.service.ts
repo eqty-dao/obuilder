@@ -744,7 +744,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
     // } else {
     //   // throw ('Undefined HTTP Authentication SIGNER LTO Wallet Address!');
     // }
-
+    this.queueService.creatingOwnable(true);
 
     if (verbose) console.log("Waiting 10 seconds for a possible TX ID that needs to be populated into LTO node network...");
 
@@ -816,7 +816,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
         if (verbose) console.log(`creating template with request ID ${requestId} and modifying requestIdFiles...`);
         await this.startOwnableCreation(requestId, jsonFile, nftInfo, transactionIdData.sender, verbose);
         await this.executeCommand(`touch ${this.pathToUserRids}/${transactionIdData.sender}/${requestId}_startet`);
-        this.queueService.creatingOwnable(true);
+        
       }
       else {
         console.log(`Request ID for this Ownable create request does already exist: ${requestId}`);
