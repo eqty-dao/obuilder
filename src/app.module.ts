@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UploadZipModule } from './upload-zip/upload-zip.module';
+import { QueueService } from './services/Queue.service';
 // import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { LtoModule } from './common/lto/lto.module';
@@ -13,7 +14,7 @@ import { LtoModule } from './common/lto/lto.module';
     LtoModule, 
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, QueueService],
 })
 export class AppModule {
   // constructor(private dataSource: DataSource) { }

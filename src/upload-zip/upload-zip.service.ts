@@ -1,4 +1,4 @@
-import { Inject, Injectable, OnModuleInit, StreamableFile } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 
 import { rmSync, cpSync, mkdirSync, readFileSync, writeFileSync, readdirSync, createWriteStream, createReadStream } from 'fs';
 import { ConfigService } from '../common/config/config.service';
@@ -23,15 +23,19 @@ import { Blob } from 'buffer';
 // import { stringify } from 'querystring';
 // import sendFile from '../services/relayhelper.service';
 import { PinataSDK } from "pinata";
+import { QueueService } from 'src/services/Queue.service';
 
 @Injectable()
-export class UploadZipService implements OnModuleInit {
+export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
   private pathToRids: string;
   private pathToCids: string;
   private pathToUserRids: string;
   private pathToUsedTxids: string;
   private pathToTemplates: string;
   private packageInfo: any;
+  private intervalId: NodeJS.Timeout;
+  private queueBusyTimer: number = 0;
+  private queueCurrentlyProcessedRequestId: string = "";
   private lto = new LTO(this.config.get('lto.networkId'));
   private readonly _ltoAccount?: Account = this.lto.account({ seed: this.config.get('lto.account.seed') });
   public readonly networkId = this.lto.networkId;
@@ -46,6 +50,7 @@ export class UploadZipService implements OnModuleInit {
     private readonly config: ConfigService,
     // private readonly zip: JSZip,
     private nft: NFTService,
+    private readonly queueService: QueueService,
     @Inject('IPFS') private readonly ipfs: IPFS,
   ) { }
 
@@ -62,6 +67,16 @@ export class UploadZipService implements OnModuleInit {
     mkdirSync(this.pathToUsedTxids, { recursive: true });
     // console.log("NODE", this.config.get('lto.node'));
     // console.log("NODE_ENV", this.config.get('env'));
+    this.intervalId = setInterval(() => {
+      this.checkQueueStatus();
+    }, 10000); // 10000 ms = 10 seconds
+  }
+    
+  // Stop the interval when the application shuts down
+  onModuleDestroy() {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+    }
   }
 
   public async GetServerETHBalance(): Promise<[string, string]> {
@@ -626,18 +641,109 @@ export class UploadZipService implements OnModuleInit {
     return nftInfo;
 
   }
-  private wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
-
-  // 1) unzip user input zip file into memory
-  // 2) 
-  public async store(data: Uint8Array, templateId: number, signer?: Account, verbose?: boolean): Promise<string> {
-
+  public async queueRequest(uint8ArrayData: Uint8Array, templateId: number, signer?: Account, verbose?: boolean): Promise<any> {
+    // TODO: adding signed request and reading info from Header inside controller logic
     console.log("HTTP Authentication SIGNER: ", signer);
     if (typeof signer !== 'undefined') {
       console.log("HTTP Authentication SIGNER LTO ADDRESS: ", signer.address);
     } else {
       // throw ('Undefined HTTP Authentication SIGNER LTO Wallet Address!');
     }
+    
+    if(!this.queueService.isQueueingAllowed) {
+      throw ('Queueing of new Requests currently disabled!');
+    }
+
+    if (verbose) console.log("unzipping user input file into memory...");
+    const requestIdFiles = await this.unzip(uint8ArrayData);
+    console.log("requestIdFiles", requestIdFiles);
+
+    if (verbose) console.log("getting request ID of input requestIdFiles...");
+    const requestId: string = await this.getUniqueId(requestIdFiles);
+    
+    this.queueService.enqueue(requestId, uint8ArrayData);
+    
+    
+
+    return {
+      REQUEST_ID: requestId, // res.status(201).json({ file: file.originalname })
+    };
+    
+  }
+
+  public getQueueRequestIDs(): String[] {
+    const isEmpty = this.queueService.isQueueEmpty();
+    if (isEmpty) {
+      return [];
+    }else {
+      return this.queueService.getRequestIdList();
+    }
+  }
+  private async checkQueueStatus() {
+    const isEmpty = this.queueService.isQueueEmpty();
+    if (isEmpty) {
+      console.log('Queue is empty.');          
+      this.queueCurrentlyProcessedRequestId = "";
+      this.queueService.creatingOwnable(false);
+    } else {
+      console.log('Queue is not empty.');
+      const [requestId, data] = this.queueService.dequeue();
+
+      if(!this.queueService.isCreatingOwnable) {
+        this.queueBusyTimer=0;
+        this.queueCurrentlyProcessedRequestId = requestId.toString();
+        await this.store(data, 1, true);
+      } 
+    }
+
+    if(this.queueService.isCreatingOwnable) {
+      this.queueBusyTimer+=1;
+    }
+
+    const queueingAllowed=this.config.get('lto.queue');
+    this.queueService.allowQueueing(queueingAllowed);
+    
+    
+    // this check is only required in case the Ownable creation fails for some reason and isCreatingOwnable is still true 
+    if(this.queueBusyTimer >= 30) { // 10 sec * 30 = 5 Minutes
+      this.queueService.creatingOwnable(false);
+      this.queueBusyTimer=0;
+      this.queueCurrentlyProcessedRequestId = "";
+    }
+  }
+
+  public queueStatus(): any {
+    let isOwnableBeingBuild:boolean = false;
+    let isQueueingAllowed:boolean;
+    let currentlyProcessedRequestId = "";
+
+    if(this.queueService.isCreatingOwnable) {
+      isOwnableBeingBuild=true;
+      currentlyProcessedRequestId = this.queueCurrentlyProcessedRequestId;
+    }
+    isQueueingAllowed = this.queueService.isQueueingAllowed();
+    const timeElapsed = this.queueBusyTimer * 10; // queueBusytimer is increased each 10 seconds by one
+    return {
+      CREATING_OWNABLE: isOwnableBeingBuild,
+      REQUEST_ID: currentlyProcessedRequestId.toString(),
+      QUEUEING_ALLOWED: isQueueingAllowed,
+      TIME_ELAPSED: timeElapsed.toString()
+    };
+  }
+  
+
+  private wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
+
+  // 1) unzip user input zip file into memory
+  // 2) 
+  public async store(data: Uint8Array, templateId: number, verbose?: boolean): Promise<string> {
+
+    // console.log("HTTP Authentication SIGNER: ", signer);
+    // if (typeof signer !== 'undefined') {
+    //   console.log("HTTP Authentication SIGNER LTO ADDRESS: ", signer.address);
+    // } else {
+    //   // throw ('Undefined HTTP Authentication SIGNER LTO Wallet Address!');
+    // }
 
 
     if (verbose) console.log("Waiting 10 seconds for a possible TX ID that needs to be populated into LTO node network...");
@@ -708,8 +814,9 @@ export class UploadZipService implements OnModuleInit {
           jsonFile.PLACEHOLDER1_KEYWORDS.push("noNFT");
         }
         if (verbose) console.log(`creating template with request ID ${requestId} and modifying requestIdFiles...`);
-        await this.startOwnableCreation(requestId, jsonFile, nftInfo, transactionIdData.sender, signer, verbose);
+        await this.startOwnableCreation(requestId, jsonFile, nftInfo, transactionIdData.sender, verbose);
         await this.executeCommand(`touch ${this.pathToUserRids}/${transactionIdData.sender}/${requestId}_startet`);
+        this.queueService.creatingOwnable(true);
       }
       else {
         console.log(`Request ID for this Ownable create request does already exist: ${requestId}`);
@@ -754,7 +861,7 @@ export class UploadZipService implements OnModuleInit {
   }
 
 
-  private async watchFileCreation(fileName: string, jsonFile: any, nftInfo: NftInfo, sender: string, signer: Account, rid: string, verbose: boolean) {
+  private async watchFileCreation(fileName: string, jsonFile: any, nftInfo: NftInfo, sender: string, rid: string, verbose: boolean) {
     if (verbose) console.log("watching for file creation ", fileName);
     const watcher = chokidar.watch(fileName).on('add', async (event, path1) => {
       if (verbose) console.log("Watcher: created Ownable Zip File done:", event);
@@ -870,13 +977,13 @@ export class UploadZipService implements OnModuleInit {
 
       // sendOwnable(recipient: string, content?: Uint8Array);      
       await this.sendOwnable(sender, content);
-
+      this.queueService.creatingOwnable(false);
 
     });
   }
 
 
-  private async startOwnableCreation(rid: string, jsonFile: any, nftInfo: NftInfo, sender: string, signer: Account, verbose: boolean) {
+  private async startOwnableCreation(rid: string, jsonFile: any, nftInfo: NftInfo, sender: string, verbose: boolean) {
     if (verbose) console.log("creating directory for template", `${this.pathToRids}/${rid}/${rid}_template`);
     mkdirSync(`${this.pathToRids}/${rid}/${rid}_template`, { recursive: true });
 
@@ -937,7 +1044,7 @@ export class UploadZipService implements OnModuleInit {
     if (verbose) console.log("Building Ownable...");
     await this.executeCommand(`npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}`);
     if (verbose) console.log("Starting file watcher for zip file:", `ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`);
-    await this.watchFileCreation(`ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, signer, rid, verbose);
+    await this.watchFileCreation(`ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, rid, verbose);
 
     if (verbose) console.log("Ownable creation startet. Waiting for Zip File to be created...");
 

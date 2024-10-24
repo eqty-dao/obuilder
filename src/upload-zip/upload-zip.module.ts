@@ -7,6 +7,7 @@ import { JszipModule } from '../common/jszip/jszip.module';
 import { HttpModule } from '@nestjs/axios';
 import { LtoModule } from 'src/common/lto/lto.module';
 import { NFTModule } from 'src/nft/nft.module';
+import { QueueService } from 'src/services/Queue.service';
 
 
 @Module({
@@ -23,8 +24,8 @@ import { NFTModule } from 'src/nft/nft.module';
       })
     }),
   ],
-  providers: [UploadZipService],
+  providers: [UploadZipService, QueueService],
   controllers: [UploadZipController],
-  exports: [UploadZipService],
+  exports: [UploadZipService, QueueService],
 })
 export class UploadZipModule { }

@@ -51,6 +51,10 @@ export default {
       default: '',
       env: 'LOCAL_RELAY_SERVER',
     },
+    queue: {
+      default: true,
+      env: 'QUEUEING_ALLOWED',
+    }
   },
   eth: {
     account: {
