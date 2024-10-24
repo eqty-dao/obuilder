@@ -687,9 +687,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
       this.queueService.creatingOwnable(false);
     } else {
       console.log('Queue is not empty.');
-      const [requestId, data] = this.queueService.dequeue();
-
+      
       if(!this.queueService.isCreatingOwnable) {
+        const [requestId, data] = this.queueService.dequeue();
         this.queueBusyTimer=0;
         this.queueCurrentlyProcessedRequestId = requestId.toString();
         await this.store(data, 1, true);
