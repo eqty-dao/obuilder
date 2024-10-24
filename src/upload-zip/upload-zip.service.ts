@@ -650,7 +650,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
       // throw ('Undefined HTTP Authentication SIGNER LTO Wallet Address!');
     }
     
-    if(!this.queueService.isQueueingAllowed) {
+    if(!this.queueService.isQueueingAllowed()) {
       throw ('Queueing of new Requests currently disabled!');
     }
 
@@ -688,7 +688,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
     } else {
       console.log('Queue is not empty.');
       
-      if(!this.queueService.isCreatingOwnable) {
+      if(!this.queueService.isCreatingOwnable()) {
         const [requestId, data] = this.queueService.dequeue();
         this.queueBusyTimer=0;
         this.queueCurrentlyProcessedRequestId = requestId.toString();
@@ -696,7 +696,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
       } 
     }
 
-    if(this.queueService.isCreatingOwnable) {
+    if(this.queueService.isCreatingOwnable()) {
       this.queueBusyTimer+=1;
     }
 
@@ -717,7 +717,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
     let isQueueingAllowed:boolean;
     let currentlyProcessedRequestId = "";
 
-    if(this.queueService.isCreatingOwnable) {
+    if(this.queueService.isCreatingOwnable()) {
       isOwnableBeingBuild=true;
       currentlyProcessedRequestId = this.queueCurrentlyProcessedRequestId;
     }
