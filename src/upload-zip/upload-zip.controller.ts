@@ -51,29 +51,29 @@ export class UploadZipController {
     return res.status(500).send(`Unexpected error: ${err.message}`);
   }
   @Get('getQueueRequestIDs')
-  getQueueRequestIDs(@Res() res: Response) {
+  getQueueRequestIDs() {
     const retVal = this.uploadZipService.getQueueRequestIDs();
-    return res.status(201).json({QueueRequestIDs: retVal});
+    return {QueueRequestIDs: retVal};
   }
   @Get('getQueueStatus')
-  getQueueStatus(@Res() res: Response) {
+  getQueueStatus() {
     const retVal = this.uploadZipService.queueStatus();    
-    return res.status(201).json(retVal);
+    return retVal;
   }
   @Get('isRelayServerUp')
-  async isRelayServerUp(@Res() res: Response) {
+  async isRelayServerUp() {
     try {
       return await this.uploadZipService.isRelayServerUp();
     } catch (err) {
-      return this.errorResponse(res, err);
+      return { "error": `${err}` };
     }
   }
   @Get('isEVMAddress')
-  isEVMAddress(@Query('address') address: string, @Res() res: Response) {
+  isEVMAddress(@Query('address') address: string) {
     try {
       return this.uploadZipService.isEVMAddress(address);      
     } catch (err) {
-      return this.errorResponse(res, err);
+      return { "error": `${err}` };
     }
   }
   @Get('isLTOAddress')
@@ -86,30 +86,30 @@ export class UploadZipController {
   }
   
   @Get('availableChains')
-  async GetAvailableNftChains(@Res() res: Response) {
+  async GetAvailableNftChains() {
     try {
       return await this.uploadZipService.getAvailableNftChains();
     } catch (err) {
-      return this.errorResponse(res, err);
+      return { "error": `${err}` };
     }
   }
   @Get('requestIDs')
-  async getRequestIDs(@Res() res: Response,@Query('ltoUserAddress') ltoUserAddress?: string) {
+  async getRequestIDs(@Query('ltoUserAddress') ltoUserAddress?: string) {
 
     try {
       return await this.uploadZipService.getClaimableRequestIDs(ltoUserAddress)
     } catch (err) {
-      return this.errorResponse(res, err);
+      return { "error": `${err}` };
     }
 
   }
   //needs additional Query parameter to get different costs for template 1,2,3...
   @Get('templateCost')
-  templateCost(@Query('templateId') templateId: number, @Res() res: Response) {
+  templateCost(@Query('templateId') templateId: number) {
     try {
       return this.uploadZipService.templateCost(templateId);
     } catch (err) {
-      return this.errorResponse(res, err);
+      return { "error": `${err}` };
     }
   }
 
@@ -123,16 +123,16 @@ export class UploadZipController {
   // }
 
   @Get('ServerWalletAddressLTO')
-  serverWalletAddressLTO(@Res() res: Response) {
+  serverWalletAddressLTO() {
     try {
       return { "serverWalletAddressLTO": `${this.uploadZipService.getServerLTOwalletAddress()}` }
     } catch (err) {
-      return this.errorResponse(res, err);
+      return { "error": `${err}` };
     }
   }
 
   @Get('GetServerInfo')
-  async GetServerInfo(@Res() res: Response) {
+  async GetServerInfo() {
     try {
       const [balanceETH, balanceARB] = await this.uploadZipService.GetServerETHBalance();
       const balanceLTO = await this.uploadZipService.getLTOAccountBalance();
@@ -144,7 +144,7 @@ export class UploadZipController {
         "serverLTOwalletAddress": serverLTOwallet
       };
     } catch (err) {
-      return this.errorResponse(res, err);
+      return { "error": `${err}` };
     }
   }
  
