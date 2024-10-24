@@ -3,6 +3,6 @@ services:
     container_name: obuilder
     build: .
     ports:
-      - '80:3000'
+      - '3000:3000'
     env_file:
       - .env
