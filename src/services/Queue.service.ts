@@ -3,13 +3,13 @@ import { Injectable } from '@nestjs/common';
 @Injectable()
 export class QueueService {
   private queueData: Uint8Array[] = [];
-  private queueRequestId: String[] = [];
+  private queueRequestId: string[] = [];
   private isCreating: boolean = false;
   private isQueueing: boolean = true;
 
   // Enqueue a new Uint8Array to the queue
-  enqueue(requestId: String, data: Uint8Array) {
-    if ((requestId instanceof String) && (data instanceof Uint8Array)) {
+  enqueue(requestId: string, data: Uint8Array) {
+    if (data instanceof Uint8Array) {
       this.queueData.push(data);
       this.queueRequestId.push(requestId);
     } else {
@@ -18,7 +18,7 @@ export class QueueService {
   }
 
   // Dequeue and process the Uint8Array data
-  dequeue(): [String, Uint8Array] | [null, null] {
+  dequeue(): [string, Uint8Array] | [null, null] {
     if (this.queueData.length > 0) {
       const data = this.queueData.shift(); // Remove the first item
       const requestId = this.queueRequestId.shift(); // Remove the first item
@@ -30,11 +30,11 @@ export class QueueService {
     }
   }
 
-  getRequestIdList(): String[] {
+  getRequestIdList(): string[] {
     return this.queueRequestId;
   }
 
-  isQueueEmpty(): Boolean {
+  isQueueEmpty(): boolean {
     return this.queueData.length === 0;    
   }
   creatingOwnable(status: boolean): void {

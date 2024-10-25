@@ -666,12 +666,12 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
     
 
     return {
-      REQUEST_ID: requestId, // res.status(201).json({ file: file.originalname })
+      REQUEST_ID: requestId
     };
     
   }
 
-  public getQueueRequestIDs(): String[] {
+  public getQueueRequestIDs(): string[] {
     const isEmpty = this.queueService.isQueueEmpty();
     if (isEmpty) {
       return [];
@@ -682,13 +682,14 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
   private async checkQueueStatus() {
     const isEmpty = this.queueService.isQueueEmpty();
     if (isEmpty) {
-      console.log('Queue is empty.');          
-      this.queueCurrentlyProcessedRequestId = "";
-      this.queueService.creatingOwnable(false);
+      console.log('Queue is empty.');                
     } else {
       console.log('Queue is not empty.');
       
       if(!this.queueService.isCreatingOwnable()) {
+        console.log("Waiting 10 seconds for a possible TX ID that needs to be populated into LTO node network...");
+        await this.wait(10000);
+
         const [requestId, data] = this.queueService.dequeue();
         this.queueBusyTimer=0;
         this.queueCurrentlyProcessedRequestId = requestId.toString();
@@ -736,7 +737,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
 
   // 1) unzip user input zip file into memory
   // 2) 
-  public async store(data: Uint8Array, templateId: number, verbose?: boolean): Promise<string> {
+  public async store(data: Uint8Array, templateId: number, verbose?: boolean) {
 
     // console.log("HTTP Authentication SIGNER: ", signer);
     // if (typeof signer !== 'undefined') {
@@ -745,10 +746,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
     //   // throw ('Undefined HTTP Authentication SIGNER LTO Wallet Address!');
     // }
     this.queueService.creatingOwnable(true);
-
-    if (verbose) console.log("Waiting 10 seconds for a possible TX ID that needs to be populated into LTO node network...");
-
-    await this.wait(10000);
+    
     try {
       // console.log("data", data);
       if (verbose) console.log("unzipping user input file into memory...");
@@ -759,7 +757,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
       const requestId: string = await this.getUniqueId(requestIdFiles);
       if (verbose) console.log("Unique request ID:", requestId);
 
-      if (!(await this.existsRid(requestId))) {
+      // if (!(await this.existsRid(requestId))) {
         if (verbose) console.log("checking for userOwnable.json existance...");
         if (!requestIdFiles.has('ownableData.json')) throw new Error("Invalid package: 'ownableData.json' is missing");
 
@@ -817,13 +815,13 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
         await this.startOwnableCreation(requestId, jsonFile, nftInfo, transactionIdData.sender, verbose);
         await this.executeCommand(`touch ${this.pathToUserRids}/${transactionIdData.sender}/${requestId}_startet`);
         
-      }
-      else {
-        console.log(`Request ID for this Ownable create request does already exist: ${requestId}`);
-      }
+      // }
+      // else {
+      //   console.log(`Request ID for this Ownable create request does already exist: ${requestId}`);
+      // }
 
 
-      return requestId;
+      // return requestId;
 
     } catch (err) {
       throw (err);
