@@ -5,27 +5,29 @@ import { ConfigModule } from '../common/config/config.module';
 import { IpfsModule } from '../common/ipfs/ipfs.module';
 import { JszipModule } from '../common/jszip/jszip.module';
 import { HttpModule } from '@nestjs/axios';
-import { LtoModule } from 'src/common/lto/lto.module';
-import { NFTModule } from 'src/nft/nft.module';
-import { QueueService } from 'src/services/Queue.service';
-
+import { LtoModule } from '../common/lto/lto.module';
+import { NFTModule } from '../nft/nft.module';
+import { QueueService } from '../services/Queue.service';
+import { InfoService } from '../info/info.service';
+import { InfoModule } from '../info/info.module';
 
 @Module({
   imports: [
-    ConfigModule, 
-    IpfsModule, 
-    JszipModule, 
+    ConfigModule,
+    IpfsModule,
+    JszipModule,
     LtoModule,
+    InfoModule,
     NFTModule,
     HttpModule.registerAsync({
       useFactory: () => ({
         timeout: 50000,
         maxRedirects: 5,
-      })
+      }),
     }),
   ],
-  providers: [UploadZipService, QueueService],
+  providers: [UploadZipService, QueueService, InfoService],
   controllers: [UploadZipController],
   exports: [UploadZipService, QueueService],
 })
-export class UploadZipModule { }
+export class UploadZipModule {}

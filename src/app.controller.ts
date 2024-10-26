@@ -8,11 +8,11 @@ import { InfoDto } from './info-app.dto';
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  @Get()
-  @ApiExcludeEndpoint()
-  root(@Res() res: Response): void {
-    res.redirect('/api');
-  }
+  // @Get()
+  // @ApiExcludeEndpoint()
+  // root(@Res() res: Response): void {
+  //   res.redirect('/api/v1');
+  // }
 
   @Get('info')
   getInfo(@Query('text') text: string, @Query('name') name: string): InfoDto {

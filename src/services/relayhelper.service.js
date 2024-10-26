@@ -3,7 +3,7 @@
 //relay service .ts file
 
 //import { lto } from "./Relay.service";
-const { Message } = require("@ltonetwork/lto");
+const { Message } = require('@ltonetwork/lto');
 
 export default async function sendFile(relay, content, sender, recipient) {
   try {
