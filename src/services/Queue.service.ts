@@ -26,7 +26,7 @@ export class QueueService {
       return [requestId, data];
     } else {
       console.log('Queue is empty');
-      return null;
+      return [null, null];
     }
   }
 
