@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 export class QueueService {
   private queueData: Uint8Array[] = [];
   private queueRequestId: string[] = [];
+  private queueSentRequestIds: string[] = [];
   private isCreating: boolean = false;
   private isQueueing: boolean = true;
 
@@ -30,6 +31,16 @@ export class QueueService {
     }
   }
 
+  addSentRequestId(requestId: string) {
+    this.queueSentRequestIds.push(requestId); // Add last item
+    if(this.queueSentRequestIds.length > 10) {
+      this.queueSentRequestIds.shift(); // Remove the first item
+    }
+  }
+  getSentRequestIdsList(): string[] {
+    return this.queueSentRequestIds;
+  }
+  
   getRequestIdList(): string[] {
     return this.queueRequestId;
   }

@@ -26,7 +26,7 @@ import { PinataSDK } from "pinata";
 import { QueueService } from 'src/services/Queue.service';
 
 @Injectable()
-export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
+export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   private pathToRids: string;
   private pathToCids: string;
   private pathToUserRids: string;
@@ -67,11 +67,16 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
     mkdirSync(this.pathToUsedTxids, { recursive: true });
     // console.log("NODE", this.config.get('lto.node'));
     // console.log("NODE_ENV", this.config.get('env'));
-    this.intervalId = setInterval(() => {
-      this.checkQueueStatus();
+    this.intervalId = setInterval(async () => {
+      try {
+        await this.checkQueueStatus();
+      }
+      catch (err) {
+        console.log(`ERROR QUEUE STATUS: ${err}`);
+      }
     }, 10000); // 10000 ms = 10 seconds
   }
-    
+
   // Stop the interval when the application shuts down
   onModuleDestroy() {
     if (this.intervalId) {
@@ -123,6 +128,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
         return;
       }
       await relay.send(message);
+
     } catch {
       return true;
     }
@@ -160,8 +166,6 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
     }
   }
   public async sendOwnable(recipient: string, content?: Uint8Array) {
-
-
     const relayURL = this.getRelayUrl();
 
     // console.log("relayURL:", `${relayURL}`);
@@ -358,59 +362,59 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
     return cids;
   }
 
-  async getClaimableRequestIDs(ltoUserAddress: string): Promise<JSON[]> {
-    let requestIDs: JSON[] = new Array();
+  // async getClaimableRequestIDs(ltoUserAddress: string): Promise<JSON[]> {
+  //   let requestIDs: JSON[] = new Array();
 
-    if (!(await fileExists(`${this.pathToUserRids}/${ltoUserAddress}`))) {
-      throw (`No entries for LTO user address: ${ltoUserAddress}`);
-    }
+  //   if (!(await fileExists(`${this.pathToUserRids}/${ltoUserAddress}`))) {
+  //     throw (`No entries for LTO user address: ${ltoUserAddress}`);
+  //   }
 
-    try {
-      console.log(`Fetching available request IDs for LTO user address: ${ltoUserAddress}`)
-      const files = readdirSync(`${this.pathToUserRids}/${ltoUserAddress}/`);
+  //   try {
+  //     console.log(`Fetching available request IDs for LTO user address: ${ltoUserAddress}`)
+  //     const files = readdirSync(`${this.pathToUserRids}/${ltoUserAddress}/`);
 
-      files.forEach(file => {
-        if (file.match(/_claimable$/g)) {
-          requestIDs.push(JSON.parse(readFileSync(`${this.pathToUserRids}/${ltoUserAddress}/${file}`).toString()));
-        }
-      })
-    } catch (err) {
-      console.log(err);
-    }
-    return requestIDs;
-  }
+  //     files.forEach(file => {
+  //       if (file.match(/_claimable$/g)) {
+  //         requestIDs.push(JSON.parse(readFileSync(`${this.pathToUserRids}/${ltoUserAddress}/${file}`).toString()));
+  //       }
+  //     })
+  //   } catch (err) {
+  //     console.log(err);
+  //   }
+  //   return requestIDs;
+  // }
 
-  async getRequestIDs(ltoUserAddress?: string): Promise<string[]> {
-    let requestIDs: string[] = new Array();
+  // async getRequestIDs(ltoUserAddress?: string): Promise<string[]> {
+  //   let requestIDs: string[] = new Array();
 
-    if (ltoUserAddress === undefined) { // TODO: this should be removed.. actually only the http signer should be allowed!
-      console.log("No LTO user address specified. Fetching all available request IDs on server")
-      try {
-        const files = readdirSync(`${this.pathToRids}/`);
-        files.forEach(file => {
-          requestIDs.push(file)
-        })
-      } catch (err) {
-        console.log(err);
-      }
-    } else {
-      try {
-        if (!(await fileExists(`${this.pathToUserRids}/${ltoUserAddress}`))) {
-          throw (`No entries for LTO user address: ${ltoUserAddress}`);
-        }
-        console.log(`Fetching available request IDs for LTO user address: ${ltoUserAddress}`)
-        const files = readdirSync(`${this.pathToUserRids}/${ltoUserAddress}/`);
-        files.forEach(file => {
-          if (file.match(/_startet$/g)) {
-            requestIDs.push(file.replace("_startet", ""))
-          }
-        })
-      } catch (err) {
-        console.log(err);
-      }
-    }
-    return requestIDs;
-  }
+  //   if (ltoUserAddress === undefined) { // TODO: this should be removed.. actually only the http signer should be allowed!
+  //     console.log("No LTO user address specified. Fetching all available request IDs on server")
+  //     try {
+  //       const files = readdirSync(`${this.pathToRids}/`);
+  //       files.forEach(file => {
+  //         requestIDs.push(file)
+  //       })
+  //     } catch (err) {
+  //       console.log(err);
+  //     }
+  //   } else {
+  //     try {
+  //       if (!(await fileExists(`${this.pathToUserRids}/${ltoUserAddress}`))) {
+  //         throw (`No entries for LTO user address: ${ltoUserAddress}`);
+  //       }
+  //       console.log(`Fetching available request IDs for LTO user address: ${ltoUserAddress}`)
+  //       const files = readdirSync(`${this.pathToUserRids}/${ltoUserAddress}/`);
+  //       files.forEach(file => {
+  //         if (file.match(/_startet$/g)) {
+  //           requestIDs.push(file.replace("_startet", ""))
+  //         }
+  //       })
+  //     } catch (err) {
+  //       console.log(err);
+  //     }
+  //   }
+  //   return requestIDs;
+  // }
 
   private async createEventChain(pkg: TypedPackage, nftInfo: NftInfo, sender: string): Promise<Buffer> {
     const chain = new EventChain(this._ltoAccount);
@@ -507,9 +511,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
     }
   }
 
- 
+
   public async createPinataPinnedFile(picture: Buffer): Promise<string> {
-  // public async createPinataPinnedFile(): Promise<string> {
+    // public async createPinataPinnedFile(): Promise<string> {
     // const rid = 'bafybeibpmdydk2mhbak2ffhptws24nffzrqyfeby45k4tu55udoomjkk5u';
     // const picture: Buffer = readFileSync(`${this.pathToRids}/${rid}/${rid}/new-thumb-test.webp`);
     // const nftInfo: NftInfo = {
@@ -560,7 +564,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
 
 
     let blobJson: Blob;
-    const jsonTest = {      
+    const jsonTest = {
       nftImage: `${pinata_gateway_url}/ipfs/${responsePicture.IpfsHash}`
     }
 
@@ -576,8 +580,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
       formDataJson.append("file", fileBlob);
     }
 
-    
-    formDataJson.append("pinataMetadata", pinataMetadata);    
+
+    formDataJson.append("pinataMetadata", pinataMetadata);
     formDataJson.append("pinataOptions", pinataOptions);
 
     const requestJson = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
@@ -622,7 +626,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
     //   isActive: false,
     //   roles: ["user"]
     // })
-    
+
     const nftTokenURI = jsonFile.NFT_TOKEN_URI;
 
     if (verbose) console.log("nftOwner", nftReceiverAddress);
@@ -642,6 +646,16 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
 
   }
   public async queueRequest(uint8ArrayData: Uint8Array, templateId: number, signer?: Account, verbose?: boolean): Promise<any> {
+
+    const relayURL = this.getRelayUrl();
+    const isUp: boolean = await this.isRelayUp(relayURL);
+    if (isUp) {
+      if (verbose) console.log(`oRelay Server ${relayURL} is up and running!`);
+    }
+    else {
+      throw new Error(`Error: oRelay Server ${relayURL} is down`);
+    }
+
     // TODO: adding signed request and reading info from Header inside controller logic
     console.log("HTTP Authentication SIGNER: ", signer);
     if (typeof signer !== 'undefined') {
@@ -649,8 +663,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
     } else {
       // throw ('Undefined HTTP Authentication SIGNER LTO Wallet Address!');
     }
-    
-    if(!this.queueService.isQueueingAllowed()) {
+
+    if (!this.queueService.isQueueingAllowed()) {
       throw ('Queueing of new Requests currently disabled!');
     }
 
@@ -660,66 +674,84 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
 
     if (verbose) console.log("getting request ID of input requestIdFiles...");
     const requestId: string = await this.getUniqueId(requestIdFiles);
-    
+
     this.queueService.enqueue(requestId, uint8ArrayData);
-    
-    
+
+
 
     return {
       REQUEST_ID: requestId
     };
-    
+
   }
 
   public getQueueRequestIDs(): string[] {
     const isEmpty = this.queueService.isQueueEmpty();
     if (isEmpty) {
       return [];
-    }else {
+    } else {
       return this.queueService.getRequestIdList();
     }
   }
   private async checkQueueStatus() {
+
     const isEmpty = this.queueService.isQueueEmpty();
     if (isEmpty) {
-      console.log('Queue is empty.');                
+      // console.log('Queue is empty.');
     } else {
-      console.log('Queue is not empty.');
-      
-      if(!this.queueService.isCreatingOwnable()) {
-        console.log("Waiting 10 seconds for a possible TX ID that needs to be populated into LTO node network...");
-        await this.wait(10000);
+      // console.log('Queue is not empty.');
 
-        const [requestId, data] = this.queueService.dequeue();
-        this.queueBusyTimer=0;
-        this.queueCurrentlyProcessedRequestId = requestId.toString();
-        await this.store(data, 1, true);
-      } 
+      if (!this.queueService.isCreatingOwnable()) {
+        try {
+          const relayURL = this.getRelayUrl();
+          const isUp: boolean = await this.isRelayUp(relayURL);
+          if (isUp) {
+            // console.log(`oRelay Server ${relayURL} is up and running!`);
+            // console.log("Waiting 10 seconds for a possible TX ID that needs to be populated into LTO node network...");
+            await this.wait(10000);
+
+            const [requestId, data] = this.queueService.dequeue();
+            if (requestId != null && data != null) {
+              this.queueBusyTimer = 0;
+              this.queueCurrentlyProcessedRequestId = requestId.toString();
+              await this.store(data, 1, true);
+            }
+          }
+          else {
+            throw new Error(`Error: oRelay Server ${relayURL} is down`);
+          }
+        } catch (err) {
+          throw new Error(`Error: ${err}`);
+        }
+      }
     }
 
-    if(this.queueService.isCreatingOwnable()) {
-      this.queueBusyTimer+=1;
+    if (this.queueService.isCreatingOwnable()) {
+      this.queueBusyTimer += 1;
     }
 
-    const queueingAllowed=this.config.get('lto.queue');
+    const queueingAllowed = this.config.get('lto.queue');
     this.queueService.allowQueueing(queueingAllowed);
-    
-    
+
+
     // this check is only required in case the Ownable creation fails for some reason and isCreatingOwnable is still true 
-    if(this.queueBusyTimer >= 30) { // 10 sec * 30 = 5 Minutes
+    if (this.queueBusyTimer >= 30) { // 10 sec * 30 = 5 Minutes
       this.queueService.creatingOwnable(false);
-      this.queueBusyTimer=0;
+      this.queueBusyTimer = 0;
       this.queueCurrentlyProcessedRequestId = "";
     }
   }
 
+  public getSentRequestIdsList(): string[] {
+    return this.queueService.getSentRequestIdsList();
+  }
   public queueStatus(): any {
-    let isOwnableBeingBuild:boolean = false;
-    let isQueueingAllowed:boolean;
+    let isOwnableBeingBuild: boolean = false;
+    let isQueueingAllowed: boolean;
     let currentlyProcessedRequestId = "";
 
-    if(this.queueService.isCreatingOwnable()) {
-      isOwnableBeingBuild=true;
+    if (this.queueService.isCreatingOwnable()) {
+      isOwnableBeingBuild = true;
       currentlyProcessedRequestId = this.queueCurrentlyProcessedRequestId;
     }
     isQueueingAllowed = this.queueService.isQueueingAllowed();
@@ -731,7 +763,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
       TIME_ELAPSED: timeElapsed.toString()
     };
   }
-  
+
 
   private wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
 
@@ -746,7 +778,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
     //   // throw ('Undefined HTTP Authentication SIGNER LTO Wallet Address!');
     // }
     this.queueService.creatingOwnable(true);
-    
+
     try {
       // console.log("data", data);
       if (verbose) console.log("unzipping user input file into memory...");
@@ -758,70 +790,63 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
       if (verbose) console.log("Unique request ID:", requestId);
 
       // if (!(await this.existsRid(requestId))) {
-        if (verbose) console.log("checking for userOwnable.json existance...");
-        if (!requestIdFiles.has('ownableData.json')) throw new Error("Invalid package: 'ownableData.json' is missing");
+      if (verbose) console.log("checking for userOwnable.json existance...");
+      if (!requestIdFiles.has('ownableData.json')) throw new Error("Invalid package: 'ownableData.json' is missing");
 
-        if (verbose) console.log("reading JSON info data from zip for Ownable modification...");
-        const jsonFile = await this.readOwnableDataFromZip(requestIdFiles);
-        if (verbose) console.log("ownableData.json", jsonFile);
-        if (jsonFile.CREATE_NFT === 'true') {
-          if (!(jsonFile.NFT_BLOCKCHAIN === 'arbitrum') && !(jsonFile.NFT_BLOCKCHAIN === 'ethereum')) {
-            throw new Error(`Error: Unsupported network: ${jsonFile.NFT_BLOCKCHAIN}`);
-          }
-        } else {
-          jsonFile.NFT_BLOCKCHAIN = 'noNFT';
+      if (verbose) console.log("reading JSON info data from zip for Ownable modification...");
+      const jsonFile = await this.readOwnableDataFromZip(requestIdFiles);
+      if (verbose) console.log("ownableData.json", jsonFile);
+      if (jsonFile.CREATE_NFT === 'true') {
+        if (!(jsonFile.NFT_BLOCKCHAIN === 'arbitrum') && !(jsonFile.NFT_BLOCKCHAIN === 'ethereum')) {
+          throw new Error(`Error: Unsupported network: ${jsonFile.NFT_BLOCKCHAIN}`);
         }
-        if (verbose) console.log("LTO ACCOUNT:", this.getLTOAccountAddress());
-        if (verbose) console.log("checking LTO transaction ID...", jsonFile.OWNABLE_LTO_TRANSACTION_ID);
+      } else {
+        jsonFile.NFT_BLOCKCHAIN = 'noNFT';
+      }
+      if (verbose) console.log("LTO ACCOUNT:", this.getLTOAccountAddress());
+      if (verbose) console.log("checking LTO transaction ID...", jsonFile.OWNABLE_LTO_TRANSACTION_ID);
 
 
-        const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, jsonFile.NFT_BLOCKCHAIN, requestId);
-        if (verbose) console.log("transactionIdData:", transactionIdData);
+      const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, jsonFile.NFT_BLOCKCHAIN, requestId);
+      if (verbose) console.log("transactionIdData:", transactionIdData);
 
-        if (!(await this.existsRid(`${this.pathToUserRids}/${transactionIdData.sender}`))) {
-          mkdirSync(`${this.pathToUserRids}/${transactionIdData.sender}`, { recursive: true });
-        } else {
-          if (verbose) console.log("Path already exists:", `${this.pathToUserRids}/${transactionIdData.sender}`);
+      if (!(await this.existsRid(`${this.pathToUserRids}/${transactionIdData.sender}`))) {
+        mkdirSync(`${this.pathToUserRids}/${transactionIdData.sender}`, { recursive: true });
+      } else {
+        if (verbose) console.log("Path already exists:", `${this.pathToUserRids}/${transactionIdData.sender}`);
+      }
+
+
+      // if (await this.existsRidTemplate(requestId)) return requestId;
+
+      if (verbose) console.log("Skip storing request ID files if already exist...");
+      if (verbose) console.log("file exists?", await this.existsRid(requestId));
+
+      await this.storeFiles(`${this.pathToRids}/${requestId}`, requestId, requestIdFiles);
+      await this.storeZip(`${this.pathToRids}/${requestId}`, requestId, data);
+      // Before creating the Ownable a new NFT is minted with NFT id and the user NFT input data is checked
+
+
+      let nftInfo: NftInfo;
+
+      if (jsonFile.CREATE_NFT === 'true') {
+        const picture: Buffer = readFileSync(`${this.pathToRids}/${requestId}/${requestId}/${jsonFile.PLACEHOLDER2_IMG}`);
+        jsonFile.NFT_TOKEN_URI = await this.createPinataPinnedFile(picture);
+
+        nftInfo = await this.mintNewNft(jsonFile, verbose);
+        jsonFile.PLACEHOLDER1_KEYWORDS.push("hasNFT");
+      } else {
+        nftInfo = {
+          network: "",
+          address: "",
+          id: 0, // 1, 2, 3      
         }
+        jsonFile.PLACEHOLDER1_KEYWORDS.push("noNFT");
+      }
+      if (verbose) console.log(`creating template with request ID ${requestId} and modifying requestIdFiles...`);
+      await this.startOwnableCreation(requestId, jsonFile, nftInfo, transactionIdData.sender, verbose);
+      // await this.executeCommand(`touch ${this.pathToUserRids}/${transactionIdData.sender}/${requestId}_startet`);
 
-
-        // if (await this.existsRidTemplate(requestId)) return requestId;
-
-        if (verbose) console.log("Skip storing request ID files if already exist...");
-        if (verbose) console.log("file exists?", await this.existsRid(requestId));
-
-        await this.storeFiles(`${this.pathToRids}/${requestId}`, requestId, requestIdFiles);
-        await this.storeZip(`${this.pathToRids}/${requestId}`, requestId, data);
-        // Before creating the Ownable a new NFT is minted with NFT id and the user NFT input data is checked
-
-
-        let nftInfo: NftInfo;
-
-        if (jsonFile.CREATE_NFT === 'true') {          
-          const picture: Buffer = readFileSync(`${this.pathToRids}/${requestId}/${requestId}/${jsonFile.PLACEHOLDER2_IMG}`);
-          jsonFile.NFT_TOKEN_URI = await this.createPinataPinnedFile(picture);
-
-          nftInfo = await this.mintNewNft(jsonFile, verbose);
-          jsonFile.PLACEHOLDER1_KEYWORDS.push("hasNFT");
-        } else {
-          nftInfo = {
-            network: "",
-            address: "",
-            id: 0, // 1, 2, 3      
-          }
-          jsonFile.PLACEHOLDER1_KEYWORDS.push("noNFT");
-        }
-        if (verbose) console.log(`creating template with request ID ${requestId} and modifying requestIdFiles...`);
-        await this.startOwnableCreation(requestId, jsonFile, nftInfo, transactionIdData.sender, verbose);
-        await this.executeCommand(`touch ${this.pathToUserRids}/${transactionIdData.sender}/${requestId}_startet`);
-        
-      // }
-      // else {
-      //   console.log(`Request ID for this Ownable create request does already exist: ${requestId}`);
-      // }
-
-
-      // return requestId;
 
     } catch (err) {
       throw (err);
@@ -933,49 +958,52 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
       const eventChainJsonFile: Buffer = readFileSync(`${this.pathToCids}/${cid}/${cid}.json`)
       new_zip.file('chain.json', eventChainJsonFile);
 
-      const claimableZipFile = `${this.pathToRids}/${rid}/${rid}_claim.zip`;
+      // const claimableZipFile = `${this.pathToRids}/${rid}/${rid}_claim.zip`;
 
-      const nftToCidMappingFile = `${this.pathToCids}/${cid}/${nftInfo.network}_${nftInfo.address}_${nftInfo.id}_${cid}_mapped`;
-      try {
-        await this.executeCommand(`touch ${nftToCidMappingFile}`);
-      } catch (err) {
-        console.log("Error executeCommand touch:", err);
-      }
+      // const nftToCidMappingFile = `${this.pathToCids}/${cid}/${nftInfo.network}_${nftInfo.address}_${nftInfo.id}_${cid}_mapped`;
+      // try {
+      //   await this.executeCommand(`touch ${nftToCidMappingFile}`);
+      // } catch (err) {
+      //   console.log("Error executeCommand touch:", err);
+      // }
       const content = await new_zip.generateAsync({ type: "uint8array" });
-      if (verbose) console.log("claimFile", claimableZipFile)
-      if (verbose) console.log("rid", rid)
-      try {
-        writeFileSync(claimableZipFile, content);
-      } catch (err) {
-        console.log("Error writeFileSync:", err);
-      }
-      const claimableInfo = {
-        "RID": rid.toString(),
-        "CID": cid.toString(),
-        "NAME": jsonFile.PLACEHOLDER1_NAME.toString(),
-        "description": jsonFile.PLACEHOLDER1_DESCRIPTION.toString(),
-        "NFT_BLOCKCHAIN": jsonFile.NFT_BLOCKCHAIN.toString(),
-        "NFT_ID": (nftInfo.id).toString(),
-        "NFT_TOKEN_URI": jsonFile.NFT_TOKEN_URI.toString(),
-        "CLAIMED": false,
-      }
-      const claimableFile = `${this.pathToUserRids}/${sender}/${rid}_claimable`;
-      try {
-        writeFileSync(claimableFile, JSON.stringify(claimableInfo));
-      } catch (err) {
-        console.log("Error writeFileSync:", err);
-      }
-      try {
-        await this.executeCommand(`touch ${this.pathToRids}/${rid}/${sender}_USER`);
-      } catch (err) {
-        console.log("Error executeCommand touch:", err);
-      }
+      // if (verbose) console.log("claimFile", claimableZipFile)
+      // if (verbose) console.log("rid", rid)
+      // try {
+      //   writeFileSync(claimableZipFile, content);
+      // } catch (err) {
+      //   console.log("Error writeFileSync:", err);
+      // }
+      // const claimableInfo = {
+      //   "RID": rid.toString(),
+      //   "CID": cid.toString(),
+      //   "NAME": jsonFile.PLACEHOLDER1_NAME.toString(),
+      //   "description": jsonFile.PLACEHOLDER1_DESCRIPTION.toString(),
+      //   "NFT_BLOCKCHAIN": jsonFile.NFT_BLOCKCHAIN.toString(),
+      //   "NFT_ID": (nftInfo.id).toString(),
+      //   "NFT_TOKEN_URI": jsonFile.NFT_TOKEN_URI.toString(),
+      //   "CLAIMED": false,
+      // }
+      // const claimableFile = `${this.pathToUserRids}/${sender}/${rid}_claimable`;
+      // try {
+      //   writeFileSync(claimableFile, JSON.stringify(claimableInfo));
+      // } catch (err) {
+      //   console.log("Error writeFileSync:", err);
+      // }
+      // try {
+      //   await this.executeCommand(`touch ${this.pathToRids}/${rid}/${sender}_USER`);
+      // } catch (err) {
+      //   console.log("Error executeCommand touch:", err);
+      // }
 
       watcher.unwatch(fileName);
 
       // sendOwnable(recipient: string, content?: Uint8Array);      
       await this.sendOwnable(sender, content);
+      this.queueService.addSentRequestId(rid);
       this.queueService.creatingOwnable(false);
+      this.queueBusyTimer = 0;
+      this.queueCurrentlyProcessedRequestId = "";
 
     });
   }
@@ -996,9 +1024,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
     await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_NAME".toString(), `"${jsonFile.PLACEHOLDER1_NAME}"`.toString());
     await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_DESCRIPTION".toString(), `"${jsonFile.PLACEHOLDER1_DESCRIPTION}"`.toString());
     await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_VERSION".toString(), `"${jsonFile.PLACEHOLDER1_VERSION}"`.toString());
-    
+
     if (typeof jsonFile.PLACEHOLDER1_AUTHORS === 'undefined')
-      jsonFile.PLACEHOLDER1_AUTHORS='';
+      jsonFile.PLACEHOLDER1_AUTHORS = '';
     await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_AUTHORS".toString(), `"${jsonFile.PLACEHOLDER1_AUTHORS}"`.toString());
 
     await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_KEYWORDS".toString(), arrayToString(jsonFile.PLACEHOLDER1_KEYWORDS));
@@ -1042,7 +1070,11 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy  {
     if (verbose) console.log("Building Ownable...");
     await this.executeCommand(`npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}`);
     if (verbose) console.log("Starting file watcher for zip file:", `ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`);
-    await this.watchFileCreation(`ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, rid, verbose);
+    try {
+      await this.watchFileCreation(`ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, rid, verbose);
+    } catch (err) {
+      throw new Error(`Failed to watch File creation: ownables/${jsonFile.PLACEHOLDER1_NAME}.zip error: ${err}`);
+    }
 
     if (verbose) console.log("Ownable creation startet. Waiting for Zip File to be created...");
 

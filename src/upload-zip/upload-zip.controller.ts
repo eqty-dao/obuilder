@@ -1,16 +1,12 @@
-import { Controller, Get, Header, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFile, ParseIntPipe, Res, Query, StreamableFile } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseInterceptors, UploadedFile, Res, Query } from '@nestjs/common';
 import { UploadZipService } from './upload-zip.service';
-// import { CreateUploadZipDto } from './dto/create-upload-zip.dto';
-import { UpdateUploadZipDto } from './dto/update-upload-zip.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Express } from 'express';
 import { Request, Response } from 'express';
 import { InputUploadFileDto } from './dto/inputUploadFileDto.dto';
 import { Account, EventChain } from '@ltonetwork/lto';
 import { Signer } from '../common/http-signature/signer';
-import { createReadStream } from 'fs';
 import { AuthError, UserError, DataError } from '../interfaces/error';
-import { QueueService } from '../services/Queue.service';
 @Controller('api/v1')
 export class UploadZipController {
   constructor(private readonly uploadZipService: UploadZipService) { }
@@ -60,6 +56,11 @@ export class UploadZipController {
     const retVal = this.uploadZipService.queueStatus();    
     return retVal;
   }
+  @Get('getSentRequestIdsList')
+  getSentRequestIdsList() {
+    const retVal = this.uploadZipService.getSentRequestIdsList();    
+    return retVal;
+  }
   @Get('isRelayServerUp')
   async isRelayServerUp() {
     try {
@@ -93,16 +94,16 @@ export class UploadZipController {
       return { "error": `${err}` };
     }
   }
-  @Get('requestIDs')
-  async getRequestIDs(@Query('ltoUserAddress') ltoUserAddress?: string) {
+  // @Get('requestIDs')
+  // async getRequestIDs(@Query('ltoUserAddress') ltoUserAddress?: string) {
 
-    try {
-      return await this.uploadZipService.getClaimableRequestIDs(ltoUserAddress)
-    } catch (err) {
-      return { "error": `${err}` };
-    }
+  //   try {
+  //     return await this.uploadZipService.getClaimableRequestIDs(ltoUserAddress)
+  //   } catch (err) {
+  //     return { "error": `${err}` };
+  //   }
 
-  }
+  // }
   //needs additional Query parameter to get different costs for template 1,2,3...
   @Get('templateCost')
   templateCost(@Query('templateId') templateId: number) {
