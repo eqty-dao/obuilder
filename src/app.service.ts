@@ -6,7 +6,6 @@ export class AppService implements OnModuleInit {
   info = new InfoDto();
 
   onModuleInit(): void {
-    
     const packageInfo = require('../package.json');
 
     this.info = {
@@ -17,11 +16,10 @@ export class AppService implements OnModuleInit {
     };
   }
 
-  
   getInfo(text: string, name: string): InfoDto {
-    if(text === undefined) console.log("text undefined");
-    if(name === undefined) console.log("name undefined");
-    console.log("text",text,"name",name)
+    if (text === undefined) console.log('text undefined');
+    if (name === undefined) console.log('name undefined');
+    console.log('text', text, 'name', name);
 
     return this.info;
   }

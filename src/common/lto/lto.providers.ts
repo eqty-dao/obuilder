@@ -5,11 +5,16 @@ import { Provider } from '@nestjs/common';
 export const ltoProviders: Array<Provider> = [
   {
     provide: LTO,
-    useFactory: async (config: ConfigService) => {
-      await config.onModuleInit(); // Why isn't config service already initialized?
+    useFactory: (config: ConfigService) => {
+      // const nodeAddress = config.get<string>('LTO_NODE');
+      // const networkId = config.get<string>('LTO_NETWORK_ID');
+      const nodeAddress = config.lto.node;
+      const networkId = config.lto.networkId;
+      console.log('LTO_NODE:', nodeAddress);
+      console.log('LTO_NETWORK_ID:', networkId);
 
-      const lto = new LTO(config.get('lto.networkId'));
-      lto.nodeAddress = config.get('lto.node');
+      const lto = new LTO(networkId);
+      lto.nodeAddress = nodeAddress;
       return lto;
     },
     inject: [ConfigService],

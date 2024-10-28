@@ -8,73 +8,12 @@ export class InfoController {
   constructor(private readonly infoService: InfoService) {}
 
   @Get('getQueueRequestIDs')
-  getQueueRequestIDs() {
-    const retVal = this.infoService.getQueueRequestIDs();
-    return { QueueRequestIDs: retVal };
-  }
-
-  @Get('isRelayServerUp')
-  async isRelayServerUp() {
+  async getQueueRequestIDs() {
     try {
-      return await this.infoService.isRelayServerUp();
+      const requestIDs = await this.infoService.getQueueRequestIDs();
+      return { data: { QueueRequestIDs: requestIDs } };
     } catch (err) {
-      return { error: `${err}` };
-    }
-  }
-
-  @Get('isEVMAddress')
-  isEVMAddress(@Query('address') address: string) {
-    try {
-      return this.infoService.isEVMAddress(address);
-    } catch (err) {
-      return { error: `${err}` };
-    }
-  }
-
-  @Get('isLTOAddress')
-  isLTOAddress(@Query('address') address: string) {
-    try {
-      return this.infoService.isValidLtoAddress(address);
-    } catch (err) {
-      return false;
-    }
-  }
-
-  @Get('availableChains')
-  async GetAvailableNftChains() {
-    try {
-      return await this.infoService.getAvailableNftChains();
-    } catch (err) {
-      return { error: `${err}` };
-    }
-  }
-
-  @Get('requestIDs')
-  async getRequestIDs(@Query('ltoUserAddress') ltoUserAddress?: string) {
-    try {
-      return await this.infoService.getClaimableRequestIDs(ltoUserAddress);
-    } catch (err) {
-      return { error: `${err}` };
-    }
-  }
-
-  @Get('templateCost')
-  templateCost(@Query('templateId') templateId: number) {
-    try {
-      return this.infoService.templateCost(templateId);
-    } catch (err) {
-      return { error: `${err}` };
-    }
-  }
-
-  @Get('ServerWalletAddressLTO')
-  serverWalletAddressLTO() {
-    try {
-      return {
-        serverWalletAddressLTO: `${this.infoService.getServerLTOwalletAddress()}`,
-      };
-    } catch (err) {
-      return { error: `${err}` };
+      return { error: `${err.message}` };
     }
   }
 
@@ -91,6 +30,65 @@ export class InfoController {
         ServerBalanceLTO: balanceLTO,
         serverLTOwalletAddress: serverLTOwallet,
       };
+    } catch (err) {
+      return { error: `${err}` };
+    }
+  }
+
+  @Get('isRelayServerUp')
+  async isRelayServerUp() {
+    try {
+      const result = await this.infoService.isRelayServerUp();
+      return { data: result };
+    } catch (err) {
+      return { error: `${err.message}` };
+    }
+  }
+
+  @Get('isLTOAddress')
+  isLTOAddress(@Query('address') address: string) {
+    try {
+      return this.infoService.isValidLtoAddress(address);
+    } catch (err) {
+      return false;
+    }
+  }
+
+  @Get('isEVMAddress')
+  async isEVMAddress(@Query('address') address: string) {
+    try {
+      const isEVM = await this.infoService.isEVMAddress(address);
+      return { data: { isEVMAddress: isEVM } };
+    } catch (err) {
+      return { error: `${err.message}` };
+    }
+  }
+
+  @Get('templateCost')
+  async templateCost(@Query('templateId') templateId: number) {
+    try {
+      const cost = this.infoService.templateCost(templateId);
+      console.log(cost);
+      return { data: { templateCost: cost } };
+    } catch (err) {
+      return { error: `${err.message}` };
+    }
+  }
+
+  @Get('ServerWalletAddressLTO')
+  async serverWalletAddressLTO() {
+    try {
+      const address = this.infoService.getLTOAccountAddress();
+      return { data: { serverWalletAddressLTO: address } };
+    } catch (err) {
+      return { error: `${err.message}` };
+    }
+  }
+
+  @Get('availableChains')
+  async GetAvailableNftChains() {
+    try {
+      return await this.infoService.getAvailableNftChains();
     } catch (err) {
       return { error: `${err}` };
     }

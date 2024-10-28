@@ -12,22 +12,8 @@ export default {
     gateway: {
       default: '',
       env: 'PINATA_GATEWAY_URL',
-    }
+    },
   },
-  // port: {
-  //   default: 80,
-  //   env: 'PORT',
-  // },  
-  // accept: {
-  //   unlockNFT: {
-  //     default: true,
-  //     env: 'UNLOCK_NFT',
-  //   },
-  //   webhook: {
-  //     default: '',
-  //     env: 'ACCEPT_WEBHOOK',
-  //   },
-  // },
   lto: {
     node: {
       default: '',
@@ -54,7 +40,7 @@ export default {
     queue: {
       default: true,
       env: 'QUEUEING_ALLOWED',
-    }
+    },
   },
   eth: {
     account: {
@@ -65,7 +51,7 @@ export default {
       mnemonic: {
         default: '',
         env: 'ACCOUNT_MNEMONIC',
-      },      
+      },
       arbitrum_alchemy_api_key: {
         default: '',
         env: 'ARBITRUM_ALCHEMY_API_KEY',
@@ -91,7 +77,7 @@ export default {
       polygon: {
         default: '',
         env: 'POLYGON_NFT_CONTRACT_ADDR',
-      },      
+      },
     },
     providers: {
       etherscan: {
@@ -115,53 +101,7 @@ export default {
         env: 'ANKR_KEY',
       },
     },
-    // networks: {
-    //   default: [
-    //     {
-    //       id: 421614,
-    //       name: 'arbitrumSepolia',
-    //       provider: 'jsonrpc' as 'jsonrpc' | 'etherscan' | 'infura' | 'alchemy' | 'cloudflare' | 'pocket' | 'ankr',
-    //       url: '',
-    //     },
-    //   ],
-    //   // default: [
-    //   //   {
-    //   //     id: 80001,
-    //   //     name: 'PolygonMumbai',
-    //   //     provider: 'alchemy' as 'jsonrpc' | 'etherscan' | 'infura' | 'alchemy' | 'cloudflare' | 'pocket' | 'ankr',
-    //   //     url: `https://polygon-mumbai.g.alchemy.com/v2/${process.env.POLYGON_MUMBAI_ALCHEMY_API_KEY}`,
-    //   //   },
-    //   // ],
-    //   format: 'typed-array',
-    //   children: {
-    //     id: {
-    //       default: 0,
-    //     },
-    //     name: {
-    //       default: '',
-    //     },
-    //     provider: {
-    //       format: ['jsonrpc', 'etherscan', 'infura', 'alchemy', 'cloudflare', 'pocket', 'ankr'],
-    //       default: 'jsonrpc',
-    //     },
-    //     url: {
-    //       default: '',
-    //     },
-    //   },
-    // },
   },
-  // log: {
-  //   level: {
-  //     default: '',
-  //     env: 'LOG_LEVEL',
-  //   },
-  // },
-  // ssl: {
-  //   enabled: {
-  //     default: false,
-  //     env: 'SSL_ENABLED',
-  //   },
-  // },
   ipfs: {
     start: {
       default: true,
@@ -184,10 +124,12 @@ export default {
       env: 'VERIFY_INTEGRITY',
     },
     signer: {
+      // Flag to verify signer information
       default: true,
       env: 'VERIFY_SIGNER',
     },
     chainId: {
+      // Flag to verify the chain ID
       default: true,
       env: 'VERIFY_CHAIN_ID',
     },

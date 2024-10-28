@@ -10,6 +10,14 @@ import { NFTModule } from '../nft/nft.module';
 import { QueueService } from '../services/Queue.service';
 import { InfoService } from '../info/info.service';
 import { InfoModule } from '../info/info.module';
+import { RedisModule } from '../common/redis/redis.module';
+import { RabbitMQModule } from '../common/rabbitmq/rabbitmq.module';
+import { RedisService } from '../common/redis/redis.service';
+import { RabbitMQService } from '../common/rabbitmq/rabbitmq.service';
+import { BuildService } from './build.service';
+import { FileService } from './file.service';
+import { NftService } from './nft.service';
+import { ConfigService } from '../common/config/config.service';
 
 @Module({
   imports: [
@@ -25,8 +33,18 @@ import { InfoModule } from '../info/info.module';
         maxRedirects: 5,
       }),
     }),
+    RedisModule,
+    RabbitMQModule,
   ],
-  providers: [UploadZipService, QueueService, InfoService],
+  providers: [
+    UploadZipService,
+    QueueService,
+    InfoService,
+    NftService,
+    BuildService,
+    FileService,
+    ConfigService,
+  ],
   controllers: [UploadZipController],
   exports: [UploadZipService, QueueService],
 })
