@@ -107,18 +107,20 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   public async sendFile(relay: any, content: Uint8Array, sender: Account, recipient: string, rid: string) {
     try {
       let message: Message;
-      let hashString: string;
+   
 
       if (sender && recipient) {
         message = new Message(content).to(recipient).signWith(sender);
-        hashString = `0x${message.hash.hex}`;
+        // console.log("message.hash.base58",message.hash.base58);
+        // console.log("message.hash.hex",message.hash.hex);
+      
+        //DONE
+        await relay.send(message);
+        await this.queueService.setQueueEntryStatus(rid, OwnableStatus.Sent, message.hash.base58);
       } else {
         console.log("provide the signer and recipient");
         return;
       }
-      //DONE
-       await relay.send(message);
-      await this.queueService.setQueueEntryStatus(rid, OwnableStatus.Sent, hashString);
 
 
     } catch {
