@@ -12,9 +12,9 @@
   "ownableTemplatesPath": "./storage/ownable-templates",
   "templateCost": {
     "noNFT": {
-      "1": "10000000",
-      "2": "10000000",
-      "3": "10000000"
+      "1": "5000000",
+      "2": "5000000",
+      "3": "5000000"
     },
     "ethereum": {
       "1": "20000000",
@@ -51,6 +51,7 @@
     "ownables:build": "if test -f ./ownables/$npm_config_package/Cargo.toml; then rm -rf ./ownables/$npm_config_package/pkg/ && wasm-pack build --out-name ownable --target web ./ownables/$npm_config_package/ && cd ./ownables/$npm_config_package/ && cargo schema && cd ../../ && zip -r -j ./ownables/$npm_config_package.zip ./ownables/$npm_config_package/assets/ ./ownables/$npm_config_package/pkg/*.js ./ownables/$npm_config_package/pkg/*.wasm ./ownables/$npm_config_package/pkg/package.json ./ownables/$npm_config_package/schema/*.json; else zip -r -j ./ownables/$npm_config_package.zip ./ownables/$npm_config_package/*; fi"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.679.0",
     "@babel/core": "^7.23.9",
     "@ethersproject/providers": "^5.7.2",
     "@ltonetwork/http-message-signatures": "^0.1.8",
@@ -64,6 +65,7 @@
     "@nestjs/typeorm": "^10.0.2",
     "@prisma/client": "^5.9.1",
     "@types/convict": "^6.1.6",
+    "any-bucket": "^0.1.6",
     "axios": "^1.6.7",
     "babel-plugin-remove-import-export": "^1.1.1",
     "bs58": "^5.0.0",

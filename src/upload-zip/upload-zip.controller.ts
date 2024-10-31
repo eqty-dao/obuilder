@@ -7,6 +7,7 @@ import { InputUploadFileDto } from './dto/inputUploadFileDto.dto';
 import { Account, EventChain } from '@ltonetwork/lto';
 import { Signer } from '../common/http-signature/signer';
 import { AuthError, UserError, DataError } from '../interfaces/error';
+import { QueueEntry, OwnableStatus } from 'src/interfaces/QueueEntry';
 @Controller('api/v1')
 export class UploadZipController {
   constructor(private readonly uploadZipService: UploadZipService) { }
@@ -14,21 +15,42 @@ export class UploadZipController {
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(@Body() inputUploadFile: InputUploadFileDto, @UploadedFile() file: Express.Multer.File,@Res() res: Response, @Signer() signer?: Account): Promise<Response> {
-    console.log("file.fieldname", file.fieldname);
-    console.log("file.originalname", file.originalname);
+    let buffer: Buffer = null;
+    console.log("file", file);
+    console.log("typeof file", typeof file);
+
+    if(file) {
+      console.log("file.fieldname", file.fieldname);
+      console.log("file.originalname", file.originalname);
+    }
     // console.log("inputUploadFile.name", inputUploadFile.name);
     // console.log("inputUploadFile.id", inputUploadFile.id);
     // console.log("inputUploadFile.nummer", inputUploadFile.nummer);
     // console.log("file.buffer",file.buffer);
-    const buffer = file.buffer;
-    if (!buffer || Object.getPrototypeOf(buffer) === null || Object.prototype.isPrototypeOf(buffer) == false) {
+    console.log("buffer", file.buffer);
+    console.log("typeof buffer", typeof file.buffer);
+    
+    if (Object.getPrototypeOf(file) === null || Object.prototype.isPrototypeOf(file) == false){ //Buffer.isBuffer(file)) {
+      console.log('The variable is NOT a Buffer object.');
       return res.status(400).send('Failed to read data from HTTP request');     
+      
+    } else {
+      console.log('The variable is a Buffer object.');
+      buffer = file.buffer;
+  }
+
+    // TODO: adding signed request and reading info from Header inside controller logic
+    // console.log("HTTP Authentication SIGNER: ", signer.address);
+    if (typeof signer !== 'undefined') {
+      console.log("HTTP Authentication SIGNER LTO ADDRESS: ", signer.address);
+    } else {
+      // throw ('Undefined HTTP Authentication SIGNER LTO Wallet Address!');
     }
+
 
     let requestId: string;
     try {
-      requestId = await this.uploadZipService.queueRequest(buffer, 1, signer, true);
-      // requestId = await this.uploadZipService.store(buffer, 1, signer, true); // 1 == template 1 => TODO: make this a POST input variable for future
+      requestId = await this.uploadZipService.queueRequest(buffer, 1, "signerAddress", true);
       return res.status(201).json(requestId);
 
     } catch (err) {
@@ -46,21 +68,42 @@ export class UploadZipController {
     // console.error(err);
     return res.status(500).send(`Unexpected error: ${err.message}`);
   }
-  @Get('getQueueRequestIDs')
-  getQueueRequestIDs() {
-    const retVal = this.uploadZipService.getQueueRequestIDs();
-    return {QueueRequestIDs: retVal};
+
+  @Get('getInQueueEntries')
+  getInQueueEntries() {
+    return this.uploadZipService.getInQueueEntries();    
   }
+  @Get('getProcessingEntries')
+  getProcessingEntries() {
+    return this.uploadZipService.getProcessingEntries();    
+  }
+  @Get('getReadyEntries')
+  getReadyEntries() {
+    return this.uploadZipService.getReadyEntries();    
+  }
+  @Get('getSentEntries')
+  getSentEntries() {
+    return this.uploadZipService.getSentEntries();    
+  }
+  @Get('getQueueEntriesByRequestId')
+  getQueueEntriesByRequestId(@Query('requestId') requestId: string) {
+    return this.uploadZipService.getQueueEntriesByRequestId(requestId);
+  }
+  @Get('getQueueEntriesByWallet')
+  getQueueEntriesByWallet(@Query('wallet') wallet: string) {
+    return this.uploadZipService.getQueueEntriesByWallet(wallet.toString());
+  }
+  @Get('getQueueEntriesByStatus')
+  getQueueEntriesByStatus(@Query('status') status: OwnableStatus) {
+    return this.uploadZipService.getQueueEntriesByStatus(status);
+  }
+  
   @Get('getQueueStatus')
   getQueueStatus() {
     const retVal = this.uploadZipService.queueStatus();    
     return retVal;
   }
-  @Get('getSentRequestIdsList')
-  getSentRequestIdsList() {
-    const retVal = this.uploadZipService.getSentRequestIdsList();    
-    return retVal;
-  }
+    
   @Get('isRelayServerUp')
   async isRelayServerUp() {
     try {

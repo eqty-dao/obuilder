@@ -14,6 +14,14 @@ export default {
       env: 'PINATA_GATEWAY_URL',
     }
   },
+  bucket: {
+    obuilder: {
+      queue: {
+        default: './storage/obuilder-staging',
+        env: 'OWNABLE_BUCKET',
+      },
+    },
+  },
   // port: {
   //   default: 80,
   //   env: 'PORT',
@@ -65,7 +73,7 @@ export default {
       mnemonic: {
         default: '',
         env: 'ACCOUNT_MNEMONIC',
-      },      
+      },
       arbitrum_alchemy_api_key: {
         default: '',
         env: 'ARBITRUM_ALCHEMY_API_KEY',
@@ -91,7 +99,7 @@ export default {
       polygon: {
         default: '',
         env: 'POLYGON_NFT_CONTRACT_ADDR',
-      },      
+      },
     },
     providers: {
       etherscan: {

@@ -4,17 +4,18 @@ template1.txt
 /storage/user-rids
 /storage/user-txids
 /storage/used-txids
+/storage/obuilder-staging
 # compiled output
 /dist
 /node_modules
 /build
 test.html
 example_nginx.conf
-
+testingZips
 ownables/car
-
+HTTPrequests.http
 package-lock.json
-
+.vscode
 # Logs
 logs
 *.log
