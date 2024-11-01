@@ -27,7 +27,7 @@ export class QueueService implements OnModuleInit {
       region: 'eu-west-1'
     };
     // this.s3Client = new S3(s3LocalConfig); // FOR TESTING ONLY
-    this.s3Client = new S3({region: 'eu-west-1'});
+    this.s3Client = new S3({ region: 'eu-west-1' });
     this.s3Bucket = new S3Bucket(this.s3Client, this.config.get('OWNABLE_BUCKET'));
     // this.s3Bucket = new S3Bucket(this.s3Client, this.config.get('bucket.obuilder.queue'));        
   }
@@ -116,7 +116,7 @@ export class QueueService implements OnModuleInit {
     const index = this.queue.findIndex((entry: QueueEntry) => entry.ownableStatus === OwnableStatus.InQueue);
     return index >= 0 ? index : null;
   }
-  
+
 
 
 
@@ -184,11 +184,11 @@ export class QueueService implements OnModuleInit {
     });
     return queryQueueEntries;
   }
-  
+
   public getQueueEntriesByStatus(status: OwnableStatus): QueueEntry[] {
     const queryQueueEntries: QueueEntry[] = [];
     this.queue.forEach((entry: QueueEntry) => {
-      
+
       if (entry.ownableStatus.toString() === status.toString()) {
         queryQueueEntries.push(entry);
       }
@@ -205,6 +205,20 @@ export class QueueService implements OnModuleInit {
   public getRequestIdByTxId(txId: string): string | null {
     const entry = this.queue.find((entry: QueueEntry) => entry.txId === txId);
     return entry ? entry.rid : null;
+  }
+
+  public async deleteOwnableData(requestId: string) {
+    const [entry, index] = this.getQueueEntryByRequestId(requestId);
+    if (index >= 0 && index < this.queue.length) {
+      
+      await this.s3Bucket.delete(this.queue[index].data);
+
+      this.queue.splice(index, 1);
+      console.log(`Entry at index ${index} deleted successfully.`);
+    } else {
+      console.log(`Index ${index} is out of bounds.`);
+    }
+    await this.s3Bucket.put(`Queue.json`, JSON.stringify(this.queue));
   }
 
   public async setQueueEntryStatus(requestId: string, status: OwnableStatus, hash?: string) {
@@ -232,7 +246,7 @@ export class QueueService implements OnModuleInit {
     const [entry, index] = this.getNextQueueEntry();
     if (index != null) {
       let data: Uint8Array = new Uint8Array([]);
-      
+
       data = this.queueData[index];
       this.queue[index].ownableStatus = OwnableStatus.Processing;
       this.queue[index].timestampProcessing = Math.floor(Date.now() / 1000);

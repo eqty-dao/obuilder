@@ -634,9 +634,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     const timestampNow = Math.floor(Date.now() / 1000);
     if (queryProcessingEntry.length > 0) {
       if (timestampNow - queryProcessingEntry[0].timestampProcessing >= 300) {
-        console.log(`Something went wrong with processing Queue Entry. Resetting ${queryProcessingEntry[0]}`);
-        await this.queueService.setQueueEntryStatus(queryProcessingEntry[0].rid, OwnableStatus.InQueue);
-
+        console.log(`Something went wrong with processing Queue Entry. Deleting Entry ${queryProcessingEntry[0]}`);
+        // await this.queueService.setQueueEntryStatus(queryProcessingEntry[0].rid, OwnableStatus.InQueue);
+        await this.queueService.deleteOwnableData(queryProcessingEntry[0].rid);
       }
     }
     const isEmpty = this.queueService.isQueueEmpty();
