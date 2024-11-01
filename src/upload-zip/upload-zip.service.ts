@@ -66,7 +66,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       }
     }, 15000); // 10000 ms = 10 seconds
 
-   
+
   }
 
   // Stop the interval when the application shuts down
@@ -101,19 +101,19 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
           err?.message + ': ' + JSON.stringify(err?.response?.data),
         );
       });
-   
-    return data;  
+
+    return data;
   }
   public async sendFile(relay: any, content: Uint8Array, sender: Account, recipient: string, rid: string) {
     try {
       let message: Message;
-   
+
 
       if (sender && recipient) {
         message = new Message(content).to(recipient).signWith(sender);
         // console.log("message.hash.base58",message.hash.base58);
         // console.log("message.hash.hex",message.hash.hex);
-      
+
         //DONE
         await relay.send(message);
         await this.queueService.setQueueEntryStatus(rid, OwnableStatus.Sent, message.hash.base58);
@@ -203,8 +203,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     const previousRequestId = this.queueService.getRequestIdByTxId(ltoTransactionId);
     // DONE
     if (previousRequestId != null && previousRequestId !== requestId) {
-      throw (`LTO TX ID ${ltoTransactionId} has already been used with request ID: ${previousRequestId}`);      
-    } 
+      throw (`LTO TX ID ${ltoTransactionId} has already been used with request ID: ${previousRequestId}`);
+    }
   }
 
   private async checkLtoTransactionId(ltoTransactionId: string, templateId: number, chain: string, requestId: string): Promise<TransactionIdData> {
@@ -228,18 +228,18 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     //     }),
     //   ),
     // );
-    
+
     // THIRD WORKING METHOD - requires node >= v18
-    
+
     const response = await fetch(url);
     const data = await response.json();
     console.log("Request Done. Data:", data);
-    if(data.status === 'error') {
+    if (data.status === 'error') {
       throw new Error(data.details);
     }
 
     const thisServerAddress = this.getLTOAccountAddress();
-      console.log("This ServerAddress:", thisServerAddress);
+    console.log("This ServerAddress:", thisServerAddress);
 
     // Must be of type "transaction"
     if (data.type != 4) throw ('Wrong Transaction type');
@@ -344,9 +344,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     return cids;
   }
 
-  
 
-  
+
+
 
   private async createEventChain(pkg: TypedPackage, nftInfo: NftInfo, sender: string): Promise<Buffer> {
     const chain = new EventChain(this._ltoAccount);
@@ -617,26 +617,26 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     await this.wait(10000);
     const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, jsonFile.NFT_BLOCKCHAIN, requestId);
     if (verbose) console.log("transactionIdData:", transactionIdData);
-    
-    
+
+
     const entry: QueueEntry = await this.queueService.enqueue(requestId, uint8ArrayData, transactionIdData.sender, jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId);
-    
-    
+
+
     return entry;
-    
+
   }
-  
-  
-  
+
+
+
   private async checkQueueStatus() {
-    
+
     const queryProcessingEntry: QueueEntry[] = this.queueService.getQueueEntriesByStatus(OwnableStatus.Processing);
     const timestampNow = Math.floor(Date.now() / 1000);
-    if(queryProcessingEntry.length > 0) {
-      if(timestampNow - queryProcessingEntry[0].timestampProcessing >= 300) {
+    if (queryProcessingEntry.length > 0) {
+      if (timestampNow - queryProcessingEntry[0].timestampProcessing >= 300) {
         console.log(`Something went wrong with processing Queue Entry. Resetting ${queryProcessingEntry[0]}`);
-        await this.queueService.setQueueEntryStatus(queryProcessingEntry[0].rid, OwnableStatus.InQueue);        
-  
+        await this.queueService.setQueueEntryStatus(queryProcessingEntry[0].rid, OwnableStatus.InQueue);
+
       }
     }
     const isEmpty = this.queueService.isQueueEmpty();
@@ -646,13 +646,13 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         const relayURL = this.getRelayUrl();
         const isUp: boolean = await this.isRelayUp(relayURL);
         if (isUp) {
-          
+
           if (!this.queueService.isCreatingOwnable()) {
             // console.log("Waiting 10 seconds for a possible TX ID that needs to be populated into LTO node network...");
             await this.wait(10000);
             const [requestId, data, sender] = await this.queueService.processNextQueueEntry();
             if (requestId != null && data != null) {
-              
+
               await this.store(data, 1, sender, true); // true = verbose
             }
           }
@@ -663,8 +663,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       } catch (err) {
         throw new Error(`Error: ${err}`);
       }
-    } 
-    
+    }
+
 
 
     const queueingAllowed = this.config.get('lto.queue');
@@ -693,7 +693,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   public getQueueEntriesByStatus(status: OwnableStatus): QueueEntry[] {
     return this.queueService.getQueueEntriesByStatus(status);
   }
-  
+
   public queueStatus(): any {
     let isOwnableBeingBuild: boolean = false;
     let isQueueingAllowed: boolean;
@@ -763,7 +763,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       const requestId: string = await this.getUniqueId(requestIdFiles);
       if (verbose) console.log("Unique request ID:", requestId);
 
-      
+
       //await this.wait(20000); // TODO
       if (verbose) console.log("checking for userOwnable.json existance...");
       if (!requestIdFiles.has('ownableData.json')) throw new Error("Invalid package: 'ownableData.json' is missing");
@@ -847,13 +847,13 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   //     if(fileExists(this.fileNameToCheck)) {
   //       this.FileNotCreated = false;
   //     }
-     
+
   //   }
   // }
   private async watchFileCreation(fileName: string, jsonFile: any, nftInfo: NftInfo, sender: string, rid: string, verbose: boolean) {
     if (verbose) console.log(`Ownable creation startet. Waiting for Zip File ${fileName}to be created...`);
     let timeout = 0;
-    while(!fileExists(fileName)) {
+    while (!fileExists(fileName)) {
       this.wait(1000);
       timeout += 1;
       if (timeout >= 300) {
@@ -862,74 +862,74 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     }
     // const watcher = chokidar.watch(fileName).on('add', async (event) => {
     //   watcher.unwatch(fileName);
-      if (verbose) console.log("Zip File Created successfully:", fileName);
-      // if (verbose) console.log("Watcher timestamp: ", Math.floor(Date.now() / 1000));
-      if (verbose) console.log("unzipping the created ownable to produce unique cid...");
-      const cidFiles = await this.unzip(fileName);
+    if (verbose) console.log("Zip File Created successfully:", fileName);
+    // if (verbose) console.log("Watcher timestamp: ", Math.floor(Date.now() / 1000));
+    if (verbose) console.log("unzipping the created ownable to produce unique cid...");
+    const cidFiles = await this.unzip(fileName);
 
-      if (verbose) console.log("getting unique chain ID from created ownable zip files ...");
-      const cid = await this.getUniqueId(cidFiles);
+    if (verbose) console.log("getting unique chain ID from created ownable zip files ...");
+    const cid = await this.getUniqueId(cidFiles);
 
-      const ownableZip = `${this.pathToCids}/${cid}/${cid}.zip`;
-      if (verbose) console.log("Storing new Ownable zip file and deleting the source Ownable zip ...");
-      try {
-        cpSync(fileName, ownableZip);
-      } catch (err) {
-        console.log("Error cpSync:", fileName, err);
-      }
-      
+    const ownableZip = `${this.pathToCids}/${cid}/${cid}.zip`;
+    if (verbose) console.log("Storing new Ownable zip file and deleting the source Ownable zip ...");
+    try {
+      cpSync(fileName, ownableZip);
+    } catch (err) {
+      console.log("Error cpSync:", fileName, err);
+    }
 
 
-      try {
-        rmSync(fileName);
-      } catch (err) {
-        console.log("Error rmSync1:", fileName, err);
-      }
-      try {
-        rmSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}`, { recursive: true });
-      } catch (err) {
-        console.log("Error rmSync2:", fileName, err);
-      }
 
-      if (verbose) console.log("Creating the EventChain for the new Ownable ...");
-      const pkgOwnable: TypedPackage = {
-        isDynamic: true,
-        hasMetadata: false,
-        hasWidgetState: false,
-        isConsumable: false,
-        isConsumer: false,
-        isTransferable: true,
-        title: jsonFile.PLACEHOLDER2_TITLE.toString(),
-        name: jsonFile.PLACEHOLDER1_NAME.toString(),
-        description: jsonFile.PLACEHOLDER1_DESCRIPTION.toString(),
-        cid: `${cid}`,
-        versions: [jsonFile.PLACEHOLDER1_VERSION.toString()],
-        keywords: jsonFile.PLACEHOLDER1_KEYWORDS
-      };
+    try {
+      rmSync(fileName);
+    } catch (err) {
+      console.log("Error rmSync1:", fileName, err);
+    }
+    try {
+      rmSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}`, { recursive: true });
+    } catch (err) {
+      console.log("Error rmSync2:", fileName, err);
+    }
 
-      const chainBuffer: Buffer = await this.createEventChain(pkgOwnable, nftInfo, sender); // sender from TX ID is new ownable owner
-      //adding eventChain to cidFiles
-      cidFiles.set('chain.json', chainBuffer);
-      try {
-        await this.storeFiles(`${this.pathToCids}/${cid}`, cid, cidFiles);
-      } catch (err) {
-        console.log("Error storeFiles:", err);
-      }
-      if (verbose) console.log("PATH", `${this.pathToCids}/${cid}`);
+    if (verbose) console.log("Creating the EventChain for the new Ownable ...");
+    const pkgOwnable: TypedPackage = {
+      isDynamic: true,
+      hasMetadata: false,
+      hasWidgetState: false,
+      isConsumable: false,
+      isConsumer: false,
+      isTransferable: true,
+      title: jsonFile.PLACEHOLDER2_TITLE.toString(),
+      name: jsonFile.PLACEHOLDER1_NAME.toString(),
+      description: jsonFile.PLACEHOLDER1_DESCRIPTION.toString(),
+      cid: `${cid}`,
+      versions: [jsonFile.PLACEHOLDER1_VERSION.toString()],
+      keywords: jsonFile.PLACEHOLDER1_KEYWORDS
+    };
 
-      var new_zip = new JSZip();
+    const chainBuffer: Buffer = await this.createEventChain(pkgOwnable, nftInfo, sender); // sender from TX ID is new ownable owner
+    //adding eventChain to cidFiles
+    cidFiles.set('chain.json', chainBuffer);
+    try {
+      await this.storeFiles(`${this.pathToCids}/${cid}`, cid, cidFiles);
+    } catch (err) {
+      console.log("Error storeFiles:", err);
+    }
+    if (verbose) console.log("PATH", `${this.pathToCids}/${cid}`);
 
-      const zipFile: Buffer = readFileSync(`${this.pathToCids}/${cid}/${cid}.zip`)
-      await new_zip.loadAsync(zipFile);
+    var new_zip = new JSZip();
 
-      const eventChainJsonFile: Buffer = readFileSync(`${this.pathToCids}/${cid}/${cid}.json`)
-      new_zip.file('chain.json', eventChainJsonFile);
+    const zipFile: Buffer = readFileSync(`${this.pathToCids}/${cid}/${cid}.zip`)
+    await new_zip.loadAsync(zipFile);
 
-      const content = await new_zip.generateAsync({ type: "uint8array" });
-   
-      await this.queueService.setQueueEntryStatus(rid, OwnableStatus.Ready);
-      // await this.wait(20000); // TODO
-      await this.sendOwnable(rid, sender, content);
+    const eventChainJsonFile: Buffer = readFileSync(`${this.pathToCids}/${cid}/${cid}.json`)
+    new_zip.file('chain.json', eventChainJsonFile);
+
+    const content = await new_zip.generateAsync({ type: "uint8array" });
+
+    await this.queueService.setQueueEntryStatus(rid, OwnableStatus.Ready);
+    // await this.wait(20000); // TODO
+    await this.sendOwnable(rid, sender, content);
 
 
 

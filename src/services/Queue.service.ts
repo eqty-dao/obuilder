@@ -217,6 +217,10 @@ export class QueueService implements OnModuleInit {
     } else if (status == OwnableStatus.Sent && typeof hash !== 'undefined') {
       this.queue[index].hash = hash;
       this.queue[index].timestampSent = Math.floor(Date.now() / 1000);
+    } else if (status == OwnableStatus.InQueue) {
+      this.queue[index].timestampInQueue = Math.floor(Date.now() / 1000);
+      this.queue[index].timestampProcessing = 0;
+      this.queue[index].timestampReady = 0;
     } else {
       throw new Error(`Unknown Ownable status ${status} for requestId ${requestId}`);
     }
