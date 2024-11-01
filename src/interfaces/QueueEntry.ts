@@ -1,3 +1,5 @@
+import { NftInfo } from "./OwnableInfo";
+
 export interface QueueEntry {
     rid: string;
     data: string;
@@ -10,6 +12,11 @@ export interface QueueEntry {
     timestampProcessing: number;
     timestampReady: number;
     timestampSent: number;
+    cid: string;
+    nftInfo: NftInfo;
+    // nftNetwork: string;
+    // nftAddress: string;
+    // nftId: number;
 }
 
 export enum OwnableStatus {

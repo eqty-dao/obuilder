@@ -102,7 +102,7 @@ export class EthersService implements OnModuleInit {
       const response = await nftContract.mint(nftReceiverAddress, nftTokenURI);
       await response.wait();
       const nftcount = await nftContract.getNftCount();
-      return nftcount;
+      return Number(nftcount.toString());
     } catch (err) {
       throw new DataError(err);
     }

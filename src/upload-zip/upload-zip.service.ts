@@ -563,7 +563,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     };
 
     //DONE
-    const nftcount = await this.nft.mintNFT(nftReceiverAddress, nftTokenURI, nftInfo);
+    const nftcount:number = await this.nft.mintNFT(nftReceiverAddress, nftTokenURI, nftInfo);
     // const nftcount = 200;
     if (verbose) console.log("nftcount", nftcount);
     nftInfo.id = nftcount;
@@ -710,7 +710,16 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       timestampInQueue: 0,
       timestampReady: 0,
       timestampProcessing: 0,
-      timestampSent: 0
+      timestampSent: 0,
+      cid: '',
+      // nftNetwork: '',
+      // nftAddress: '',
+      // nftId: 0
+        nftInfo: {
+        network: '',    
+        address: '',  
+        id: 0  
+      }
     };
 
     if (this.queueService.isCreatingOwnable()) {
@@ -738,7 +747,17 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-
+  private isValidPackageName(name:string):boolean {
+    // Regular expression to match Unicode letters, numbers, underscores, and hyphens
+    const xidRegex = /^[\p{L}\p{N}_-]+$/u;
+    return xidRegex.test(name);
+  }
+  private sanitizePackageName(name:string): string {
+    // Regular expression to match invalid characters
+    const invalidCharRegex = /[^\p{L}\p{N}_-]/gu;
+    // Replace invalid characters with an underscore
+    return name.replace(invalidCharRegex, '_');
+  }
   private wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
 
   // 1) unzip user input zip file into memory
@@ -770,6 +789,26 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
       if (verbose) console.log("reading JSON info data from zip for Ownable modification...");
       const jsonFile = await this.readOwnableDataFromZip(requestIdFiles);
+
+      if (this.isValidPackageName(jsonFile.PLACEHOLDER1_NAME)) {
+        if (verbose) console.log("Valid package PLACEHOLDER1_NAME.");
+      } else {
+        if (verbose) console.log(`Sanatizing invalid characters in PLACEHOLDER1_NAME: ${jsonFile.PLACEHOLDER1_NAME}`);
+        jsonFile.PLACEHOLDER1_NAME = this.sanitizePackageName(jsonFile.PLACEHOLDER1_NAME);
+      }
+      if (this.isValidPackageName(jsonFile.PLACEHOLDER1_DESCRIPTION)) {
+        if (verbose) console.log("Valid package PLACEHOLDER1_DESCRIPTION.");
+      } else {
+        if (verbose) console.log(`Sanatizing invalid characters in PLACEHOLDER1_DESCRIPTION: ${jsonFile.PLACEHOLDER1_DESCRIPTION}`);
+        jsonFile.PLACEHOLDER1_DESCRIPTION = this.sanitizePackageName(jsonFile.PLACEHOLDER1_DESCRIPTION);
+
+      }
+      if (this.isValidPackageName(jsonFile.PLACEHOLDER2_TITLE)) {
+        if (verbose) console.log("Valid package PLACEHOLDER2_TITLE.");
+      } else {
+        if (verbose) console.log(`Sanatizing invalid characters in PLACEHOLDER2_TITLE: ${jsonFile.PLACEHOLDER2_TITLE}`);
+        jsonFile.PLACEHOLDER2_TITLE = this.sanitizePackageName(jsonFile.PLACEHOLDER2_TITLE);
+      }
       if (verbose) console.log("ownableData.json", jsonFile);
       if (jsonFile.CREATE_NFT === 'true') {
         if (!(jsonFile.NFT_BLOCKCHAIN === 'arbitrum') && !(jsonFile.NFT_BLOCKCHAIN === 'ethereum')) {
@@ -869,6 +908,10 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
     if (verbose) console.log("getting unique chain ID from created ownable zip files ...");
     const cid = await this.getUniqueId(cidFiles);
+    console.log("setCidNftInfo rid",rid);
+    console.log("setCidNftInfo cid",cid);
+    console.log("setCidNftInfo nftInfo",nftInfo);
+    await this.queueService.setCidNftInfo(rid,cid,nftInfo);
 
     const ownableZip = `${this.pathToCids}/${cid}/${cid}.zip`;
     if (verbose) console.log("Storing new Ownable zip file and deleting the source Ownable zip ...");

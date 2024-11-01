@@ -6,6 +6,7 @@ import { S3, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import S3Bucket from 'any-bucket/s3';
 import { QueueEntry, OwnableStatus } from '../interfaces/QueueEntry';
 import { QueueError } from '../interfaces/error';
+import { NftInfo } from 'src/interfaces/OwnableInfo';
 
 @Injectable()
 export class QueueService implements OnModuleInit {
@@ -83,7 +84,16 @@ export class QueueService implements OnModuleInit {
         timestampInQueue: entry.timestampInQueue,
         timestampProcessing: entry.timestampProcessing,
         timestampReady: entry.timestampReady,
-        timestampSent: entry.timestampSent
+        timestampSent: entry.timestampSent,
+        cid: entry.cid ?? '',
+          nftInfo: {
+          network: '',    
+          address: '',  
+          id: 0  
+        }
+        // nftNetwork: entry.nftInfo.network,
+        // nftAddress: entry.nftInfo.address,
+        // nftId: entry.nftInfo.id
       });
 
       // Check if the status is not Unknown before fetching data
@@ -134,7 +144,16 @@ export class QueueService implements OnModuleInit {
         timestampInQueue: Math.floor(Date.now() / 1000),
         timestampProcessing: 0,
         timestampReady: 0,
-        timestampSent: 0
+        timestampSent: 0,
+        cid: '',
+        // nftNetwork: '',
+        // nftAddress: '',
+        // nftId: 0
+          nftInfo: {
+          network: '',    
+          address: '',  
+          id: 0  
+        }
       }
       this.queue.push(newQueueEntry);
       this.queueData.push(data);
@@ -167,7 +186,16 @@ export class QueueService implements OnModuleInit {
       timestampInQueue: 0,
       timestampProcessing: 0,
       timestampReady: 0,
-      timestampSent: 0
+      timestampSent: 0,
+      cid: '',
+      // nftNetwork: '',
+      // nftAddress: '',
+      // nftId: 0
+      nftInfo: {
+        network: '',    
+        address: '',  
+        id: 0  
+      }
     };
 
     const entry = this.queue.find((entry: QueueEntry) => entry.rid === requestId);
@@ -196,6 +224,15 @@ export class QueueService implements OnModuleInit {
     return queryQueueEntries;
   }
 
+  public async setCidNftInfo(requestId: string, cid: string, nftInfo: NftInfo) {
+    const [entry, index] = this.getQueueEntryByRequestId(requestId);
+    this.queue[index].cid = cid;
+    // this.queue[index].nftNetwork = nftInfo.network;
+    // this.queue[index].nftAddress = nftInfo.address;
+    // this.queue[index].nftId = nftInfo.id;
+    this.queue[index].nftInfo = nftInfo;
+    await this.updateQueueInS3Bucket();
+  }
   public async setTxId(requestId: string, txId: string) {
     const [entry, index] = this.getQueueEntryByRequestId(requestId);
     this.queue[index].txId = txId;
@@ -210,7 +247,7 @@ export class QueueService implements OnModuleInit {
   public async deleteOwnableData(requestId: string) {
     const [entry, index] = this.getQueueEntryByRequestId(requestId);
     if (index >= 0 && index < this.queue.length) {
-      
+
       await this.s3Bucket.delete(this.queue[index].data);
 
       this.queue.splice(index, 1);
