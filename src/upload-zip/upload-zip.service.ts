@@ -654,7 +654,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       } catch (err) {
         throw new Error(`Error: ${err}`);
       }
-    } else {
+    } 
       const queryProcessingEntry: QueueEntry[] = this.queueService.getQueueEntriesByStatus(OwnableStatus.Processing);
       const timestampNow = Math.floor(Date.now() / 1000);
       if(queryProcessingEntry.length > 0) {
@@ -664,7 +664,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
         }
       }
-    }
+    
 
 
     const queueingAllowed = this.config.get('lto.queue');
