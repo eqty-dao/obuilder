@@ -617,19 +617,28 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     await this.wait(10000);
     const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, jsonFile.NFT_BLOCKCHAIN, requestId);
     if (verbose) console.log("transactionIdData:", transactionIdData);
-
-
+    
+    
     const entry: QueueEntry = await this.queueService.enqueue(requestId, uint8ArrayData, transactionIdData.sender, jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId);
-
-
+    
+    
     return entry;
-
+    
   }
-
-
-
+  
+  
+  
   private async checkQueueStatus() {
-
+    
+    const queryProcessingEntry: QueueEntry[] = this.queueService.getQueueEntriesByStatus(OwnableStatus.Processing);
+    const timestampNow = Math.floor(Date.now() / 1000);
+    if(queryProcessingEntry.length > 0) {
+      if(timestampNow - queryProcessingEntry[0].timestampProcessing >= 300) {
+        console.log(`Something went wrong with processing Queue Entry. Resetting ${queryProcessingEntry[0]}`);
+        await this.queueService.setQueueEntryStatus(queryProcessingEntry[0].rid, OwnableStatus.InQueue);        
+  
+      }
+    }
     const isEmpty = this.queueService.isQueueEmpty();
     if (!isEmpty) {
       console.log("Checking Queue Status: queue not empty...");
@@ -655,15 +664,6 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         throw new Error(`Error: ${err}`);
       }
     } 
-      const queryProcessingEntry: QueueEntry[] = this.queueService.getQueueEntriesByStatus(OwnableStatus.Processing);
-      const timestampNow = Math.floor(Date.now() / 1000);
-      if(queryProcessingEntry.length > 0) {
-        if(timestampNow - queryProcessingEntry[0].timestampProcessing >= 300) {
-          console.log(`Something went wrong with processing Queue Entry. Resetting ${queryProcessingEntry[0]}`);
-          await this.queueService.setQueueEntryStatus(queryProcessingEntry[0].rid, OwnableStatus.InQueue);        
-
-        }
-      }
     
 
 
