@@ -654,6 +654,16 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       } catch (err) {
         throw new Error(`Error: ${err}`);
       }
+    } else {
+      const queryProcessingEntry: QueueEntry[] = this.queueService.getQueueEntriesByStatus(OwnableStatus.Processing);
+      const timestampNow = Math.floor(Date.now() / 1000);
+      if(queryProcessingEntry.length > 0) {
+        if(timestampNow - queryProcessingEntry[0].timestampProcessing >= 300) {
+          console.log(`Something went wrong with processing Queue Entry. Resetting ${queryProcessingEntry[0]}`);
+          await this.queueService.setQueueEntryStatus(queryProcessingEntry[0].rid, OwnableStatus.InQueue);        
+
+        }
+      }
     }
 
 
