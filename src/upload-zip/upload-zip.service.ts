@@ -817,7 +817,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
       if (verbose) console.log("reading JSON info data from zip for Ownable modification...");
       const jsonFile = await this.readOwnableDataFromZip(requestIdFiles);
-
+      jsonFile.PLACEHOLDER1_NAME = `${jsonFile.PLACEHOLDER1_NAME}COLIN`;
       if (this.isValidPackageName(jsonFile.PLACEHOLDER1_NAME)) {
         if (verbose) console.log("Valid package PLACEHOLDER1_NAME.");
       } else {
