@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseInterceptors, UploadedFile, Res, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseInterceptors, UploadedFile, Res, Req, Query } from '@nestjs/common';
 import { UploadZipService } from './upload-zip.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Express } from 'express';
@@ -14,12 +14,12 @@ export class UploadZipController {
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadFile(@Body() inputUploadFile: InputUploadFileDto, @UploadedFile() file: Express.Multer.File,@Res() res: Response, @Signer() signer?: Account): Promise<Response> {
+  async uploadFile(@Body() inputUploadFile: InputUploadFileDto, @UploadedFile() file: Express.Multer.File,@Req() req: Request,  @Res() res: Response, @Signer() signer?: Account): Promise<Response> {
     let buffer: Buffer = null;
     console.log("file", file);
     console.log("typeof file", typeof file);
 
-    if(file) {
+    if (file) {
       console.log("file.fieldname", file.fieldname);
       console.log("file.originalname", file.originalname);
     }
@@ -29,33 +29,33 @@ export class UploadZipController {
     // console.log("file.buffer",file.buffer);
     console.log("buffer", file.buffer);
     console.log("typeof buffer", typeof file.buffer);
-    
-    if (Object.getPrototypeOf(file) === null || Object.prototype.isPrototypeOf(file) == false){ //Buffer.isBuffer(file)) {
+
+    if (Object.getPrototypeOf(file) === null || Object.prototype.isPrototypeOf(file) == false) { //Buffer.isBuffer(file)) {
       console.log('The variable is NOT a Buffer object.');
-      return res.status(400).send('Failed to read data from HTTP request');     
-      
+      return res.status(400).send('Failed to read data from HTTP request');
+
     } else {
       console.log('The variable is a Buffer object.');
       buffer = file.buffer;
-  }
-
-    // TODO: adding signed request and reading info from Header inside controller logic
-    // console.log("HTTP Authentication SIGNER: ", signer.address);
-    if (typeof signer !== 'undefined') {
-      console.log("HTTP Authentication SIGNER LTO ADDRESS: ", signer.address);
-    } else {
-      // throw ('Undefined HTTP Authentication SIGNER LTO Wallet Address!');
     }
+   
+    // if (typeof signer === 'undefined') {
+    //   console.log(`Error: Request not signed by any signer. Sign url request and a add it to the header`);
+    //   // throw new ForbiddenException({ message: 'Unauthorized: Invalid signature for this address' });
+    //   // throw ('Undefined HTTP Authentication SIGNER LTO Wallet Address!');
+    // } else {
+    //   console.log(`Signer address ${signer.address} for request detected`);
+    // }
 
 
     let requestId: string;
     try {
-      requestId = await this.uploadZipService.queueRequest(buffer, 1, "signerAddress", true);
+      requestId = await this.uploadZipService.queueRequest(buffer, 1, true, req);
       return res.status(201).json(requestId);
 
     } catch (err) {
       return this.errorResponse(res, err);
-      
+
     }
 
   }
@@ -71,19 +71,19 @@ export class UploadZipController {
 
   @Get('getInQueueEntries')
   getInQueueEntries() {
-    return this.uploadZipService.getInQueueEntries();    
+    return this.uploadZipService.getInQueueEntries();
   }
   @Get('getProcessingEntries')
   getProcessingEntries() {
-    return this.uploadZipService.getProcessingEntries();    
+    return this.uploadZipService.getProcessingEntries();
   }
   @Get('getReadyEntries')
   getReadyEntries() {
-    return this.uploadZipService.getReadyEntries();    
+    return this.uploadZipService.getReadyEntries();
   }
   @Get('getSentEntries')
   getSentEntries() {
-    return this.uploadZipService.getSentEntries();    
+    return this.uploadZipService.getSentEntries();
   }
   @Get('getQueueEntriesByRequestId')
   getQueueEntriesByRequestId(@Query('requestId') requestId: string) {
@@ -97,13 +97,13 @@ export class UploadZipController {
   getQueueEntriesByStatus(@Query('status') status: OwnableStatus) {
     return this.uploadZipService.getQueueEntriesByStatus(status);
   }
-  
+
   @Get('getQueueStatus')
   getQueueStatus() {
-    const retVal = this.uploadZipService.queueStatus();    
+    const retVal = this.uploadZipService.queueStatus();
     return retVal;
   }
-    
+
   @Get('isRelayServerUp')
   async isRelayServerUp() {
     try {
@@ -115,7 +115,7 @@ export class UploadZipController {
   @Get('isEVMAddress')
   isEVMAddress(@Query('address') address: string) {
     try {
-      return this.uploadZipService.isEVMAddress(address);      
+      return this.uploadZipService.isEVMAddress(address);
     } catch (err) {
       return { "error": `${err}` };
     }
@@ -123,12 +123,12 @@ export class UploadZipController {
   @Get('isLTOAddress')
   isLTOAddress(@Query('address') address: string) {
     try {
-      return this.uploadZipService.isValidLtoAddress(address);      
+      return this.uploadZipService.isValidLtoAddress(address);
     } catch (err) {
       return false;
     }
   }
-  
+
   @Get('availableChains')
   async GetAvailableNftChains() {
     try {
@@ -191,5 +191,5 @@ export class UploadZipController {
       return { "error": `${err}` };
     }
   }
- 
+
 }

@@ -118,15 +118,15 @@ export class QueueService implements OnModuleInit {
   }
 
   // For `getProcessingQueueEntryIndex`
-  private getProcessingQueueEntryIndex(): number | null {
-    const index = this.queue.findIndex((entry: QueueEntry) => entry.ownableStatus === OwnableStatus.Processing);
-    return index >= 0 ? index : null;
-  }
-  private getInQueueEntryIndex(): number | null {
-    const index = this.queue.findIndex((entry: QueueEntry) => entry.ownableStatus === OwnableStatus.InQueue);
+  private getQueueEntryIndexByStatus(status: OwnableStatus): number | null {
+    const index = this.queue.findIndex((entry: QueueEntry) => entry.ownableStatus === status);
     return index >= 0 ? index : null;
   }
 
+  public getRequestIdByTxId(txId: string): string | null {
+    const entry = this.queue.find((entry: QueueEntry) => entry.txId === txId);
+    return entry ? entry.rid : null;
+  }
 
 
 
@@ -187,10 +187,7 @@ export class QueueService implements OnModuleInit {
       timestampProcessing: 0,
       timestampReady: 0,
       timestampSent: 0,
-      cid: '',
-      // nftNetwork: '',
-      // nftAddress: '',
-      // nftId: 0
+      cid: '',      
       nftInfo: {
         network: '',    
         address: '',  
@@ -239,10 +236,7 @@ export class QueueService implements OnModuleInit {
     await this.updateQueueInS3Bucket();
   }
 
-  public getRequestIdByTxId(txId: string): string | null {
-    const entry = this.queue.find((entry: QueueEntry) => entry.txId === txId);
-    return entry ? entry.rid : null;
-  }
+  
 
   public async deleteOwnableData(requestId: string) {
     const [entry, index] = this.getQueueEntryByRequestId(requestId);
@@ -297,7 +291,7 @@ export class QueueService implements OnModuleInit {
   }
 
   public isCreatingOwnable(): boolean {
-    const index = this.getProcessingQueueEntryIndex();
+    const index = this.getQueueEntryIndexByStatus(OwnableStatus.Processing);
     if (index != null) {
       return true;
     }
@@ -305,7 +299,7 @@ export class QueueService implements OnModuleInit {
   }
 
   public isQueueEmpty(): boolean {
-    const index = this.getInQueueEntryIndex();
+    const index = this.getQueueEntryIndexByStatus(OwnableStatus.InQueue);
     if (index != null) {
       return false;
     }

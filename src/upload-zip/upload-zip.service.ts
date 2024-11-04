@@ -11,7 +11,7 @@ import { HttpService } from '@nestjs/axios';
 // import { AxiosError } from 'axios';
 import { Account, Binary, LTO, Event, EventChain, Message, Relay } from "@ltonetwork/lto";
 import { exec } from 'child_process';
-import chokidar from 'chokidar';
+// import chokidar from 'chokidar';
 import { NftInfo, OwnableInfo } from '../interfaces/OwnableInfo';
 import { TransactionIdData } from '../interfaces/TransactionIdData';
 import { TypedPackage } from "../interfaces/TypedPackage";
@@ -24,6 +24,9 @@ import { Blob } from 'buffer';
 import { QueueEntry, OwnableStatus } from '../interfaces/QueueEntry';
 import { PinataSDK } from "pinata";
 import { QueueService } from '../services/Queue.service';
+import { UserError } from 'src/interfaces/error';
+import { Request, Response } from 'express';
+import { sign, verify } from '@ltonetwork/http-message-signatures';
 
 @Injectable()
 export class UploadZipService implements OnModuleInit, OnModuleDestroy {
@@ -263,9 +266,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       await this.checkReuseOfTxId(ltoTransactionId, requestId);
     } catch (err) {
       throw new Error(`Check reuse of TxID failed ${err}`);
-    }
-    // Link request ID to this lto TX ID to prevent using TX ID twice for another ownable creation request
-    // await this.executeCommand(`touch ${this.pathToUsedTxids}/${ltoTransactionId}_${requestId}`);
+    }    
 
     return {
       type: data.type,
@@ -563,14 +564,44 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     };
 
     //DONE
-    const nftcount:number = await this.nft.mintNFT(nftReceiverAddress, nftTokenURI, nftInfo);
+    const nftcount: number = await this.nft.mintNFT(nftReceiverAddress, nftTokenURI, nftInfo);
     // const nftcount = 200;
     if (verbose) console.log("nftcount", nftcount);
     nftInfo.id = nftcount;
     return nftInfo;
 
   }
-  public async queueRequest(uint8ArrayData: Uint8Array, templateId: number, signerAddress: string, verbose?: boolean): Promise<any> {
+  public async queueRequest(uint8ArrayData: Uint8Array, templateId: number, verbose: boolean, req: Request): Promise<any> {
+    // let signerAccountAddress: string;
+    // try {      
+    //   if(verbose) console.log("req headers",req.headers);
+    //   if(verbose) console.log("req url", req.url);
+    //   if(verbose) console.log("req method", req.method);
+    //   if(verbose) console.log("req headers origin", req.headers.origin);
+    //   if(verbose) console.log("req headers host", req.headers.host);
+
+    //   const longUrl = req.headers.origin;
+    //   const httpPartOfUrl = longUrl.split('//');
+    //   const signedRequest = {
+    //     headers: {
+    //       'Signature': req.headers.signature,
+    //       'Signature-Input': req.headers['signature-input']
+    //     },
+    //     url: `${httpPartOfUrl}//${req.headers.host}${req.url}`,
+    //     method: `${req.method}`
+    //   }
+    //   if(verbose) console.log("signedRequest:", signedRequest);
+    //   const signerAccount: Account = await verify(signedRequest, this.lto);
+    //   if(verbose) console.log("Extracted signer from LtoRequest:", signerAccount.address);
+    //   signerAccountAddress=signerAccount.address;
+    // } catch (err) {
+
+    //   throw new UserError(
+    //     `Invalid signed LTO request. Not possible to extract signer. Provided signed LTO request: ${req.headers} and Error: ${err}`
+    //   );
+
+    // }
+    
 
     const relayURL = this.getRelayUrl();
     const isUp: boolean = await this.isRelayUp(relayURL);
@@ -618,7 +649,10 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, jsonFile.NFT_BLOCKCHAIN, requestId);
     if (verbose) console.log("transactionIdData:", transactionIdData);
 
-
+    // TODO:
+    // if (signerAccountAddress !== transactionIdData.sender) {
+    //   throw new UserError(`Error: Signer of Ownable request ${signerAccountAddress} did not sign transactionID ${jsonFile.OWNABLE_LTO_TRANSACTION_ID}. Signer of TXID:${transactionIdData.sender}`);
+    // }
     const entry: QueueEntry = await this.queueService.enqueue(requestId, uint8ArrayData, transactionIdData.sender, jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId);
 
 
@@ -683,7 +717,6 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   public getSentEntries(): QueueEntry[] {
     return this.queueService.getQueueEntriesByStatus(OwnableStatus.Sent);
   }
-
   public getQueueEntriesByRequestId(requestId: string): [QueueEntry, number] {
     return this.queueService.getQueueEntryByRequestId(requestId);
   }
@@ -712,13 +745,10 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       timestampProcessing: 0,
       timestampSent: 0,
       cid: '',
-      // nftNetwork: '',
-      // nftAddress: '',
-      // nftId: 0
-        nftInfo: {
-        network: '',    
-        address: '',  
-        id: 0  
+      nftInfo: {
+        network: '',
+        address: '',
+        id: 0
       }
     };
 
@@ -747,16 +777,19 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  private isValidPackageName(name:string):boolean {
+  private isValidPackageName(name: string): boolean {
     // Regular expression to match Unicode letters, numbers, underscores, and hyphens
-    const xidRegex = /^[\p{L}\p{N}_-]+$/u;
-    return xidRegex.test(name);
+    // const xidRegex = /^[\p{L}\p{N}_-]+$/u;
+    // return xidRegex.test(name);
+    return true;
   }
-  private sanitizePackageName(name:string): string {
+  private sanitizePackageName(name: string): string {
     // Regular expression to match invalid characters
     const invalidCharRegex = /[^\p{L}\p{N}_-]/gu;
     // Replace invalid characters with an underscore
-    return name.replace(invalidCharRegex, '_');
+    // return name.replace(invalidCharRegex, '_');
+    return name;
+
   }
   private wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
 
@@ -764,12 +797,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   // 2) 
   public async store(data: Uint8Array, templateId: number, sender: string, verbose?: boolean) {
 
-    // console.log("HTTP Authentication SIGNER: ", signer);
-    // if (typeof signer !== 'undefined') {
-    //   console.log("HTTP Authentication SIGNER LTO ADDRESS: ", signer.address);
-    // } else {
-    //   // throw ('Undefined HTTP Authentication SIGNER LTO Wallet Address!');
-    // }
+
 
 
     try {
@@ -908,10 +936,10 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
     if (verbose) console.log("getting unique chain ID from created ownable zip files ...");
     const cid = await this.getUniqueId(cidFiles);
-    console.log("setCidNftInfo rid",rid);
-    console.log("setCidNftInfo cid",cid);
-    console.log("setCidNftInfo nftInfo",nftInfo);
-    await this.queueService.setCidNftInfo(rid,cid,nftInfo);
+    console.log("setCidNftInfo rid", rid);
+    console.log("setCidNftInfo cid", cid);
+    console.log("setCidNftInfo nftInfo", nftInfo);
+    await this.queueService.setCidNftInfo(rid, cid, nftInfo);
 
     const ownableZip = `${this.pathToCids}/${cid}/${cid}.zip`;
     if (verbose) console.log("Storing new Ownable zip file and deleting the source Ownable zip ...");
@@ -1138,26 +1166,5 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       Array.from(files.entries()).map(([filename, content]) => writeFileSync(path.join(packageDir, filename), content)),
     );
   }
-  // uploadFile(file: Express.Multer.File) {
-  //   return file;
-  // }
-  // create(createUploadZipDto: CreateUploadZipDto) {
-  //   return 'This action adds a new uploadZip';
-  // }
 
-  // findAll() {
-  //   return `This action returns all uploadZip`;
-  // }
-
-  // findOne(id: number) {
-  //   return `This action returns a #${id} uploadZip`;
-  // }
-
-  // update(id: number, updateUploadZipDto: UpdateUploadZipDto) {
-  //   return `This action updates a #${id} uploadZip`;
-  // }
-
-  // remove(id: number) {
-  //   return `This action removes a #${id} uploadZip`;
-  // }
 }
