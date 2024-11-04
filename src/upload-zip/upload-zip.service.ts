@@ -793,13 +793,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   }
   private wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
 
-  // 1) unzip user input zip file into memory
-  // 2) 
+  
   public async store(data: Uint8Array, templateId: number, sender: string, verbose?: boolean) {
-
-
-
-
     try {
       // console.log("data", data);
       if (verbose) console.log("unzipping user input file into memory...");
@@ -1000,8 +995,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
     await this.queueService.setQueueEntryStatus(rid, OwnableStatus.Ready);
     // await this.wait(20000); // TODO
+    await this.storeZip(`${this.pathToCids}/${cid}`, cid, content);
     await this.sendOwnable(rid, sender, content);
-
 
 
     // });

@@ -27,8 +27,8 @@ export class QueueService implements OnModuleInit {
       },
       region: 'eu-west-1'
     };
-    // this.s3Client = new S3(s3LocalConfig); // FOR TESTING ONLY
-    this.s3Client = new S3({ region: 'eu-west-1' });
+    this.s3Client = new S3(s3LocalConfig); // FOR TESTING ONLY
+    // this.s3Client = new S3({ region: 'eu-west-1' });
     this.s3Bucket = new S3Bucket(this.s3Client, this.config.get('OWNABLE_BUCKET'));
     // this.s3Bucket = new S3Bucket(this.s3Client, this.config.get('bucket.obuilder.queue'));        
   }
