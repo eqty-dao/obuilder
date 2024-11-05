@@ -24,15 +24,24 @@ rustup default "$RUST_VERSION"
 
 # Verify Cargo version
 CARGO_VERSION_INSTALLED=$(cargo --version)
-if [[ "$CARGO_VERSION_INSTALLED" != *"1.79.0"* ]]; then
+if [ "$CARGO_VERSION_INSTALLED" != *"1.79.0"* ]; then
   echo "Cargo version mismatch. Expected 1.79.0 but got $CARGO_VERSION_INSTALLED."
 fi
 
 # Install a specific version of wasm-pack
-if ! command -v wasm-pack &> /dev/null || [[ "$(wasm-pack --version)" != *"$WASM_PACK_VERSION"* ]]; then
+if ! command -v wasm-pack &> /dev/null || [ "$(wasm-pack --version)" != *"$WASM_PACK_VERSION"* ]; then
   echo "Installing wasm-pack version $WASM_PACK_VERSION..."
   curl -L -o wasm-pack.tar.gz "https://github.com/rustwasm/wasm-pack/releases/download/v$WASM_PACK_VERSION/wasm-pack-v$WASM_PACK_VERSION-x86_64-unknown-linux-musl.tar.gz"
-  tar -xzf wasm-pack.tar.gz -C "$HOME/.cargo/bin/" wasm-pack
+  
+  mkdir -p "$HOME/.cargo/bin/"
+  tar -xzf wasm-pack.tar.gz -C "$HOME/.cargo/bin/" --strip-components=1
+  
+  if [ $? -ne 0 ]; then
+    echo "Error extracting wasm-pack."
+  else
+    echo "wasm-pack installed successfully."
+  fi
+  
   rm wasm-pack.tar.gz
 else
   echo "wasm-pack version $WASM_PACK_VERSION is already installed."
