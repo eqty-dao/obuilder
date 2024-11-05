@@ -7,37 +7,33 @@ echo "Starting installation of specific versions for Rust, rustup, cargo, and wa
 export PATH="$HOME/.cargo/bin:$PATH"
 
 # Define desired versions
-RUSTUP_VERSION="1.27.1"
-CARGO_VERSION="1.79.0"
-WASM_PACK_VERSION="0.13.0"
+RUST_VERSION="1.63.0"          # Set Rust version to get Cargo 1.79.0
+WASM_PACK_VERSION="0.13.0"     # Set wasm-pack version
 
-# Install rustup with a specific version if not already installed
-if ! command -v rustup &> /dev/null || [[ "$(rustup --version)" != *"$RUSTUP_VERSION"* ]]; then
-  echo "Installing rustup version $RUSTUP_VERSION..."
+# Install rustup (latest version, since specific versions aren't directly supported)
+if ! command -v rustup &> /dev/null; then
+  echo "Installing rustup..."
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
-  rustup self update --force $RUSTUP_VERSION
 else
-  echo "rustup version $RUSTUP_VERSION is already installed."
+  echo "rustup is already installed."
 fi
 
-# Set Rust version to install cargo 1.79.0
+# Install the specific Rust and Cargo version
 rustup install "$RUST_VERSION"
 rustup default "$RUST_VERSION"
-rustup update
 
-# Ensure specific cargo version is set
-if [[ "$(cargo --version)" != *"$CARGO_VERSION"* ]]; then
-  echo "Updating Cargo to version $CARGO_VERSION..."
-  rustup install 1.79.0
+# Verify Cargo version
+CARGO_VERSION_INSTALLED=$(cargo --version)
+if [[ "$CARGO_VERSION_INSTALLED" != *"1.79.0"* ]]; then
+  echo "Cargo version mismatch. Expected 1.79.0 but got $CARGO_VERSION_INSTALLED."
 fi
 
 # Install a specific version of wasm-pack
 if ! command -v wasm-pack &> /dev/null || [[ "$(wasm-pack --version)" != *"$WASM_PACK_VERSION"* ]]; then
   echo "Installing wasm-pack version $WASM_PACK_VERSION..."
-  curl -L -o wasm-pack-init.sh https://rustwasm.github.io/wasm-pack/installer/init.sh
-  chmod +x wasm-pack-init.sh
-  WASM_PACK_VERSION=$WASM_PACK_VERSION ./wasm-pack-init.sh
-  rm wasm-pack-init.sh
+  curl -L -o wasm-pack.tar.gz "https://github.com/rustwasm/wasm-pack/releases/download/v$WASM_PACK_VERSION/wasm-pack-v$WASM_PACK_VERSION-x86_64-unknown-linux-musl.tar.gz"
+  tar -xzf wasm-pack.tar.gz -C "$HOME/.cargo/bin/" wasm-pack
+  rm wasm-pack.tar.gz
 else
   echo "wasm-pack version $WASM_PACK_VERSION is already installed."
 fi
