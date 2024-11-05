@@ -21,8 +21,8 @@ else
 fi
 
 # Set Rust version to install cargo 1.79.0
-rustup install stable
-rustup default stable
+rustup install "$RUST_VERSION"
+rustup default "$RUST_VERSION"
 rustup update
 
 # Ensure specific cargo version is set
