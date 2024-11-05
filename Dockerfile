@@ -7,13 +7,21 @@ ENV PATH="/root/.cargo/bin:$PATH"
 # Install Rust and wasm-pack
 RUN yes "1" | curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
+# Copy and run the installation script for Rust and wasm-pack
+COPY install-rust-tools.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/install-rust-tools.sh
+RUN /usr/local/bin/install-rust-tools.sh
+
+# Set the default Rust toolchain to stable explicitly
+RUN /root/.cargo/bin/rustup default stable
+
 # Install wasm-pack
-RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+# RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
 # Set default Rust toolchain and add WebAssembly target
-RUN rustup default stable \
-&& rustup update stable \
-&& rustup target add wasm32-unknown-unknown
+# RUN rustup default stable \
+# && rustup update stable \
+# && rustup target add wasm32-unknown-unknown
 
 # Debugging: Verify installation paths
 RUN cargo --version
