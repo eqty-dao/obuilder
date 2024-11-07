@@ -913,7 +913,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   //   }
   // }
   private async watchFileCreation(fileName: string, jsonFile: any, nftInfo: NftInfo, sender: string, rid: string, verbose: boolean) {
-    if (verbose) console.log(`Ownable creation startet. Waiting for Zip File ${fileName}to be created...`);
+    if (verbose) console.log(`Ownable creation startet. Waiting for Zip File ${fileName} to be created...`);
     let timeout = 0;
     while (!fileExists(fileName)) {
       this.wait(1000);
@@ -922,18 +922,19 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         break;
       }
     }
-    // const watcher = chokidar.watch(fileName).on('add', async (event) => {
-    //   watcher.unwatch(fileName);
-    if (verbose) console.log("Zip File Created successfully:", fileName);
-    // if (verbose) console.log("Watcher timestamp: ", Math.floor(Date.now() / 1000));
-    if (verbose) console.log("unzipping the created ownable to produce unique cid...");
+   
+    if (verbose) console.log(`Zip File ${fileName} Created successfully.`);
+    if (verbose) console.log("Unzipping to produce unique cid...");
     const cidFiles = await this.unzip(fileName);
+
+    // adding a timestamp file to the Ownable to guarantee uniqueness for the CID
+    cidFiles.set('timestamp.txt', Buffer.from(Date.now().toString(), 'utf-8'));
 
     if (verbose) console.log("getting unique chain ID from created ownable zip files ...");
     const cid = await this.getUniqueId(cidFiles);
-    console.log("setCidNftInfo rid", rid);
-    console.log("setCidNftInfo cid", cid);
-    console.log("setCidNftInfo nftInfo", nftInfo);
+    if (verbose) console.log("setCidNftInfo rid", rid);
+    if (verbose) console.log("setCidNftInfo cid", cid);
+    if (verbose) console.log("setCidNftInfo nftInfo", nftInfo);
     await this.queueService.setCidNftInfo(rid, cid, nftInfo);
 
     const ownableZip = `${this.pathToCids}/${cid}/${cid}.zip`;
