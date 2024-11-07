@@ -928,7 +928,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     const cidFiles = await this.unzip(fileName);
 
     // adding a timestamp file to the Ownable to guarantee uniqueness for the CID
-    cidFiles.set('timestamp.txt', Buffer.from(Date.now().toString(), 'utf-8'));
+    const timeMillisecondsNow = Date.now().toString();
+    cidFiles.set('timestamp.txt', Buffer.from(timeMillisecondsNow, 'utf-8'));
 
     if (verbose) console.log("getting unique chain ID from created ownable zip files ...");
     const cid = await this.getUniqueId(cidFiles);
@@ -937,6 +938,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     if (verbose) console.log("setCidNftInfo nftInfo", nftInfo);
     await this.queueService.setCidNftInfo(rid, cid, nftInfo);
 
+
     const ownableZip = `${this.pathToCids}/${cid}/${cid}.zip`;
     if (verbose) console.log("Storing new Ownable zip file and deleting the source Ownable zip ...");
     try {
@@ -944,8 +946,6 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     } catch (err) {
       console.log("Error cpSync:", fileName, err);
     }
-
-
 
     try {
       rmSync(fileName);
@@ -977,6 +977,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     const chainBuffer: Buffer = await this.createEventChain(pkgOwnable, nftInfo, sender); // sender from TX ID is new ownable owner
     //adding eventChain to cidFiles
     cidFiles.set('chain.json', chainBuffer);
+    
     try {
       await this.storeFiles(`${this.pathToCids}/${cid}`, cid, cidFiles);
     } catch (err) {
@@ -991,6 +992,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
     const eventChainJsonFile: Buffer = readFileSync(`${this.pathToCids}/${cid}/${cid}.json`)
     new_zip.file('chain.json', eventChainJsonFile);
+    new_zip.file('timestamp.txt', Buffer.from(timeMillisecondsNow, 'utf-8'));
 
     const content = await new_zip.generateAsync({ type: "uint8array" });
 
