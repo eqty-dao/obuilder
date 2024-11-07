@@ -9,7 +9,7 @@ template1.txt
 /dist
 /node_modules
 /build
-ownables/*
+
 test.html
 example_nginx.conf
 testingZips
