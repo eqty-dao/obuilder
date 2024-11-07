@@ -7,8 +7,8 @@ echo "Starting installation of specific versions for Rust, rustup, cargo, and wa
 export PATH="$HOME/.cargo/bin:$PATH"
 
 # Define desired versions
-RUST_VERSION="1.63.0"          # Set Rust version to get Cargo 1.79.0
-WASM_PACK_VERSION="0.12.1"     # Set wasm-pack version
+RUST_VERSION="1.82.0"          # Set Rust version to get Cargo 1.79.0
+WASM_PACK_VERSION="0.13.1"     # Set wasm-pack version
 
 # Install rustup (latest version, since specific versions aren't directly supported)
 if ! command -v rustup &> /dev/null; then
