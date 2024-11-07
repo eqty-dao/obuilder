@@ -58,6 +58,7 @@ export class QueueService implements OnModuleInit {
       await this.initializeQueueWithS3Data(queueMainFileJsonData);
     } catch (err) {
       console.error("Error initializing Queue with S3 data:", err);
+      await this.updateQueueInS3Bucket();
     }
 
   }
