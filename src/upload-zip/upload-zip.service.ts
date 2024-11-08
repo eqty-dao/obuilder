@@ -189,17 +189,6 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     return this._ltoAccount;
   }
 
-  // async existsRid(rid: string): Promise<boolean> {
-  //   return await fileExists(`${this.pathToRids}/${rid}`);
-  // }
-
-  async existsRidTemplate(rid: string): Promise<boolean> {
-    return await fileExists(`${this.pathToRids}/${rid}/${rid}_template`);
-  }
-  // async existsCid(cid: string): Promise<boolean> {
-  //   return await fileExists(`${this.pathToCids}/${cid}/${cid}.zip`);
-  // }
-
   private async checkReuseOfTxId(ltoTransactionId: string, requestId: string) {
     console.log(`Checking if TX ID ${ltoTransactionId} has already been used for a previous request`);
 
@@ -809,7 +798,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       //await this.wait(20000); // TODO
       if (verbose) console.log("checking for userOwnable.json existance...");
       if (!requestIdFiles.has('ownableData.json')) throw new Error("Invalid package: 'ownableData.json' is missing");
-      if (!requestIdFiles.has('ownableData.json')) throw new Error("Invalid package: 'ownableData.json' is missing");
+      // if (!requestIdFiles.has('ownableData.json')) throw new Error("Invalid package: 'ownableData.json' is missing");
 
       if (verbose) console.log("reading JSON info data from zip for Ownable modification...");
       const jsonFile = await this.readOwnableDataFromZip(requestIdFiles);
@@ -849,20 +838,16 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       if (verbose) console.log("transactionIdData:", transactionIdData);
 
 
-
-      // if (verbose) console.log("Skip storing request ID files if already exist...");
-      // if (verbose) console.log("file exists?", await this.existsRid(requestId));
-
       await this.storeFiles(`${this.pathToRids}/${requestId}`, requestId, requestIdFiles);
-      // await this.storeZip(`${this.pathToRids}/${requestId}`, requestId, data);
+
       // Before creating the Ownable a new NFT is minted with NFT id and the user NFT input data is checked
 
 
       let nftInfo: NftInfo;
 
       if (jsonFile.CREATE_NFT === 'true') {
-        // const picture: Buffer = readFileSync(`${this.pathToRids}/${requestId}/${requestId}/${jsonFile.PLACEHOLDER2_IMG}`);
-        const picture: Buffer = requestIdFiles.get(`${jsonFile.PLACEHOLDER2_IMG}`);
+        const picture: Buffer = readFileSync(`${this.pathToRids}/${requestId}/${requestId}/${jsonFile.PLACEHOLDER2_IMG}`);
+        // const picture: Buffer = requestIdFiles.get(`${jsonFile.PLACEHOLDER2_IMG}`);
         if (verbose) console.log("Creating Pinata Pinned File for NFT Token URI using the following picture:", picture);
         jsonFile.NFT_TOKEN_URI = await this.createPinataPinnedFile(picture);
         if (verbose) console.log("NFT Token URI:", jsonFile.NFT_TOKEN_URI);
@@ -879,7 +864,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         jsonFile.PLACEHOLDER1_KEYWORDS.push("noNFT");
       }
       if (verbose) console.log(`creating template with request ID ${requestId} and modifying requestIdFiles...`);
-      await this.startOwnableCreation(requestId, jsonFile, nftInfo, sender, verbose);
+      await this.startOwnableCreation(requestId, jsonFile, nftInfo, sender, requestIdFiles, verbose);
 
 
     } catch (err) {
@@ -1000,41 +985,45 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   }
 
 
-  private async startOwnableCreation(rid: string, jsonFile: any, nftInfo: NftInfo, sender: string, verbose: boolean) {
+  private async startOwnableCreation(rid: string, jsonFile: any, nftInfo: NftInfo, sender: string, requestId: Map<string, Buffer>, verbose: boolean) {
     if (verbose) console.log("Starting Ownable creation");
-    if (verbose) console.log("creating directory for template", `${this.pathToRids}/${rid}/${rid}_template`);
-    mkdirSync(`${this.pathToRids}/${rid}/${rid}_template`, { recursive: true });
 
     if (verbose) console.log("copying template 1 to template directory for modification");
-    cpSync(`${this.pathToTemplates}/template1`, `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
-    if (verbose) console.log("copying image file into template");
-    cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.PLACEHOLDER2_IMG}`, `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`);
+    cpSync(`${this.pathToTemplates}/template1`, `ownables/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
+    console.log("requestId",requestId);
+    console.log("PLACEHOLDER2_IMG",`${jsonFile.PLACEHOLDER2_IMG}`);
+    console.log("OWNABLE_THUMBNAIL",`${jsonFile.OWNABLE_THUMBNAIL}`);
+    if (verbose) console.log("copying image file into template");    
+    // writeFileSync(`${jsonFile.PLACEHOLDER2_IMG}`, requestId.get(`${jsonFile.PLACEHOLDER2_IMG}`));
+    cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.PLACEHOLDER2_IMG}`, `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`);
+    
     if (verbose) console.log("copying thumbnail image file into template");
-    cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.OWNABLE_THUMBNAIL}`, `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.OWNABLE_THUMBNAIL}`);
+    // writeFileSync(`${jsonFile.OWNABLE_THUMBNAIL}`, requestId.get(`${jsonFile.OWNABLE_THUMBNAIL}`));
+    cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.OWNABLE_THUMBNAIL}`, `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.OWNABLE_THUMBNAIL}`);
 
     if (verbose) console.log("Replacing Placeholder texts of template with user input data");
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_NAME".toString(), `"${jsonFile.PLACEHOLDER1_NAME}"`.toString());
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_DESCRIPTION".toString(), `"${jsonFile.PLACEHOLDER1_DESCRIPTION}"`.toString());
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_VERSION".toString(), `"${jsonFile.PLACEHOLDER1_VERSION}"`.toString());
+    await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_NAME".toString(), `"${jsonFile.PLACEHOLDER1_NAME}"`.toString());
+    await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_DESCRIPTION".toString(), `"${jsonFile.PLACEHOLDER1_DESCRIPTION}"`.toString());
+    await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_VERSION".toString(), `"${jsonFile.PLACEHOLDER1_VERSION}"`.toString());
 
     if (typeof jsonFile.PLACEHOLDER1_AUTHORS === 'undefined')
       jsonFile.PLACEHOLDER1_AUTHORS = '';
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_AUTHORS".toString(), `"${jsonFile.PLACEHOLDER1_AUTHORS}"`.toString());
+    await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_AUTHORS".toString(), `"${jsonFile.PLACEHOLDER1_AUTHORS}"`.toString());
 
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_KEYWORDS".toString(), arrayToString(jsonFile.PLACEHOLDER1_KEYWORDS));
+    await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_KEYWORDS".toString(), arrayToString(jsonFile.PLACEHOLDER1_KEYWORDS));
 
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/assets/index.html`.toString(), "PLACEHOLDER2_TITLE".toString(), `${jsonFile.PLACEHOLDER2_TITLE}`);
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/assets/index.html`.toString(), "PLACEHOLDER2_IMG".toString(), `"${jsonFile.PLACEHOLDER2_IMG}"`.toString());
+    await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/index.html`.toString(), "PLACEHOLDER2_TITLE".toString(), `${jsonFile.PLACEHOLDER2_TITLE}`);
+    await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/index.html`.toString(), "PLACEHOLDER2_IMG".toString(), `"${jsonFile.PLACEHOLDER2_IMG}"`.toString());
 
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/examples/schema.rs`.toString(), "PLACEHOLDER3_MSG".toString(), `${jsonFile.PLACEHOLDER1_NAME}`);
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/examples/schema.rs`.toString(), "PLACEHOLDER3_STATE".toString(), `${jsonFile.PLACEHOLDER1_NAME}`);
+    await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/examples/schema.rs`.toString(), "PLACEHOLDER3_MSG".toString(), `${jsonFile.PLACEHOLDER1_NAME}`);
+    await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/examples/schema.rs`.toString(), "PLACEHOLDER3_STATE".toString(), `${jsonFile.PLACEHOLDER1_NAME}`);
 
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_CONTRACT_NAME".toString(), `"crates.io:${jsonFile.PLACEHOLDER1_NAME}"`.toString());
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_TYPE".toString(), `"${jsonFile.PLACEHOLDER4_TYPE}"`.toString());
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_DESCRIPTION".toString(), `"${jsonFile.PLACEHOLDER4_DESCRIPTION}"`.toString());
-    await this.replaceLineInFile(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_NAME".toString(), `"${jsonFile.PLACEHOLDER4_NAME}"`.toString());
-    if (verbose) console.log("copying modified template into ownables for ownable creation based on user inputs", `${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`);
-    cpSync(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`, `ownables/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
+    await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_CONTRACT_NAME".toString(), `"crates.io:${jsonFile.PLACEHOLDER1_NAME}"`.toString());
+    await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_TYPE".toString(), `"${jsonFile.PLACEHOLDER4_TYPE}"`.toString());
+    await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_DESCRIPTION".toString(), `"${jsonFile.PLACEHOLDER4_DESCRIPTION}"`.toString());
+    await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_NAME".toString(), `"${jsonFile.PLACEHOLDER4_NAME}"`.toString());
+    // if (verbose) console.log("copying modified template into ownables for ownable creation based on user inputs", `ownables/${jsonFile.PLACEHOLDER1_NAME}`);
+    // cpSync(`${this.pathToRids}/${rid}/${rid}_template/${jsonFile.PLACEHOLDER1_NAME}`, `ownables/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
 
     if (verbose) console.log("Checking Cargo, Wasm-Pack and Rustup existance...");
     try {
@@ -1109,32 +1098,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     const file = path.join(destPath, `${uniqueId}.zip`);
     writeFileSync(file, data);
   }
-
-
-  // async claim(requestId: string, signer?: Account): Promise<StreamableFile> {
-  //   console.log("HTTP Authentication SIGNER: ", signer);
-  //   if (typeof signer !== 'undefined') {
-  //     console.log("HTTP Authentication SIGNER LTO ADDRESS: ", signer.address);
-  //   }
-  //   const claimableZipFile = `${this.pathToRids}/${requestId}/${requestId}_claim.zip`;
-  //   if (!(await fileExists(claimableZipFile))) {
-  //     throw (`Request ID ${requestId} does not have a claimable Ownable`);
-  //   }
-  //   let user: string;
-  //   try {
-  //     const files = readdirSync(`${this.pathToRids}/${requestId}/`);
-  //     files.forEach(file => {
-  //       if (file.match(/_USER$/g)) {
-  //         user = file.replace("_USER", "");
-  //       }
-  //     })
-  //   } catch (e) {
-  //     throw (e);
-  //   }
-
-  //   const claimableFileInfo = `${this.pathToUserRids}/${user}/${requestId}_claimable`;
-  //   const claimableInfo = JSON.parse(readFileSync(claimableFileInfo).toString());
-  //   claimableInfo.CLAIMED = true;
+  
 
   //   writeFileSync(claimableFileInfo, JSON.stringify(claimableInfo));
 
