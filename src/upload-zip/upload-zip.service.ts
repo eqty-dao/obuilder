@@ -235,14 +235,17 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
     // Must be of type "transaction"
     if (data.type != 4) throw ('Wrong Transaction type');
-    if (this.packageInfo.templateCost[chain.toString()][templateId] === undefined) throw (`Undefined templateCost for chain ${chain}`);
+    const templateCosts: string = this.queueService.getTemplateCosts(chain.toString(), templateId.toString());
+
+    if (templateCosts === undefined) throw (`Undefined templateCost for chain ${chain}`);
     //check for correct amount and correct recipient (this servers' LTO wallet)
     console.log("data.fee", data.fee.toString())
     console.log("data.amount", data.amount.toString())
-    console.log("Template Cost", this.packageInfo.templateCost[chain.toString()][templateId].toString());
+    // console.log("Template Cost", this.packageInfo.templateCost[chain.toString()][templateId].toString());
+    console.log("Template Cost", templateCosts);
 
-    if (data.amount.toString() !== this.packageInfo.templateCost[chain.toString()][templateId].toString()) {
-      console.log("templateCost", this.packageInfo.templateCost[chain.toString()][templateId].toString());
+    if (data.amount.toString() !== templateCosts) {
+      console.log("templateCost", templateCosts);
       console.log("amount sent", data.amount.toString());
       throw new Error('Wrong LTO amount for Template');
     }
@@ -295,7 +298,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         smartContractAddress: this.config.get('eth.contracts.ethereum'),
         totalAmountNFTs: nftCountETH.toString(),
         templateCost: {
-          1: (this.packageInfo.templateCost.ethereum[1]).toString()
+          1: this.queueService.getTemplateCosts('ethereum', '1')
         }
       },
       arbitrum: {
@@ -304,7 +307,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         smartContractAddress: this.config.get('eth.contracts.arbitrum'),
         totalAmountNFTs: nftCountARB.toString(),
         templateCost: {
-          1: (this.packageInfo.templateCost.arbitrum[1]).toString()
+          1: this.queueService.getTemplateCosts('arbitrum', '1')
         }
       }
     };
@@ -418,8 +421,11 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       throw (`Currently only Template ID 1 is support`);
     }
     return {
-      'ethereum': (this.packageInfo.templateCost.ethereum[templateId]).toString(),
-      'arbitrum': (this.packageInfo.templateCost.arbitrum[templateId]).toString(),
+
+      'ethereum': this.queueService.getTemplateCosts('ethereum', '1'),
+      'arbitrum': this.queueService.getTemplateCosts('arbitrum', '1'),
+      // 'ethereum': (this.packageInfo.templateCost.ethereum[templateId]).toString(),
+      // 'arbitrum': (this.packageInfo.templateCost.arbitrum[templateId]).toString(),
       //'polygon': (this.packageInfo.templateCost.polygon[templateId]).toString()
     }
 
@@ -838,7 +844,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       if (verbose) console.log("transactionIdData:", transactionIdData);
 
 
-      await this.storeFiles(`${this.pathToRids}/${requestId}`, requestId, requestIdFiles);
+      // await this.storeFiles(`${this.pathToRids}/${requestId}`, requestId, requestIdFiles);
 
       // Before creating the Ownable a new NFT is minted with NFT id and the user NFT input data is checked
 
@@ -846,8 +852,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       let nftInfo: NftInfo;
 
       if (jsonFile.CREATE_NFT === 'true') {
-        const picture: Buffer = readFileSync(`${this.pathToRids}/${requestId}/${requestId}/${jsonFile.PLACEHOLDER2_IMG}`);
-        // const picture: Buffer = requestIdFiles.get(`${jsonFile.PLACEHOLDER2_IMG}`);
+        // const picture: Buffer = readFileSync(`${this.pathToRids}/${requestId}/${requestId}/${jsonFile.PLACEHOLDER2_IMG}`);
+        const picture: Buffer = requestIdFiles.get(`${jsonFile.PLACEHOLDER2_IMG}`);
         if (verbose) console.log("Creating Pinata Pinned File for NFT Token URI using the following picture:", picture);
         jsonFile.NFT_TOKEN_URI = await this.createPinataPinnedFile(picture);
         if (verbose) console.log("NFT Token URI:", jsonFile.NFT_TOKEN_URI);
@@ -994,12 +1000,12 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     console.log("PLACEHOLDER2_IMG",`${jsonFile.PLACEHOLDER2_IMG}`);
     console.log("OWNABLE_THUMBNAIL",`${jsonFile.OWNABLE_THUMBNAIL}`);
     if (verbose) console.log("copying image file into template");    
-    // writeFileSync(`${jsonFile.PLACEHOLDER2_IMG}`, requestId.get(`${jsonFile.PLACEHOLDER2_IMG}`));
-    cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.PLACEHOLDER2_IMG}`, `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`);
+    writeFileSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`, requestId.get(`${jsonFile.PLACEHOLDER2_IMG}`));
+    // cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.PLACEHOLDER2_IMG}`, `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`);
     
     if (verbose) console.log("copying thumbnail image file into template");
-    // writeFileSync(`${jsonFile.OWNABLE_THUMBNAIL}`, requestId.get(`${jsonFile.OWNABLE_THUMBNAIL}`));
-    cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.OWNABLE_THUMBNAIL}`, `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.OWNABLE_THUMBNAIL}`);
+    writeFileSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.OWNABLE_THUMBNAIL}`, requestId.get(`${jsonFile.OWNABLE_THUMBNAIL}`));
+    // cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.OWNABLE_THUMBNAIL}`, `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.OWNABLE_THUMBNAIL}`);
 
     if (verbose) console.log("Replacing Placeholder texts of template with user input data");
     await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_NAME".toString(), `"${jsonFile.PLACEHOLDER1_NAME}"`.toString());
@@ -1099,21 +1105,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     writeFileSync(file, data);
   }
   
-
-  //   writeFileSync(claimableFileInfo, JSON.stringify(claimableInfo));
-
-  //   const file = createReadStream(claimableZipFile);
-  //   return new StreamableFile(file);
-
-
-  // }
-
-  // async zipped(cid: string): Promise<JSZip> {
-  //   const zip = new JSZip();
-  //   const data = readFileSync(`${this.pathToCids}/${cid}.zip`, 'utf8');
-  //   return await zip.loadAsync(data, { createFolders: true });
-  // }
-
+  
   private async storeFiles(destPath: string, cid: string, files: Map<string, Buffer>): Promise<void> {
     const packageDir = path.join(destPath, cid);
     mkdirSync(packageDir, { recursive: true });

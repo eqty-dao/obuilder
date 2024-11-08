@@ -13,6 +13,7 @@ export class QueueService implements OnModuleInit {
   private queue: QueueEntry[] = [];
   private queueData: Uint8Array[] = [];
   private isQueueing: boolean;
+  private templateCosts: any = {};
   private s3Client: S3;
   private s3Bucket: S3Bucket;
 
@@ -57,10 +58,9 @@ export class QueueService implements OnModuleInit {
       }
 
     }
-    // Now try to retrieve the Queue.json file
-    let queueMainFileBuffer: any;
     try {
-      queueMainFileBuffer = await this.s3Bucket.get('Queue.json');
+      // Now try to retrieve the Queue.json file
+      const queueMainFileBuffer = await this.s3Bucket.get('Queue.json');
       const queueMainFileJsonString = queueMainFileBuffer.toString('utf-8');
       const queueMainFileJsonData = JSON.parse(queueMainFileJsonString);
       await this.initializeQueueWithS3Data(queueMainFileJsonData);
@@ -69,14 +69,51 @@ export class QueueService implements OnModuleInit {
       await this.updateQueueInS3Bucket();
     }
 
-  }
+    try {
+      // Now try to retrieve the TemplateCosts file
+      const templateCostsBuffer = await this.s3Bucket.get('TemplateCosts.json');
+      const templateCostsJsonString = templateCostsBuffer.toString('utf-8');
+      const templateCostsJsonData = JSON.parse(templateCostsJsonString);
+      await this.initializeTemplateCostsS3Data(templateCostsJsonData);
+    } catch (err) {
+      console.error("TemplateCosts.json file not found. Creating one...");
+      this.templateCosts = {
+        "noNFT": {
+          "1": "5000000"
+        },
+        "ethereum": {
+          "1": "20000000"
+        },
+        "arbitrum": {
+          "1": "10000000"
+        },
+      };
+      await this.updateTemplateCostsInS3Bucket();
+    }
 
+  }
+  private async updateTemplateCostsInS3Bucket() {
+    try {
+      await this.s3Bucket.put(`TemplateCosts.json`, JSON.stringify(this.templateCosts));
+    } catch (err) {
+      throw new QueueError(`Failed to initiate TemplateCosts.json on s3Bucket`);
+    }
+  }
   private async updateQueueInS3Bucket() {
     try {
       await this.s3Bucket.put(`Queue.json`, JSON.stringify(this.queue));
     } catch (err) {
       throw new QueueError(`Failed to initiate Queue.json on s3Bucket`);
     }
+  }
+  private async initializeTemplateCostsS3Data(templateCostsS3Bucket: any) {
+    this.templateCosts = templateCostsS3Bucket;
+    // console.log("templateCosts", this.templateCosts)
+  }
+  
+  public getTemplateCosts(network: string, templateId: string): string {  
+    return this.templateCosts[network][templateId].toString();
+    
   }
 
   private async initializeQueueWithS3Data(queueS3Bucket: any) {
