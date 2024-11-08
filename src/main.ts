@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from './common/config/config.service';
+// import { ConfigService } from '@nestjs/config';
 import bodyParser from 'body-parser';
 
 async function bootstrap() {
@@ -40,9 +41,15 @@ async function bootstrap() {
   
   const document = SwaggerModule.createDocument(app, options);
   SwaggerModule.setup('api', app, document);
+  
+  const localTesting = config.get('bucket.localTesting');
+  console.log("Local Testing?", localTesting);
+  if(localTesting) {
+    await app.listen(3001); // TODO For testing !
+  }else {
+    await app.listen(3000);
 
-  await app.listen(3000);
-  // await app.listen(3001); // TODO For testing !
+  }
 
   console.log(`Application is running on: ${await app.getUrl()}`);
 }

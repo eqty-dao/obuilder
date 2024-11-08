@@ -189,16 +189,16 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     return this._ltoAccount;
   }
 
-  async existsRid(rid: string): Promise<boolean> {
-    return await fileExists(`${this.pathToRids}/${rid}`);
-  }
+  // async existsRid(rid: string): Promise<boolean> {
+  //   return await fileExists(`${this.pathToRids}/${rid}`);
+  // }
 
   async existsRidTemplate(rid: string): Promise<boolean> {
     return await fileExists(`${this.pathToRids}/${rid}/${rid}_template`);
   }
-  async existsCid(cid: string): Promise<boolean> {
-    return await fileExists(`${this.pathToCids}/${cid}/${cid}.zip`);
-  }
+  // async existsCid(cid: string): Promise<boolean> {
+  //   return await fileExists(`${this.pathToCids}/${cid}/${cid}.zip`);
+  // }
 
   private async checkReuseOfTxId(ltoTransactionId: string, requestId: string) {
     console.log(`Checking if TX ID ${ltoTransactionId} has already been used for a previous request`);
@@ -330,20 +330,20 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   //   isConsumer: false,
   //   isTransferable: true,
   // };
-  async getCIDs() {
-    let cids: string[] = new Array();
-    try {
-      const files = readdirSync(`${this.pathToCids}/`);
-      files.forEach(file => {
-        cids.push(file)
-      })
+  // async getCIDs() {
+  //   let cids: string[] = new Array();
+  //   try {
+  //     const files = readdirSync(`${this.pathToCids}/`);
+  //     files.forEach(file => {
+  //       cids.push(file)
+  //     })
 
-    } catch (err) {
-      console.log(err);
+  //   } catch (err) {
+  //     console.log(err);
 
-    }
-    return cids;
-  }
+  //   }
+  //   return cids;
+  // }
 
 
 
@@ -809,6 +809,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       //await this.wait(20000); // TODO
       if (verbose) console.log("checking for userOwnable.json existance...");
       if (!requestIdFiles.has('ownableData.json')) throw new Error("Invalid package: 'ownableData.json' is missing");
+      if (!requestIdFiles.has('ownableData.json')) throw new Error("Invalid package: 'ownableData.json' is missing");
 
       if (verbose) console.log("reading JSON info data from zip for Ownable modification...");
       const jsonFile = await this.readOwnableDataFromZip(requestIdFiles);
@@ -849,19 +850,20 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 
 
-      if (verbose) console.log("Skip storing request ID files if already exist...");
-      if (verbose) console.log("file exists?", await this.existsRid(requestId));
+      // if (verbose) console.log("Skip storing request ID files if already exist...");
+      // if (verbose) console.log("file exists?", await this.existsRid(requestId));
 
       await this.storeFiles(`${this.pathToRids}/${requestId}`, requestId, requestIdFiles);
-      await this.storeZip(`${this.pathToRids}/${requestId}`, requestId, data);
+      // await this.storeZip(`${this.pathToRids}/${requestId}`, requestId, data);
       // Before creating the Ownable a new NFT is minted with NFT id and the user NFT input data is checked
 
 
       let nftInfo: NftInfo;
 
       if (jsonFile.CREATE_NFT === 'true') {
-        const picture: Buffer = readFileSync(`${this.pathToRids}/${requestId}/${requestId}/${jsonFile.PLACEHOLDER2_IMG}`);
-        if (verbose) console.log("Creating Pinata Pinned File for NFT Token URI...");
+        // const picture: Buffer = readFileSync(`${this.pathToRids}/${requestId}/${requestId}/${jsonFile.PLACEHOLDER2_IMG}`);
+        const picture: Buffer = requestIdFiles.get(`${jsonFile.PLACEHOLDER2_IMG}`);
+        if (verbose) console.log("Creating Pinata Pinned File for NFT Token URI using the following picture:", picture);
         jsonFile.NFT_TOKEN_URI = await this.createPinataPinnedFile(picture);
         if (verbose) console.log("NFT Token URI:", jsonFile.NFT_TOKEN_URI);
 
@@ -903,15 +905,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     var formatted = data.replace(key, value);
     writeFileSync(file, formatted, 'utf8');
   }
-
-  // private async checkFileCreation() {
-  //   if(this.isCheckingActivated) {
-  //     if(fileExists(this.fileNameToCheck)) {
-  //       this.FileNotCreated = false;
-  //     }
-
-  //   }
-  // }
+  
   private async watchFileCreation(fileName: string, jsonFile: any, nftInfo: NftInfo, sender: string, rid: string, verbose: boolean) {
     if (verbose) console.log(`Ownable creation startet. Waiting for Zip File ${fileName} to be created...`);
     let timeout = 0;

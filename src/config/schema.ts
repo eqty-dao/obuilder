@@ -17,10 +17,14 @@ export default {
   bucket: {
     obuilder: {
       queue: {
-        default: './storage/obuilder-staging',
+        default: 'obuilder-staging',
         env: 'OWNABLE_BUCKET',
       },
     },
+    localTesting: {
+      default: false,
+      env: 'LOCAL_TESTING',
+    }
   },
   // port: {
   //   default: 80,
