@@ -1,12 +1,14 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 // import { ConfigService } from '../common/config/config.service';
 import { ConfigService } from '@nestjs/config';
+import { TelegramService } from './TelegramBot.service';
 // import { ConfigService } from '@nestjs/config';
 import { S3, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import S3Bucket from 'any-bucket/s3';
 import { QueueEntry, OwnableStatus } from '../interfaces/QueueEntry';
 import { QueueError } from '../interfaces/error';
 import { NftInfo } from 'src/interfaces/OwnableInfo';
+import { format } from 'date-fns';
 
 @Injectable()
 export class QueueService implements OnModuleInit {
@@ -17,7 +19,10 @@ export class QueueService implements OnModuleInit {
   private s3Client: S3;
   private s3Bucket: S3Bucket;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService, 
+    private readonly telegramService: TelegramService
+  ) {
     this.isQueueing = true;
     const s3LocalConfig = {
       endpoint: 'http://localhost:4566', // LocalStack endpoint
@@ -110,10 +115,10 @@ export class QueueService implements OnModuleInit {
     this.templateCosts = templateCostsS3Bucket;
     // console.log("templateCosts", this.templateCosts)
   }
-  
-  public getTemplateCosts(network: string, templateId: string): string {  
+
+  public getTemplateCosts(network: string, templateId: string): string {
     return this.templateCosts[network][templateId].toString();
-    
+
   }
 
   private async initializeQueueWithS3Data(queueS3Bucket: any) {
@@ -213,6 +218,11 @@ export class QueueService implements OnModuleInit {
       } catch (err) {
         throw new Error(`Putting ${requestId}_data into s3 Bucket failed. Error: ${err}`);
       }
+      const timestamp = Math.floor(Date.now());
+      const formattedDate = format(timestamp, 'yyyy-MM-dd HH:mm');
+
+      await this.telegramService.sendMessageToTelegramBot(`QUEUE-InQueue:(${formattedDate})\nrequestId: ${requestId}\ntxID: ${txId}\nltoWallet: ${ltoWallet}`);
+
       return newQueueEntry;
       // this.queueRequestId.push(requestId);
     } else {
@@ -276,6 +286,7 @@ export class QueueService implements OnModuleInit {
     this.queue[index].nftInfo = nftInfo;
     await this.updateQueueInS3Bucket();
   }
+
   public async setTxId(requestId: string, txId: string) {
     const [entry, index] = this.getQueueEntryByRequestId(requestId);
     this.queue[index].txId = txId;
@@ -305,9 +316,15 @@ export class QueueService implements OnModuleInit {
       this.queue[index].timestampProcessing = Math.floor(Date.now() / 1000);
     } else if (status == OwnableStatus.Ready) {
       this.queue[index].timestampReady = Math.floor(Date.now() / 1000);
+      // const formattedDate = (this.queue[index].timestampReady * 1000).toLocaleString();
+      const formattedDate = format(this.queue[index].timestampReady * 1000, 'yyyy-MM-dd HH:mm');
+      await this.telegramService.sendMessageToTelegramBot(`QUEUE-Ready:(${formattedDate})\nrequestId: ${this.queue[index].rid}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}`);
     } else if (status == OwnableStatus.Sent && typeof hash !== 'undefined') {
       this.queue[index].hash = hash;
       this.queue[index].timestampSent = Math.floor(Date.now() / 1000);
+      const formattedDate = format(this.queue[index].timestampReady * 1000, 'yyyy-MM-dd HH:mm');
+      // const formattedDate = (this.queue[index].timestampSent * 1000).toLocaleString();
+      await this.telegramService.sendMessageToTelegramBot(`QUEUE-Sent:(${formattedDate})\nrequestId: ${this.queue[index].rid}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}`);
     } else if (status == OwnableStatus.InQueue) {
       this.queue[index].timestampInQueue = Math.floor(Date.now() / 1000);
       this.queue[index].timestampProcessing = 0;
@@ -327,7 +344,8 @@ export class QueueService implements OnModuleInit {
       data = this.queueData[index];
       this.queue[index].ownableStatus = OwnableStatus.Processing;
       this.queue[index].timestampProcessing = Math.floor(Date.now() / 1000);
-
+      const formattedDate = format(this.queue[index].timestampProcessing * 1000, 'yyyy-MM-dd HH:mm');
+      await this.telegramService.sendMessageToTelegramBot(`QUEUE-Processing:(${formattedDate})\nrequestId: ${this.queue[index].rid}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}`);
       await this.updateQueueInS3Bucket();
       return [entry.rid, data, entry.ltoWallet];
     } else {

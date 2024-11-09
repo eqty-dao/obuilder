@@ -14,6 +14,16 @@ export default {
       env: 'PINATA_GATEWAY_URL',
     }
   },
+  telegramBot: {
+    token: {
+      default: '',
+      env: 'TELEGRAM_BOT_TOKEN',
+    },
+    channelId: {
+      default: '',
+      env: 'TELEGRAM_CHANNEL_ID',
+    }
+  },
   bucket: {
     obuilder: {
       queue: {

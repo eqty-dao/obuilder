@@ -14,9 +14,6 @@ export interface QueueEntry {
     timestampSent: number;
     cid: string;
     nftInfo: NftInfo;
-    // nftNetwork: string;
-    // nftAddress: string;
-    // nftId: number;
 }
 
 export enum OwnableStatus {
@@ -24,5 +21,6 @@ export enum OwnableStatus {
     InQueue,      // 1
     Processing,   // 2
     Ready,        // 3
-    Sent          // 4
+    Sent,         // 4
+    Failed        // 5
 }

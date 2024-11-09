@@ -24,9 +24,11 @@ import { Blob } from 'buffer';
 import { QueueEntry, OwnableStatus } from '../interfaces/QueueEntry';
 import { PinataSDK } from "pinata";
 import { QueueService } from '../services/Queue.service';
+import { TelegramService } from '../services/TelegramBot.service';
 import { UserError } from 'src/interfaces/error';
 import { Request, Response } from 'express';
 import { sign, verify } from '@ltonetwork/http-message-signatures';
+
 
 @Injectable()
 export class UploadZipService implements OnModuleInit, OnModuleDestroy {
@@ -43,6 +45,10 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     pinataJwt: this.config.get('pinata.jwt'), // process.env.PINATA_JWT!,
     pinataGateway: this.config.get('pinata.gateway') // "example-gateway.mypinata.cloud",
   });
+  private telegramBotToken = this.config.get('telegramBot.token');
+  private telegramBotChannelId = this.config.get('telegramBot.channelId');
+
+
 
   constructor(
     private readonly httpService: HttpService,
@@ -50,6 +56,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     // private readonly zip: JSZip,
     private nft: NFTService,
     private readonly queueService: QueueService,
+    private readonly telegramService: TelegramService,
     @Inject('IPFS') private readonly ipfs: IPFS,
   ) { }
 
@@ -68,8 +75,6 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         console.log(`ERROR QUEUE STATUS: ${err}`);
       }
     }, 15000); // 10000 ms = 10 seconds
-
-
   }
 
   // Stop the interval when the application shuts down
@@ -79,7 +84,11 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  
   public async GetServerETHBalance(): Promise<[string, string]> {
+    const retValues = await this.nft.getServerETHBalance();
+    await this.telegramService.sendMessageToTelegramBot(`\nethereum: ${retValues[0]}\narbitrum: ${retValues[1]}`);
+    
     return await this.nft.getServerETHBalance();
   }
   public getLTOAccountAddress(): string {
@@ -258,7 +267,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       await this.checkReuseOfTxId(ltoTransactionId, requestId);
     } catch (err) {
       throw new Error(`Check reuse of TxID failed ${err}`);
-    }    
+    }
 
     return {
       type: data.type,
@@ -314,31 +323,6 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
     return JSON.parse(JSON.stringify(availableChains));
   }
-  // const capabilitiesOwnable = {
-  //   isDynamic: true,
-  //   hasMetadata: false,
-  //   hasWidgetState: false,
-  //   isConsumable: false,
-  //   isConsumer: false,
-  //   isTransferable: true,
-  // };
-  // async getCIDs() {
-  //   let cids: string[] = new Array();
-  //   try {
-  //     const files = readdirSync(`${this.pathToCids}/`);
-  //     files.forEach(file => {
-  //       cids.push(file)
-  //     })
-
-  //   } catch (err) {
-  //     console.log(err);
-
-  //   }
-  //   return cids;
-  // }
-
-
-
 
 
   private async createEventChain(pkg: TypedPackage, nftInfo: NftInfo, sender: string): Promise<Buffer> {
@@ -596,7 +580,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     //   );
 
     // }
-    
+
 
     const relayURL = this.getRelayUrl();
     const isUp: boolean = await this.isRelayUp(relayURL);
@@ -788,7 +772,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   }
   private wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
 
-  
+
   public async store(data: Uint8Array, templateId: number, sender: string, verbose?: boolean) {
     try {
       // console.log("data", data);
@@ -871,8 +855,6 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       }
       if (verbose) console.log(`creating template with request ID ${requestId} and modifying requestIdFiles...`);
       await this.startOwnableCreation(requestId, jsonFile, nftInfo, sender, requestIdFiles, verbose);
-
-
     } catch (err) {
       throw (err);
     }
@@ -896,7 +878,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     var formatted = data.replace(key, value);
     writeFileSync(file, formatted, 'utf8');
   }
-  
+
   private async watchFileCreation(fileName: string, jsonFile: any, nftInfo: NftInfo, sender: string, rid: string, verbose: boolean) {
     if (verbose) console.log(`Ownable creation startet. Waiting for Zip File ${fileName} to be created...`);
     let timeout = 0;
@@ -907,7 +889,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         break;
       }
     }
-   
+
     if (verbose) console.log(`Zip File ${fileName} Created successfully.`);
     if (verbose) console.log("Unzipping to produce unique cid...");
     const cidFiles = await this.unzip(fileName);
@@ -962,7 +944,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     const chainBuffer: Buffer = await this.createEventChain(pkgOwnable, nftInfo, sender); // sender from TX ID is new ownable owner
     //adding eventChain to cidFiles
     cidFiles.set('chain.json', chainBuffer);
-    
+
     try {
       await this.storeFiles(`${this.pathToCids}/${cid}`, cid, cidFiles);
     } catch (err) {
@@ -986,8 +968,6 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     await this.storeZip(`${this.pathToCids}/${cid}`, cid, content);
     await this.sendOwnable(rid, sender, content);
 
-
-    // });
   }
 
 
@@ -996,13 +976,13 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
     if (verbose) console.log("copying template 1 to template directory for modification");
     cpSync(`${this.pathToTemplates}/template1`, `ownables/${jsonFile.PLACEHOLDER1_NAME}`, { "recursive": true });
-    console.log("requestId",requestId);
-    console.log("PLACEHOLDER2_IMG",`${jsonFile.PLACEHOLDER2_IMG}`);
-    console.log("OWNABLE_THUMBNAIL",`${jsonFile.OWNABLE_THUMBNAIL}`);
-    if (verbose) console.log("copying image file into template");    
+    console.log("requestId", requestId);
+    console.log("PLACEHOLDER2_IMG", `${jsonFile.PLACEHOLDER2_IMG}`);
+    console.log("OWNABLE_THUMBNAIL", `${jsonFile.OWNABLE_THUMBNAIL}`);
+    if (verbose) console.log("copying image file into template");
     writeFileSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`, requestId.get(`${jsonFile.PLACEHOLDER2_IMG}`));
     // cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.PLACEHOLDER2_IMG}`, `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`);
-    
+
     if (verbose) console.log("copying thumbnail image file into template");
     writeFileSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.OWNABLE_THUMBNAIL}`, requestId.get(`${jsonFile.OWNABLE_THUMBNAIL}`));
     // cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.OWNABLE_THUMBNAIL}`, `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.OWNABLE_THUMBNAIL}`);
@@ -1054,17 +1034,19 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       throw new Error(error);
     }
 
-    if (verbose) console.log("Building Ownable...");
-    await this.executeCommand(`npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}`);
-    if (verbose) console.log("Starting file watcher for zip file:", `ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`);
     try {
+      if (verbose) console.log("Building Ownable...");
+      await this.executeCommand(`npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}`);
+    } catch (error) {
+      if (verbose) console.error('npm run ownables command failed:', error);
+      throw new Error(error);
+    }
+    try {
+      if (verbose) console.log("Starting file watcher for zip file:", `ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`);
       await this.watchFileCreation(`ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, rid, verbose);
     } catch (err) {
       throw new Error(`Failed to watch File creation: ownables/${jsonFile.PLACEHOLDER1_NAME}.zip error: ${err}`);
     }
-
-    // 
-
   }
 
   private async unzip(data: Uint8Array | string): Promise<Map<string, Buffer>> {
@@ -1104,8 +1086,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     const file = path.join(destPath, `${uniqueId}.zip`);
     writeFileSync(file, data);
   }
-  
-  
+
+
   private async storeFiles(destPath: string, cid: string, files: Map<string, Buffer>): Promise<void> {
     const packageDir = path.join(destPath, cid);
     mkdirSync(packageDir, { recursive: true });
