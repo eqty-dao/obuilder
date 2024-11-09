@@ -84,11 +84,11 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  
+
   public async GetServerETHBalance(): Promise<[string, string]> {
     const retValues = await this.nft.getServerETHBalance();
     await this.telegramService.sendMessageToTelegramBot(`\nethereum: ${retValues[0]}\narbitrum: ${retValues[1]}`);
-    
+
     return await this.nft.getServerETHBalance();
   }
   public getLTOAccountAddress(): string {
@@ -231,22 +231,26 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     // );
 
     // THIRD WORKING METHOD - requires node >= v18
-
-    const response = await fetch(url);
-    const data = await response.json();
-    console.log("Request Done. Data:", data);
-    if (data.status === 'error') {
-      throw new Error(data.details);
+    let data: any;
+    try {
+      const response = await fetch(url);
+      data = await response.json();
+      console.log("Request Done. Data:", data);
+      if (data.status === 'error') {
+        throw new Error(data.details);
+      }
+    } catch (err) {
+      throw new Error(err);
     }
 
     const thisServerAddress = this.getLTOAccountAddress();
     console.log("This ServerAddress:", thisServerAddress);
 
     // Must be of type "transaction"
-    if (data.type != 4) throw ('Wrong Transaction type');
+    if (data.type != 4) throw new Error('Wrong Transaction type');
     const templateCosts: string = this.queueService.getTemplateCosts(chain.toString(), templateId.toString());
 
-    if (templateCosts === undefined) throw (`Undefined templateCost for chain ${chain}`);
+    if (templateCosts === undefined) throw new Error(`Undefined templateCost for chain ${chain}`);
     //check for correct amount and correct recipient (this servers' LTO wallet)
     console.log("data.fee", data.fee.toString())
     console.log("data.amount", data.amount.toString())
@@ -582,6 +586,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     // }
 
 
+
     const relayURL = this.getRelayUrl();
     const isUp: boolean = await this.isRelayUp(relayURL);
     if (isUp) {
@@ -625,17 +630,29 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     if (verbose) console.log("checking LTO transaction ID...", jsonFile.OWNABLE_LTO_TRANSACTION_ID);
 
     await this.wait(10000);
-    const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, jsonFile.NFT_BLOCKCHAIN, requestId);
-    if (verbose) console.log("transactionIdData:", transactionIdData);
+    let transactionIdData: TransactionIdData;
+    try {
+      transactionIdData = await this.checkLtoTransactionId(jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, jsonFile.NFT_BLOCKCHAIN, requestId);
+      if (verbose) console.log("transactionIdData:", transactionIdData);
+
+    } catch (err) {
+      throw new Error(err);
+    }
 
     // TODO:
     // if (signerAccountAddress !== transactionIdData.sender) {
     //   throw new UserError(`Error: Signer of Ownable request ${signerAccountAddress} did not sign transactionID ${jsonFile.OWNABLE_LTO_TRANSACTION_ID}. Signer of TXID:${transactionIdData.sender}`);
     // }
-    const entry: QueueEntry = await this.queueService.enqueue(requestId, uint8ArrayData, transactionIdData.sender, jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId);
+    let entry: QueueEntry;
+    try {
+      entry = await this.queueService.enqueue(requestId, uint8ArrayData, transactionIdData.sender, jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId);
 
+    } catch (err) {
+      throw err;
+    }
 
     return entry;
+
 
   }
 
@@ -647,9 +664,10 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     const timestampNow = Math.floor(Date.now() / 1000);
     if (queryProcessingEntry.length > 0) {
       if (timestampNow - queryProcessingEntry[0].timestampProcessing >= 300) {
-        console.log(`Something went wrong with processing Queue Entry. Deleting Entry ${queryProcessingEntry[0]}`);
-        // await this.queueService.setQueueEntryStatus(queryProcessingEntry[0].rid, OwnableStatus.InQueue);
-        await this.queueService.deleteOwnableData(queryProcessingEntry[0].rid);
+        console.log(`Something went wrong with processing Queue Entry. Failed to produce Ownable ${queryProcessingEntry[0]}`);
+
+        // await this.queueService.deleteOwnableData(queryProcessingEntry[0].rid);
+        await this.queueService.ownableFailed(queryProcessingEntry[0].rid, "More than 300 seconds inactive in Processing Queue");
       }
     }
     const isEmpty = this.queueService.isQueueEmpty();
@@ -665,8 +683,12 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
             await this.wait(10000);
             const [requestId, data, sender] = await this.queueService.processNextQueueEntry();
             if (requestId != null && data != null) {
-
-              await this.store(data, 1, sender, true); // true = verbose
+              try {
+                await this.store(data, 1, sender, true); // true = verbose
+              }catch(err) {
+                await this.queueService.ownableFailed(queryProcessingEntry[0].rid, `${err}`);
+                throw err;
+              }
             }
           }
         }
@@ -674,7 +696,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
           throw new Error(`Error: oRelay Server ${relayURL} is down`);
         }
       } catch (err) {
-        throw new Error(`Error: ${err}`);
+        throw err;
       }
     }
 
@@ -723,6 +745,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       timestampReady: 0,
       timestampProcessing: 0,
       timestampSent: 0,
+      timestampFailed: 0,
+      failedErrMsg:'',
       cid: '',
       nftInfo: {
         network: '',
@@ -751,23 +775,23 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       templateId: currentlyProcessedQueueEntry[0].templateId.toString(),
       timestampInQueue: currentlyProcessedQueueEntry[0].timestampInQueue.toString(),
       timestampProcessing: currentlyProcessedQueueEntry[0].timestampProcessing.toString(),
-      timestampSent: currentlyProcessedQueueEntry[0].timestampSent.toString()
+      timestampSent: currentlyProcessedQueueEntry[0].timestampSent.toString(),
+      timestampFailed: currentlyProcessedQueueEntry[0].timestampFailed.toString()
 
     };
   }
 
   private isValidPackageName(name: string): boolean {
     // Regular expression to match Unicode letters, numbers, underscores, and hyphens
-    // const xidRegex = /^[\p{L}\p{N}_-]+$/u;
-    // return xidRegex.test(name);
-    return true;
+    const xidRegex = /[a-zA-Z0-9]/g;
+    return xidRegex.test(name);
+    // return true;
   }
   private sanitizePackageName(name: string): string {
     // Regular expression to match invalid characters
-    const invalidCharRegex = /[^\p{L}\p{N}_-]/gu;
+    const invalidCharRegex = /[^a-zA-Z0-9]/g;
     // Replace invalid characters with an underscore
-    // return name.replace(invalidCharRegex, '_');
-    return name;
+    return name.replace(invalidCharRegex, '');
 
   }
   private wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
@@ -854,24 +878,74 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         jsonFile.PLACEHOLDER1_KEYWORDS.push("noNFT");
       }
       if (verbose) console.log(`creating template with request ID ${requestId} and modifying requestIdFiles...`);
-      await this.startOwnableCreation(requestId, jsonFile, nftInfo, sender, requestIdFiles, verbose);
+      try{ 
+        await this.startOwnableCreation(requestId, jsonFile, nftInfo, sender, requestIdFiles, verbose);
+      }catch(err) {
+        throw err;
+      }
     } catch (err) {
       throw (err);
     }
   }
-
   private async executeCommand(command: string) {
     return new Promise((resolve, reject) => {
-      exec(command, { env: { ...process.env, PATH: `${process.env.PATH}:/root/.cargo/bin` } }, (error, stdout, stderr) => {
-        if (error) {
-          console.log(`error: ${error.message}`);
-          reject(new Error(`error: ${error.message}`));
-          return;
-        }
-        resolve(stdout ? stdout : stderr);
-      });
+        const child = exec(command, { env: { ...process.env, PATH: `${process.env.PATH}:/root/.cargo/bin` } }, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Error executing command: ${stderr}`);
+                return reject(error);
+            }
+            // console.log(stdout);
+            resolve(stdout ? stdout : stderr);
+        });
+
+        // Listen for process exit
+        child.on('exit', (code) => {
+            console.log(`Child process exited with code ${code}`);            
+        });
+
+        // Optional: listen for any uncaught exceptions
+        child.on('error', (err) => {
+            console.error(`Failed to start subprocess: ${err}`);
+            reject(err);
+        });
     });
-  }
+}
+private async executeCommand1(command: string, rid: string) {
+  return new Promise((resolve, reject) => {
+      const child = exec(command, { env: { ...process.env, PATH: `${process.env.PATH}:/root/.cargo/bin` } }, (error, stdout, stderr) => {
+          if (error) {
+              console.error(`Error executing command: ${stderr}`);
+              this.queueService.ownableFailed(rid, `Error executing command ${stderr} with error: ${error}`);
+              return reject(error);
+          }
+          // console.log(stdout);
+          resolve(stdout ? stdout : stderr);
+      });
+
+      // Listen for process exit
+      child.on('exit', (code) => {
+          console.log(`Child process exited with code ${code}`);          
+      });
+
+      // Optional: listen for any uncaught exceptions
+      child.on('error', (err) => {
+          console.error(`Failed to start subprocess: ${err}`);
+          reject(err);
+      });
+  });
+}
+  // private async executeCommand(command: string) {
+  //   return new Promise((resolve, reject) => {
+  //     exec(command, { env: { ...process.env, PATH: `${process.env.PATH}:/root/.cargo/bin` } }, (error, stdout, stderr) => {
+  //       if (error) {
+  //         console.log(`error: ${error.message}`);
+  //         reject(new Error(`error: ${error.message}`));
+  //         return;
+  //       }
+  //       resolve(stdout ? stdout : stderr);
+  //     });
+  //   });
+  // }
 
   private async replaceLineInFile(file: string, key: string, value: string) {
     const data = readFileSync(file, 'utf8');
@@ -1036,7 +1110,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
     try {
       if (verbose) console.log("Building Ownable...");
-      await this.executeCommand(`npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}`);
+      await this.executeCommand1(`npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}`,rid);
     } catch (error) {
       if (verbose) console.error('npm run ownables command failed:', error);
       throw new Error(error);

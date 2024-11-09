@@ -20,7 +20,7 @@ export class QueueService implements OnModuleInit {
   private s3Bucket: S3Bucket;
 
   constructor(
-    private readonly config: ConfigService, 
+    private readonly config: ConfigService,
     private readonly telegramService: TelegramService
   ) {
     this.isQueueing = true;
@@ -136,6 +136,8 @@ export class QueueService implements OnModuleInit {
         timestampProcessing: entry.timestampProcessing,
         timestampReady: entry.timestampReady,
         timestampSent: entry.timestampSent,
+        timestampFailed: entry.timestampFailed,
+        failedErrMsg: entry.failedErrMsg,
         cid: entry.cid ?? '',
         nftInfo: {
           network: '',
@@ -196,22 +198,14 @@ export class QueueService implements OnModuleInit {
         timestampProcessing: 0,
         timestampReady: 0,
         timestampSent: 0,
+        timestampFailed: 0,
+        failedErrMsg:'',
         cid: '',
-        // nftNetwork: '',
-        // nftAddress: '',
-        // nftId: 0
         nftInfo: {
           network: '',
           address: '',
           id: 0
         }
-      }
-      this.queue.push(newQueueEntry);
-      this.queueData.push(data);
-      try {
-        await this.updateQueueInS3Bucket();
-      } catch (err) {
-        throw new Error(`Updating Queue in s3 bucket failed. Error: ${err}`);
       }
       try {
         await this.s3Bucket.put(`${requestId}_data`, data);
@@ -220,9 +214,20 @@ export class QueueService implements OnModuleInit {
       }
       const timestamp = Math.floor(Date.now());
       const formattedDate = format(timestamp, 'yyyy-MM-dd HH:mm');
-
-      await this.telegramService.sendMessageToTelegramBot(`QUEUE-InQueue:(${formattedDate})\nrequestId: ${requestId}\ntxID: ${txId}\nltoWallet: ${ltoWallet}`);
-
+      try {
+        await this.telegramService.sendMessageToTelegramBot(`QUEUE-InQueue:(${formattedDate})\nrequestId: ${requestId}\ntxID: ${txId}\nltoWallet: ${ltoWallet}`);
+      } catch (err) {
+        throw new Error(`Telegram Service Error.  ${err}`);
+      }
+      this.queue.push(newQueueEntry);
+      this.queueData.push(data);
+      try {
+        await this.updateQueueInS3Bucket();
+      } catch (err) {
+        this.queue.pop();
+        this.queueData.pop();
+        throw new Error(`Updating Queue in s3 bucket failed. Error: ${err}`);
+      }
       return newQueueEntry;
       // this.queueRequestId.push(requestId);
     } else {
@@ -243,6 +248,8 @@ export class QueueService implements OnModuleInit {
       timestampProcessing: 0,
       timestampReady: 0,
       timestampSent: 0,
+      timestampFailed: 0,
+      failedErrMsg:'',
       cid: '',
       nftInfo: {
         network: '',
@@ -284,14 +291,40 @@ export class QueueService implements OnModuleInit {
     // this.queue[index].nftAddress = nftInfo.address;
     // this.queue[index].nftId = nftInfo.id;
     this.queue[index].nftInfo = nftInfo;
+    try {
     await this.updateQueueInS3Bucket();
+  }catch(err) {
+    throw err;
+  }
   }
 
-  public async setTxId(requestId: string, txId: string) {
+  public async ownableFailed(requestId: string,errMsg:string) {
     const [entry, index] = this.getQueueEntryByRequestId(requestId);
-    this.queue[index].txId = txId;
-    await this.updateQueueInS3Bucket();
+    if (index >= 0 && index < this.queue.length) {
+      this.queue[index].timestampFailed=Math.floor(Date.now() / 1000);
+      this.queue[index].failedErrMsg=errMsg;
+      this.queue[index].ownableStatus = OwnableStatus.Failed;
+    } else {
+      console.log(`Index ${index} is out of bounds.`);
+    } 
+    await this.s3Bucket.put(`Queue.json`, JSON.stringify(this.queue));
+    const timestamp = Math.floor(Date.now());
+      const formattedDate = format(timestamp, 'yyyy-MM-dd HH:mm');
+      try {
+        await this.telegramService.sendMessageToTelegramBot(`QUEUE-InQueue:(${formattedDate})\nrequestId: ${requestId}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}\nerrMsg: ${this.queue[index].failedErrMsg}`);
+      } catch (err) {
+        throw new Error(`Telegram Service Error.  ${err}`);
+      }
   }
+  // public async setTxId(requestId: string, txId: string) {
+  //   const [entry, index] = this.getQueueEntryByRequestId(requestId);
+  //   this.queue[index].txId = txId;
+  //   try {
+  //     await this.updateQueueInS3Bucket();
+  //   }catch(err) {
+  //     throw err;
+  //   }
+  // }
 
 
 
@@ -314,21 +347,28 @@ export class QueueService implements OnModuleInit {
 
     if (status == OwnableStatus.Processing) {
       this.queue[index].timestampProcessing = Math.floor(Date.now() / 1000);
+
     } else if (status == OwnableStatus.Ready) {
       this.queue[index].timestampReady = Math.floor(Date.now() / 1000);
       // const formattedDate = (this.queue[index].timestampReady * 1000).toLocaleString();
       const formattedDate = format(this.queue[index].timestampReady * 1000, 'yyyy-MM-dd HH:mm');
       await this.telegramService.sendMessageToTelegramBot(`QUEUE-Ready:(${formattedDate})\nrequestId: ${this.queue[index].rid}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}`);
+
     } else if (status == OwnableStatus.Sent && typeof hash !== 'undefined') {
       this.queue[index].hash = hash;
       this.queue[index].timestampSent = Math.floor(Date.now() / 1000);
       const formattedDate = format(this.queue[index].timestampReady * 1000, 'yyyy-MM-dd HH:mm');
       // const formattedDate = (this.queue[index].timestampSent * 1000).toLocaleString();
-      await this.telegramService.sendMessageToTelegramBot(`QUEUE-Sent:(${formattedDate})\nrequestId: ${this.queue[index].rid}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}`);
+      await this.telegramService.sendMessageToTelegramBot(`QUEUE-Sent: (${formattedDate})\nrequestId: ${this.queue[index].rid}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}`);
+
     } else if (status == OwnableStatus.InQueue) {
       this.queue[index].timestampInQueue = Math.floor(Date.now() / 1000);
       this.queue[index].timestampProcessing = 0;
       this.queue[index].timestampReady = 0;
+
+    } else if (status == OwnableStatus.Failed) {
+      this.queue[index].timestampFailed = Math.floor(Date.now() / 1000);
+
     } else {
       throw new Error(`Unknown Ownable status ${status} for requestId ${requestId}`);
     }
@@ -345,7 +385,7 @@ export class QueueService implements OnModuleInit {
       this.queue[index].ownableStatus = OwnableStatus.Processing;
       this.queue[index].timestampProcessing = Math.floor(Date.now() / 1000);
       const formattedDate = format(this.queue[index].timestampProcessing * 1000, 'yyyy-MM-dd HH:mm');
-      await this.telegramService.sendMessageToTelegramBot(`QUEUE-Processing:(${formattedDate})\nrequestId: ${this.queue[index].rid}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}`);
+      await this.telegramService.sendMessageToTelegramBot(`QUEUE-Processing: (${formattedDate})\nrequestId: ${this.queue[index].rid}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}`);
       await this.updateQueueInS3Bucket();
       return [entry.rid, data, entry.ltoWallet];
     } else {

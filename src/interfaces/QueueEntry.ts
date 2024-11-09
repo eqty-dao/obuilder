@@ -12,6 +12,8 @@ export interface QueueEntry {
     timestampProcessing: number;
     timestampReady: number;
     timestampSent: number;
+    timestampFailed: number;
+    failedErrMsg: string;
     cid: string;
     nftInfo: NftInfo;
 }
