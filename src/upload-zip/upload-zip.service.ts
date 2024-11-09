@@ -663,6 +663,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     const queryProcessingEntry: QueueEntry[] = this.queueService.getQueueEntriesByStatus(OwnableStatus.Processing);
     const timestampNow = Math.floor(Date.now() / 1000);
     if (queryProcessingEntry.length > 0) {
+      console.log("queryProcessingEntry[0]",queryProcessingEntry[0]);
       if (timestampNow - queryProcessingEntry[0].timestampProcessing >= 300) {
         console.log(`Something went wrong with processing Queue Entry. Failed to produce Ownable ${queryProcessingEntry[0]}`);
 
@@ -685,7 +686,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
             if (requestId != null && data != null) {
               try {
                 await this.store(data, 1, sender, true); // true = verbose
-              }catch(err) {
+              } catch (err) {
                 await this.queueService.ownableFailed(queryProcessingEntry[0].rid, `${err}`);
                 throw err;
               }
@@ -746,7 +747,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       timestampProcessing: 0,
       timestampSent: 0,
       timestampFailed: 0,
-      failedErrMsg:'',
+      failedErrMsg: '',
       cid: '',
       nftInfo: {
         network: '',
@@ -783,16 +784,21 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
   private isValidPackageName(name: string): boolean {
     // Regular expression to match Unicode letters, numbers, underscores, and hyphens
-    const xidRegex = /[a-zA-Z0-9]/g;
-    return xidRegex.test(name);
-    // return true;
+    const xidRegex = /^[a-zA-Z0-9]+(\.webp)?$/g;
+    console.log("isValidPackageName", xidRegex.test(name));
+    return xidRegex.test(name);    
   }
-  private sanitizePackageName(name: string): string {
+  private sanitizePackageName(name: string, hasdotWebp: boolean): string {
     // Regular expression to match invalid characters
-    const invalidCharRegex = /[^a-zA-Z0-9]/g;
-    // Replace invalid characters with an underscore
-    return name.replace(invalidCharRegex, '');
-
+    let baseStr: string = name;
+    let extension: string = '';
+    if (hasdotWebp && name.endsWith('.webp')) {
+      baseStr = name.slice(0, -5); // Remove the .webp part
+      extension = '.webp';
+    }
+    // Replace all non-alphanumeric characters with underscores
+    const sanitizedBaseStr = baseStr.replace(/[^a-zA-Z0-9]/g, '');
+    return sanitizedBaseStr + extension;
   }
   private wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
 
@@ -816,26 +822,39 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
       if (verbose) console.log("reading JSON info data from zip for Ownable modification...");
       const jsonFile = await this.readOwnableDataFromZip(requestIdFiles);
-      // jsonFile.PLACEHOLDER1_NAME = `${jsonFile.PLACEHOLDER1_NAME}COLIN`;
+
       if (this.isValidPackageName(jsonFile.PLACEHOLDER1_NAME)) {
         if (verbose) console.log("Valid package PLACEHOLDER1_NAME.");
       } else {
         if (verbose) console.log(`Sanatizing invalid characters in PLACEHOLDER1_NAME: ${jsonFile.PLACEHOLDER1_NAME}`);
-        jsonFile.PLACEHOLDER1_NAME = this.sanitizePackageName(jsonFile.PLACEHOLDER1_NAME);
-      }
-      if (this.isValidPackageName(jsonFile.PLACEHOLDER1_DESCRIPTION)) {
-        if (verbose) console.log("Valid package PLACEHOLDER1_DESCRIPTION.");
-      } else {
-        if (verbose) console.log(`Sanatizing invalid characters in PLACEHOLDER1_DESCRIPTION: ${jsonFile.PLACEHOLDER1_DESCRIPTION}`);
-        jsonFile.PLACEHOLDER1_DESCRIPTION = this.sanitizePackageName(jsonFile.PLACEHOLDER1_DESCRIPTION);
 
+        const sanatized_PLACEHOLDER1_NAME = this.sanitizePackageName(jsonFile.PLACEHOLDER1_NAME,false);
+        const sanatized_PLACEHOLDER2_IMG = this.sanitizePackageName(jsonFile.PLACEHOLDER2_IMG,true);
+        
+        if (verbose) console.log(`Updating the image file name in the Ownable request from: ${jsonFile.PLACEHOLDER2_IMG} to ${sanatized_PLACEHOLDER2_IMG}`);
+        if (requestIdFiles.has(jsonFile.PLACEHOLDER2_IMG)) {
+          const bufferValue = requestIdFiles.get(jsonFile.PLACEHOLDER2_IMG);  // Get the Buffer associated with the old key
+          requestIdFiles.set(sanatized_PLACEHOLDER2_IMG, bufferValue);         // Set the Buffer to the new key
+          requestIdFiles.delete(jsonFile.PLACEHOLDER2_IMG);                   // Delete the old key
+        }
+        if (verbose) console.log(`OLD: ${jsonFile.PLACEHOLDER1_NAME}  NEW: ${sanatized_PLACEHOLDER1_NAME}`);
+        if (verbose) console.log(`OLD: ${jsonFile.PLACEHOLDER2_IMG}  NEW: ${sanatized_PLACEHOLDER2_IMG}`);
+        jsonFile.PLACEHOLDER1_NAME = sanatized_PLACEHOLDER1_NAME;
+        jsonFile.PLACEHOLDER2_IMG = sanatized_PLACEHOLDER2_IMG;
       }
-      if (this.isValidPackageName(jsonFile.PLACEHOLDER2_TITLE)) {
-        if (verbose) console.log("Valid package PLACEHOLDER2_TITLE.");
-      } else {
-        if (verbose) console.log(`Sanatizing invalid characters in PLACEHOLDER2_TITLE: ${jsonFile.PLACEHOLDER2_TITLE}`);
-        jsonFile.PLACEHOLDER2_TITLE = this.sanitizePackageName(jsonFile.PLACEHOLDER2_TITLE);
-      }
+      // if (this.isValidPackageName(jsonFile.PLACEHOLDER1_DESCRIPTION)) {
+      //   if (verbose) console.log("Valid package PLACEHOLDER1_DESCRIPTION.");
+      // } else {
+      //   if (verbose) console.log(`Sanatizing invalid characters in PLACEHOLDER1_DESCRIPTION: ${jsonFile.PLACEHOLDER1_DESCRIPTION}`);
+      //   jsonFile.PLACEHOLDER1_DESCRIPTION = this.sanitizePackageName(jsonFile.PLACEHOLDER1_DESCRIPTION);
+
+      // }
+      // if (this.isValidPackageName(jsonFile.PLACEHOLDER2_TITLE)) {
+      //   if (verbose) console.log("Valid package PLACEHOLDER2_TITLE.");
+      // } else {
+      //   if (verbose) console.log(`Sanatizing invalid characters in PLACEHOLDER2_TITLE: ${jsonFile.PLACEHOLDER2_TITLE}`);
+      //   jsonFile.PLACEHOLDER2_TITLE = this.sanitizePackageName(jsonFile.PLACEHOLDER2_TITLE);
+      // }
       if (verbose) console.log("ownableData.json", jsonFile);
       if (jsonFile.CREATE_NFT === 'true') {
         if (!(jsonFile.NFT_BLOCKCHAIN === 'arbitrum') && !(jsonFile.NFT_BLOCKCHAIN === 'ethereum')) {
@@ -878,9 +897,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         jsonFile.PLACEHOLDER1_KEYWORDS.push("noNFT");
       }
       if (verbose) console.log(`creating template with request ID ${requestId} and modifying requestIdFiles...`);
-      try{ 
+      try {
         await this.startOwnableCreation(requestId, jsonFile, nftInfo, sender, requestIdFiles, verbose);
-      }catch(err) {
+      } catch (err) {
         throw err;
       }
     } catch (err) {
@@ -889,51 +908,51 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   }
   private async executeCommand(command: string) {
     return new Promise((resolve, reject) => {
-        const child = exec(command, { env: { ...process.env, PATH: `${process.env.PATH}:/root/.cargo/bin` } }, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`Error executing command: ${stderr}`);
-                return reject(error);
-            }
-            // console.log(stdout);
-            resolve(stdout ? stdout : stderr);
-        });
-
-        // Listen for process exit
-        child.on('exit', (code) => {
-            console.log(`Child process exited with code ${code}`);            
-        });
-
-        // Optional: listen for any uncaught exceptions
-        child.on('error', (err) => {
-            console.error(`Failed to start subprocess: ${err}`);
-            reject(err);
-        });
-    });
-}
-private async executeCommand1(command: string, rid: string) {
-  return new Promise((resolve, reject) => {
       const child = exec(command, { env: { ...process.env, PATH: `${process.env.PATH}:/root/.cargo/bin` } }, (error, stdout, stderr) => {
-          if (error) {
-              console.error(`Error executing command: ${stderr}`);
-              this.queueService.ownableFailed(rid, `Error executing command ${stderr} with error: ${error}`);
-              return reject(error);
-          }
-          // console.log(stdout);
-          resolve(stdout ? stdout : stderr);
+        if (error) {
+          console.error(`Error executing command: ${stderr}`);
+          return reject(error);
+        }
+        // console.log(stdout);
+        resolve(stdout ? stdout : stderr);
       });
 
       // Listen for process exit
       child.on('exit', (code) => {
-          console.log(`Child process exited with code ${code}`);          
+        console.log(`Child process exited with code ${code}`);
       });
 
       // Optional: listen for any uncaught exceptions
       child.on('error', (err) => {
-          console.error(`Failed to start subprocess: ${err}`);
-          reject(err);
+        console.error(`Failed to start subprocess: ${err}`);
+        reject(err);
       });
-  });
-}
+    });
+  }
+  private async executeCommand1(command: string, rid: string) {
+    return new Promise((resolve, reject) => {
+      const child = exec(command, { env: { ...process.env, PATH: `${process.env.PATH}:/root/.cargo/bin` } }, (error, stdout, stderr) => {
+        if (error) {
+          console.error(`Error executing command: ${stderr}`);
+          this.queueService.ownableFailed(rid, `Error executing command ${stderr} with error: ${error}`);
+          return reject(error);
+        }
+        // console.log(stdout);
+        resolve(stdout ? stdout : stderr);
+      });
+
+      // Listen for process exit
+      child.on('exit', (code) => {
+        console.log(`Child process exited with code ${code}`);
+      });
+
+      // Optional: listen for any uncaught exceptions
+      child.on('error', (err) => {
+        console.error(`Failed to start subprocess: ${err}`);
+        reject(err);
+      });
+    });
+  }
   // private async executeCommand(command: string) {
   //   return new Promise((resolve, reject) => {
   //     exec(command, { env: { ...process.env, PATH: `${process.env.PATH}:/root/.cargo/bin` } }, (error, stdout, stderr) => {
@@ -1054,6 +1073,7 @@ private async executeCommand1(command: string, rid: string) {
     console.log("PLACEHOLDER2_IMG", `${jsonFile.PLACEHOLDER2_IMG}`);
     console.log("OWNABLE_THUMBNAIL", `${jsonFile.OWNABLE_THUMBNAIL}`);
     if (verbose) console.log("copying image file into template");
+
     writeFileSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`, requestId.get(`${jsonFile.PLACEHOLDER2_IMG}`));
     // cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.PLACEHOLDER2_IMG}`, `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`);
 
@@ -1110,9 +1130,11 @@ private async executeCommand1(command: string, rid: string) {
 
     try {
       if (verbose) console.log("Building Ownable...");
-      await this.executeCommand1(`npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}`,rid);
+      await this.executeCommand1(`npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}`, rid);
     } catch (error) {
       if (verbose) console.error('npm run ownables command failed:', error);
+      const output = await this.executeCommand(`rm -rf ownables/${jsonFile.PLACEHOLDER1_NAME}`);
+      if (verbose) console.log(output);
       throw new Error(error);
     }
     try {

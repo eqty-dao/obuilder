@@ -311,7 +311,7 @@ export class QueueService implements OnModuleInit {
     const timestamp = Math.floor(Date.now());
       const formattedDate = format(timestamp, 'yyyy-MM-dd HH:mm');
       try {
-        await this.telegramService.sendMessageToTelegramBot(`QUEUE-InQueue:(${formattedDate})\nrequestId: ${requestId}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}\nerrMsg: ${this.queue[index].failedErrMsg}`);
+        await this.telegramService.sendMessageToTelegramBot(`QUEUE-Failed:(${formattedDate})\nrequestId: ${requestId}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}\nerrMsg: ${this.queue[index].failedErrMsg}`);
       } catch (err) {
         throw new Error(`Telegram Service Error.  ${err}`);
       }
