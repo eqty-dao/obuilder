@@ -674,7 +674,6 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       }
     }
     
-    const queryProcessingEntry1: QueueEntry[] = this.queueService.getQueueEntriesByStatus(OwnableStatus.Processing);
     const isEmpty = this.queueService.isQueueEmpty();
     if (!isEmpty) {
       console.log("Checking Queue Status: queue not empty...");
@@ -682,7 +681,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         const relayURL = this.getRelayUrl();
         const isUp: boolean = await this.isRelayUp(relayURL);
         if (isUp) {
-
+          
           if (!this.queueService.isCreatingOwnable()) {
             // console.log("Waiting 10 seconds for a possible TX ID that needs to be populated into LTO node network...");
             await this.wait(10000);
@@ -691,6 +690,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
               try {
                 await this.store(data, 1, sender, true); // true = verbose
               } catch (err) {
+                const queryProcessingEntry1: QueueEntry[] = this.queueService.getQueueEntriesByStatus(OwnableStatus.Processing);
                 await this.queueService.ownableFailed(queryProcessingEntry1[0].rid, `${err}`);
                 throw err;
               }
@@ -1076,13 +1076,17 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     console.log("requestId", requestId);
     console.log("PLACEHOLDER2_IMG", `${jsonFile.PLACEHOLDER2_IMG}`);
     console.log("OWNABLE_THUMBNAIL", `${jsonFile.OWNABLE_THUMBNAIL}`);
-    if (verbose) console.log("copying image file into template");
 
-    writeFileSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`, requestId.get(`${jsonFile.PLACEHOLDER2_IMG}`));
-    // cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.PLACEHOLDER2_IMG}`, `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`);
-
-    if (verbose) console.log("copying thumbnail image file into template");
-    writeFileSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.OWNABLE_THUMBNAIL}`, requestId.get(`${jsonFile.OWNABLE_THUMBNAIL}`));
+    if (verbose) console.log("copying image file into template");    
+    const image =  requestId.get(`${jsonFile.PLACEHOLDER2_IMG}`);
+      console.log("image",image);
+      writeFileSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`,image);
+      // cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.PLACEHOLDER2_IMG}`, `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`);
+      
+      if (verbose) console.log("copying thumbnail image file into template");
+      const thumbnail = requestId.get(`${jsonFile.OWNABLE_THUMBNAIL}`);
+      console.log("thumbnail",thumbnail);
+    writeFileSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.OWNABLE_THUMBNAIL}`,thumbnail );
     // cpSync(`${this.pathToRids}/${rid}/${rid}/${jsonFile.OWNABLE_THUMBNAIL}`, `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.OWNABLE_THUMBNAIL}`);
 
     if (verbose) console.log("Replacing Placeholder texts of template with user input data");
