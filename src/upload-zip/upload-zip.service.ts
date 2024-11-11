@@ -836,10 +836,13 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         const sanatized_PLACEHOLDER2_IMG = this.sanitizePackageName(jsonFile.PLACEHOLDER2_IMG,true);
         
         if (verbose) console.log(`Updating the image file name in the Ownable request from: ${jsonFile.PLACEHOLDER2_IMG} to ${sanatized_PLACEHOLDER2_IMG}`);
+        
         if (requestIdFiles.has(jsonFile.PLACEHOLDER2_IMG)) {
           const bufferValue = requestIdFiles.get(jsonFile.PLACEHOLDER2_IMG);  // Get the Buffer associated with the old key
+          if (jsonFile.PLACEHOLDER2_IMG !== sanatized_PLACEHOLDER2_IMG) {      // Check if the old key is different from the new key
           requestIdFiles.set(sanatized_PLACEHOLDER2_IMG, bufferValue);         // Set the Buffer to the new key
           requestIdFiles.delete(jsonFile.PLACEHOLDER2_IMG);                   // Delete the old key
+          }
         }
         if (verbose) console.log(`OLD: ${jsonFile.PLACEHOLDER1_NAME}  NEW: ${sanatized_PLACEHOLDER1_NAME}`);
         if (verbose) console.log(`OLD: ${jsonFile.PLACEHOLDER2_IMG}  NEW: ${sanatized_PLACEHOLDER2_IMG}`);
