@@ -9,15 +9,16 @@ import { ConfigService } from '@nestjs/config';
 import { LtoModule } from './common/lto/lto.module';
 import { VerifySignatureMiddleware } from './common/http-signature/verify-signature.middleware';
 import { TelegramService } from './services/TelegramBot.service';
+import { LoggingService } from './services/Logging.service';
 // import { ConfigService } from './common/config/config.service';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     UploadZipModule, 
-    LtoModule, 
+    LtoModule
   ],
   controllers: [AppController],
-  providers: [AppService, QueueService, TelegramService, ConfigService],
+  providers: [AppService, QueueService, LoggingService, TelegramService, ConfigService],
   
 })export class AppModule {
   // configure(consumer: MiddlewareConsumer) {

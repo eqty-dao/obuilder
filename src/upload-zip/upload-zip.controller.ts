@@ -50,12 +50,10 @@ export class UploadZipController {
 
     let requestId: string;
     try {
-      requestId = await this.uploadZipService.queueRequest(buffer, 1, true, req);
+      requestId = await this.uploadZipService.queueRequest(buffer, 1, req);
       return res.status(201).json(requestId);
-
-    } catch (err) {
+    } catch (err) {      
       return this.errorResponse(res, err);
-
     }
 
   }
@@ -68,7 +66,10 @@ export class UploadZipController {
     // console.error(err);
     return res.status(500).send(`Unexpected error: ${err.message}`);
   }
-
+  @Get('getLogsByRequestId')
+  getLogsByRequestId(@Query('requestId') requestId: string) {
+    return this.uploadZipService.getLogsByRequestId(requestId);
+  }
   @Get('getInQueueEntries')
   getInQueueEntries() {
     return this.uploadZipService.getInQueueEntries();

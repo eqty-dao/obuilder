@@ -10,6 +10,7 @@ import { NFTModule } from 'src/nft/nft.module';
 import { QueueService } from '../services/Queue.service';
 import { ConfigService } from '@nestjs/config';
 import { TelegramService } from 'src/services/TelegramBot.service';
+import { LoggingService } from 'src/services/Logging.service';
 
 
 @Module({
@@ -26,8 +27,8 @@ import { TelegramService } from 'src/services/TelegramBot.service';
       })
     }),
   ],
-  providers: [UploadZipService, QueueService,TelegramService, ConfigService],
+  providers: [UploadZipService, QueueService,TelegramService, LoggingService, ConfigService],
   controllers: [UploadZipController],
-  exports: [UploadZipService, QueueService, TelegramService, ConfigService],
+  exports: [UploadZipService, QueueService, TelegramService, LoggingService, ConfigService],
 })
 export class UploadZipModule { }

@@ -144,9 +144,6 @@ export class QueueService implements OnModuleInit {
           address: '',
           id: 0
         }
-        // nftNetwork: entry.nftInfo.network,
-        // nftAddress: entry.nftInfo.address,
-        // nftId: entry.nftInfo.id
       });
 
       // Check if the status is not Unknown before fetching data
@@ -199,7 +196,7 @@ export class QueueService implements OnModuleInit {
         timestampReady: 0,
         timestampSent: 0,
         timestampFailed: 0,
-        failedErrMsg:'',
+        failedErrMsg: '',
         cid: '',
         nftInfo: {
           network: '',
@@ -249,7 +246,7 @@ export class QueueService implements OnModuleInit {
       timestampReady: 0,
       timestampSent: 0,
       timestampFailed: 0,
-      failedErrMsg:'',
+      failedErrMsg: '',
       cid: '',
       nftInfo: {
         network: '',
@@ -292,29 +289,33 @@ export class QueueService implements OnModuleInit {
     // this.queue[index].nftId = nftInfo.id;
     this.queue[index].nftInfo = nftInfo;
     try {
-    await this.updateQueueInS3Bucket();
-  }catch(err) {
-    throw err;
-  }
+      await this.updateQueueInS3Bucket();
+    } catch (err) {
+      throw err;
+    }
   }
 
-  public async ownableFailed(requestId: string,errMsg:string) {
+  public async ownableFailed(requestId: string, errMsg: string) {
     const [entry, index] = this.getQueueEntryByRequestId(requestId);
     if (index >= 0 && index < this.queue.length) {
-      this.queue[index].timestampFailed=Math.floor(Date.now() / 1000);
-      this.queue[index].failedErrMsg=errMsg;
+      this.queue[index].timestampFailed = Math.floor(Date.now() / 1000);
+      this.queue[index].failedErrMsg = errMsg;
       this.queue[index].ownableStatus = OwnableStatus.Failed;
     } else {
-      console.log(`Index ${index} is out of bounds.`);
-    } 
-    await this.s3Bucket.put(`Queue.json`, JSON.stringify(this.queue));
+      throw new Error(`Index ${index} is out of bounds.`);
+    }
+    try {
+      await this.s3Bucket.put(`Queue.json`, JSON.stringify(this.queue));
+    } catch (err) {
+      throw new Error(`S3 Bucket put Queue.json failed.  ${err}`);
+    }
     const timestamp = Math.floor(Date.now());
-      const formattedDate = format(timestamp, 'yyyy-MM-dd HH:mm');
-      try {
-        await this.telegramService.sendMessageToTelegramBot(`QUEUE-Failed:(${formattedDate})\nrequestId: ${requestId}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}\nerrMsg: ${this.queue[index].failedErrMsg}`);
-      } catch (err) {
-        throw new Error(`Telegram Service Error.  ${err}`);
-      }
+    const formattedDate = format(timestamp, 'yyyy-MM-dd HH:mm');
+    try {
+      await this.telegramService.sendMessageToTelegramBot(`QUEUE-Failed:(${formattedDate})\nrequestId: ${requestId}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}\nerrMsg: ${this.queue[index].failedErrMsg}`);
+    } catch (err) {
+      throw new Error(`Telegram Service Error.  ${err}`);
+    }
   }
   // public async setTxId(requestId: string, txId: string) {
   //   const [entry, index] = this.getQueueEntryByRequestId(requestId);
