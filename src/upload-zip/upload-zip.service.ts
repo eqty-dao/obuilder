@@ -664,7 +664,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     const timestampNow = Math.floor(Date.now() / 1000);
     if (typeof queryProcessingEntry !== 'undefined' &&  queryProcessingEntry.length > 0) {
       console.log("queryProcessingEntry[0]",queryProcessingEntry[0]);
-      if (this.queueService.isCreatingOwnable() && queryProcessingEntry[0].timestampProcessing > 0 && timestampNow - queryProcessingEntry[0].timestampProcessing >= 300) {
+      if (queryProcessingEntry[0].rid !== '' && this.queueService.isCreatingOwnable() && queryProcessingEntry[0].timestampProcessing > 0 && timestampNow - queryProcessingEntry[0].timestampProcessing >= 300) {
         console.log(`Something went wrong with processing Queue Entry. Failed to produce Ownable ${queryProcessingEntry[0]}`);
 
         // await this.queueService.deleteOwnableData(queryProcessingEntry[0].rid);
