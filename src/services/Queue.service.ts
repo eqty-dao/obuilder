@@ -352,14 +352,14 @@ export class QueueService implements OnModuleInit {
       this.queue[index].timestampReady = Math.floor(Date.now() / 1000);
       // const formattedDate = (this.queue[index].timestampReady * 1000).toLocaleString();
       const formattedDate = format(this.queue[index].timestampReady * 1000, 'yyyy-MM-dd HH:mm');
-      await this.telegramService.sendMessageToTelegramBot(`QUEUE-Ready:(${formattedDate})\nrequestId: ${this.queue[index].rid}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}`);
+      await this.telegramService.sendMessageToTelegramBot(`QUEUE-Ready: (${formattedDate})\nrequestId: ${this.queue[index].rid}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}`);
 
     } else if (status == OwnableStatus.Sent && typeof hash !== 'undefined') {
       this.queue[index].hash = hash;
       this.queue[index].timestampSent = Math.floor(Date.now() / 1000);
       const formattedDate = format(this.queue[index].timestampReady * 1000, 'yyyy-MM-dd HH:mm');
       // const formattedDate = (this.queue[index].timestampSent * 1000).toLocaleString();
-      await this.telegramService.sendMessageToTelegramBot(`QUEUE-Sent: (${formattedDate})\nrequestId: ${this.queue[index].rid}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}`);
+      await this.telegramService.sendMessageToTelegramBot(`QUEUE-Sent: (${formattedDate})\nrequestId: ${this.queue[index].rid}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}\nhash: ${this.queue[index].hash}`);
 
     } else if (status == OwnableStatus.InQueue) {
       this.queue[index].timestampInQueue = Math.floor(Date.now() / 1000);

@@ -673,6 +673,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         await this.queueService.ownableFailed(queryProcessingEntry[0].rid, "More than 300 seconds inactive in Processing Queue");
       }
     }
+    
+    const queryProcessingEntry1: QueueEntry[] = this.queueService.getQueueEntriesByStatus(OwnableStatus.Processing);
     const isEmpty = this.queueService.isQueueEmpty();
     if (!isEmpty) {
       console.log("Checking Queue Status: queue not empty...");
@@ -689,7 +691,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
               try {
                 await this.store(data, 1, sender, true); // true = verbose
               } catch (err) {
-                await this.queueService.ownableFailed(queryProcessingEntry[0].rid, `${err}`);
+                await this.queueService.ownableFailed(queryProcessingEntry1[0].rid, `${err}`);
                 throw err;
               }
             }
