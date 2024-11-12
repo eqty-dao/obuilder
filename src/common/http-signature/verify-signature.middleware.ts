@@ -7,7 +7,7 @@ import { verify } from '@ltonetwork/http-message-signatures';
 export class VerifySignatureMiddleware implements NestMiddleware {
   constructor(private readonly lto: LTO) {}
 
-  async verify(req: Request, res: Response): Promise<boolean> {
+  async verify(req: Request, res: Response): Promise<boolean> {    
     try {
       req['signer'] = await verify(req, this.lto);
     } catch (err) {
