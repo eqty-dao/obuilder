@@ -4,6 +4,7 @@ export interface QueueEntry {
     rid: string;
     data: string;
     ltoWallet: string;
+    ltoNetworkId: 'L'|'T';
     hash: string;
     txId: string;
     ownableStatus: OwnableStatus;

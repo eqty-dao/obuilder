@@ -5,12 +5,13 @@ import { ConfigModule } from '../common/config/config.module';
 import { IpfsModule } from '../common/ipfs/ipfs.module';
 import { JszipModule } from '../common/jszip/jszip.module';
 import { HttpModule } from '@nestjs/axios';
-import { LtoModule } from 'src/common/lto/lto.module';
+// import { LtoModule } from 'src/common/lto/lto.module';
 import { NFTModule } from 'src/nft/nft.module';
 import { QueueService } from '../services/Queue.service';
 import { ConfigService } from '@nestjs/config';
 import { TelegramService } from 'src/services/TelegramBot.service';
 import { LoggingService } from 'src/services/Logging.service';
+import { LTOService } from 'src/services/LTO.service';
 
 
 @Module({
@@ -18,7 +19,7 @@ import { LoggingService } from 'src/services/Logging.service';
     ConfigModule, 
     IpfsModule, 
     JszipModule, 
-    LtoModule,
+    // LtoModule,
     NFTModule,
     HttpModule.registerAsync({
       useFactory: () => ({
@@ -27,8 +28,8 @@ import { LoggingService } from 'src/services/Logging.service';
       })
     }),
   ],
-  providers: [UploadZipService, QueueService,TelegramService, LoggingService, ConfigService],
+  providers: [UploadZipService, QueueService,TelegramService, LTOService, LoggingService, ConfigService],
   controllers: [UploadZipController],
-  exports: [UploadZipService, QueueService, TelegramService, LoggingService, ConfigService],
+  exports: [UploadZipService, QueueService, TelegramService, LTOService, LoggingService, ConfigService],
 })
 export class UploadZipModule { }

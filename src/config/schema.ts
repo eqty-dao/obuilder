@@ -20,15 +20,27 @@ export default {
       env: 'TELEGRAM_BOT_TOKEN',
     },
     channelId: {
-      default: '',
-      env: 'TELEGRAM_CHANNEL_ID',
+      mainnet: {
+        default: '',
+        env: 'TELEGRAM_CHANNEL_ID_L',
+      },
+      testnet: {
+        default: '',
+        env: 'TELEGRAM_CHANNEL_ID_T',
+      }
     }
   },
   bucket: {
     obuilder: {
       queue: {
-        default: 'obuilder-staging',
-        env: 'OWNABLE_BUCKET',
+        mainnet:{
+          default: 'obuilder-production',
+          env: 'OWNABLE_BUCKET_L'
+        },
+        testnet:{
+          default: 'obuilder-staging',
+          env: 'OWNABLE_BUCKET_T'
+        },
       },
     },
     localTesting: {
@@ -51,18 +63,30 @@ export default {
   //   },
   // },
   lto: {
-    node: {
-      default: '',
-      env: 'LTO_NODE',
-    },
     networkId: {
-      default: '',
-      env: 'LTO_NETWORK_ID',
+      default: 'L',
+      env: 'LTO_NETWORK_ID'
+    },
+    node: {
+      mainnet: {
+        default: '',
+        env: 'LTO_NODE_L'
+      },
+      testnet: {
+        default: '',
+        env: 'LTO_NODE_T'
+      }
     },
     account: {
       seed: {
-        default: '',
-        env: 'LTO_ACCOUNT_SEED',
+        mainnet: {
+          default: '',
+          env: 'LTO_ACCOUNT_SEED_L'
+        },
+        testnet: {
+          default: '',
+          env: 'LTO_ACCOUNT_SEED_T'
+        },
       },
     },
     relay: {
@@ -74,19 +98,35 @@ export default {
       env: 'LOCAL_RELAY_SERVER',
     },
     queue: {
-      default: true,
-      env: 'QUEUEING_ALLOWED',
+      mainnet: {
+        default: true,
+        env: 'QUEUEING_ALLOWED_L',
+      },
+      testnet: {
+        default: true,
+        env: 'QUEUEING_ALLOWED_T',
+      }
     }
   },
   eth: {
     account: {
       obridge_wallet_address: {
-        default: '',
-        env: 'OBRIDGE_WALLET_ADDR',
+        mainnet: {
+          default: '',
+          env: 'OBRIDGE_WALLET_ADDR_L',
+        }, testnet: {
+          default: '',
+          env: 'OBRIDGE_WALLET_ADDR_T',
+        }
       },
       mnemonic: {
-        default: '',
-        env: 'ACCOUNT_MNEMONIC',
+        mainnet: {
+          default: '',
+          env: 'ACCOUNT_MNEMONIC_L',
+        }, testnet: {
+          default: '',
+          env: 'ACCOUNT_MNEMONIC_T',
+        }
       },
       arbitrum_alchemy_api_key: {
         default: '',
@@ -103,40 +143,55 @@ export default {
     },
     contracts: {
       ethereum: {
-        default: '',
-        env: 'ETHEREUM_NFT_CONTRACT_ADDR',
+        mainnet: {
+          default: '',
+          env: 'ETHEREUM_NFT_CONTRACT_ADDR_L',
+        }, testnet: {
+          default: '',
+          env: 'ETHEREUM_NFT_CONTRACT_ADDR_T',
+        }
       },
       arbitrum: {
-        default: '',
-        env: 'ARBITRUM_NFT_CONTRACT_ADDR',
+        mainnet: {
+          default: '',
+          env: 'ARBITRUM_NFT_CONTRACT_ADDR_L',
+        }, testnet: {
+          default: '',
+          env: 'ARBITRUM_NFT_CONTRACT_ADDR_T',
+        }
       },
       polygon: {
-        default: '',
-        env: 'POLYGON_NFT_CONTRACT_ADDR',
+        mainnet: {
+          default: '',
+          env: 'POLYGON_NFT_CONTRACT_ADDR',
+        }, testnet: {
+          default: '',
+          env: 'POLYGON_NFT_CONTRACT_ADDR_T',
+        }
       },
     },
-    providers: {
-      etherscan: {
-        default: '',
-        env: 'ETHERSCAN_KEY',
-      },
-      infura: {
-        default: '',
-        env: 'INFURA_KEY',
-      },
-      alchemy: {
-        default: '',
-        env: 'ALCHEMY_KEY',
-      },
-      pocket: {
-        default: '',
-        env: 'POCKET_KEY',
-      },
-      ankr: {
-        default: '',
-        env: 'ANKR_KEY',
-      },
-    },
+    // providers: {
+    //   etherscan: {
+    //     default: '',
+    //     env: 'ETHERSCAN_KEY',
+    //   },
+    //   infura: {
+    //     default: '',
+    //     env: 'INFURA_KEY',
+    //   },
+    //   alchemy: {
+    //     default: '',
+    //     env: 'ALCHEMY_KEY',
+    //   },
+    //   pocket: {
+    //     default: '',
+    //     env: 'POCKET_KEY',
+    //   },
+    //   ankr: {
+    //     default: '',
+    //     env: 'ANKR_KEY',
+    //   },
+    // },
     // networks: {
     //   default: [
     //     {
@@ -200,18 +255,18 @@ export default {
       env: 'CHAINS_PATH',
     },
   },
-  verify: {
-    integrity: {
-      default: true,
-      env: 'VERIFY_INTEGRITY',
-    },
-    signer: {
-      default: true,
-      env: 'VERIFY_SIGNER',
-    },
-    chainId: {
-      default: true,
-      env: 'VERIFY_CHAIN_ID',
-    },
-  },
+  // verify: {
+  //   integrity: {
+  //     default: true,
+  //     env: 'VERIFY_INTEGRITY',
+  //   },
+  //   signer: {
+  //     default: true,
+  //     env: 'VERIFY_SIGNER',
+  //   },
+  //   chainId: {
+  //     default: true,
+  //     env: 'VERIFY_CHAIN_ID',
+  //   },
+  // },
 };

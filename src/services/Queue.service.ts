@@ -12,18 +12,28 @@ import { format } from 'date-fns';
 
 @Injectable()
 export class QueueService implements OnModuleInit {
-  private queue: QueueEntry[] = [];
-  private queueData: Uint8Array[] = [];
-  private isQueueing: boolean;
-  private templateCosts: any = {};
+  // private queue: Map<string, QueueEntry[]> = new Map([['L', []],['T', []]]); // [];
+  // private queueData: Map<string, Uint8Array[]> = new Map([['L', []],['T', []]]);// = [];
+  private queueMainnet = [];
+  private queueDataMainnet = [];
+  private queueTestnet = [];
+  private queueDataTestnet = [];
+  private isQueueingMainnet: boolean;
+  private isQueueingTestnet: boolean;
+  private templateCostsMainnet: any = {};
+  private templateCostsTestnet: any = {};
   private s3Client: S3;
-  private s3Bucket: S3Bucket;
+  private s3Bucket_L: S3Bucket;
+  private s3Bucket_T: S3Bucket;
+  // private s3Buckets: Map<string, S3Bucket>;
 
   constructor(
     private readonly config: ConfigService,
     private readonly telegramService: TelegramService
   ) {
-    this.isQueueing = true;
+    this.isQueueingMainnet = true;
+    this.isQueueingTestnet = true;
+
     const s3LocalConfig = {
       endpoint: 'http://localhost:4566', // LocalStack endpoint
       forcePathStyle: true, // Required for local testing
@@ -43,46 +53,74 @@ export class QueueService implements OnModuleInit {
       this.s3Client = new S3({ region: 'eu-west-1' });
 
     }
-    this.s3Bucket = new S3Bucket(this.s3Client, this.config.get('OWNABLE_BUCKET'));
+    // this.s3Buckets = new Map([
+    //   ['L', new S3Bucket(this.s3Client, this.config.get('OWNABLE_BUCKET_L'))], // Testnet bucket
+    //   ['T', new S3Bucket(this.s3Client, this.config.get('OWNABLE_BUCKET_T'))]  // Mainnet bucket
+    // ]);
+    this.s3Bucket_L = new S3Bucket(this.s3Client, this.config.get('OWNABLE_BUCKET_L'));
+    this.s3Bucket_T = new S3Bucket(this.s3Client, this.config.get('OWNABLE_BUCKET_T'));
     // this.s3Bucket = new S3Bucket(this.s3Client, this.config.get('bucket.obuilder.queue'));        
   }
 
 
   async onModuleInit() {
     try {
-      await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('OWNABLE_BUCKET') }));
-      console.log(`Bucket already exists.`);
+      await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('OWNABLE_BUCKET_L') }));
+      console.log(`Mainnet Bucket already exists.`);
     } catch (err) {
       if (err.name === 'NotFound' || err.name === 'NoSuchBucket') {
-        console.log(`Bucket does not exist. Creating it now.`);
-        await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('OWNABLE_BUCKET') }));
-        await this.updateQueueInS3Bucket();
+        console.log(`Mainnet Bucket does not exist. Creating it now.`);
+        await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('OWNABLE_BUCKET_L') }));
+        await this.updateQueueInS3Bucket('L');
       } else {
-        console.error('Error checking bucket existence:', err);
+        console.error('Error checking mainnet bucket existence:', err);
         return; // Exit early if there's a non-not-found error
       }
-
     }
     try {
-      // Now try to retrieve the Queue.json file
-      const queueMainFileBuffer = await this.s3Bucket.get('Queue.json');
+      // Now try to retrieve the Mainnet Queue.json file
+      const queueMainFileBuffer = await this.s3Bucket_L.get('Queue.json');
       const queueMainFileJsonString = queueMainFileBuffer.toString('utf-8');
       const queueMainFileJsonData = JSON.parse(queueMainFileJsonString);
-      await this.initializeQueueWithS3Data(queueMainFileJsonData);
+      await this.initializeQueueWithS3Data('L', queueMainFileJsonData);
     } catch (err) {
       console.error("Error initializing Queue with S3 data:", err);
-      await this.updateQueueInS3Bucket();
+      await this.updateQueueInS3Bucket('L');
+    }
+
+    try {
+      await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('OWNABLE_BUCKET_T') }));
+      console.log(`Testnet Bucket already exists.`);
+    } catch (err) {
+      if (err.name === 'NotFound' || err.name === 'NoSuchBucket') {
+        console.log(`Testnet Bucket does not exist. Creating it now.`);
+        await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('OWNABLE_BUCKET_T') }));
+        await this.updateQueueInS3Bucket('T');
+      } else {
+        console.error('Error checking testnet bucket existence:', err);
+        return; // Exit early if there's a non-not-found error
+      }
+    }
+    try {
+      // Now try to retrieve the Testnet Queue.json file
+      const queueMainFileBuffer = await this.s3Bucket_T.get('Queue.json');
+      const queueMainFileJsonString = queueMainFileBuffer.toString('utf-8');
+      const queueMainFileJsonData = JSON.parse(queueMainFileJsonString);
+      await this.initializeQueueWithS3Data('T', queueMainFileJsonData);
+    } catch (err) {
+      console.error("Error initializing Queue with S3 data:", err);
+      await this.updateQueueInS3Bucket('T');
     }
 
     try {
       // Now try to retrieve the TemplateCosts file
-      const templateCostsBuffer = await this.s3Bucket.get('TemplateCosts.json');
+      const templateCostsBuffer = await this.s3Bucket_L.get('TemplateCosts.json');
       const templateCostsJsonString = templateCostsBuffer.toString('utf-8');
       const templateCostsJsonData = JSON.parse(templateCostsJsonString);
-      await this.initializeTemplateCostsS3Data(templateCostsJsonData);
+      await this.initializeTemplateCostsS3Data('L', templateCostsJsonData);
     } catch (err) {
-      console.error("TemplateCosts.json file not found. Creating one...");
-      this.templateCosts = {
+      console.error("Mainnet TemplateCosts.json file not found. Creating one...");
+      this.templateCostsMainnet = {
         "noNFT": {
           "1": "5000000"
         },
@@ -90,103 +128,190 @@ export class QueueService implements OnModuleInit {
           "1": "20000000"
         },
         "arbitrum": {
-          "1": "10000000"
+          "1": "20000000"
         },
       };
-      await this.updateTemplateCostsInS3Bucket();
+      await this.updateTemplateCostsInS3Bucket('L');
     }
-
-  }
-  private async updateTemplateCostsInS3Bucket() {
     try {
-      await this.s3Bucket.put(`TemplateCosts.json`, JSON.stringify(this.templateCosts));
+      // Now try to retrieve the TemplateCosts file
+      const templateCostsBuffer = await this.s3Bucket_T.get('TemplateCosts.json');
+      const templateCostsJsonString = templateCostsBuffer.toString('utf-8');
+      const templateCostsJsonData = JSON.parse(templateCostsJsonString);
+      await this.initializeTemplateCostsS3Data('T', templateCostsJsonData);
+    } catch (err) {
+      console.error("Testnet TemplateCosts.json file not found. Creating one...");
+      this.templateCostsTestnet = {
+        "noNFT": {
+          "1": "5000000"
+        },
+        "ethereum": {
+          "1": "20000000"
+        },
+        "arbitrum": {
+          "1": "20000000"
+        },
+      };
+      await this.updateTemplateCostsInS3Bucket('T');
+    }
+  }
+  private async updateTemplateCostsInS3Bucket(network_id: string) {
+
+    try {
+      if (network_id === 'L') {
+        await this.s3Bucket_L.put(`TemplateCosts.json`, JSON.stringify(this.templateCostsMainnet));
+      } else {
+        await this.s3Bucket_T.put(`TemplateCosts.json`, JSON.stringify(this.templateCostsTestnet));
+
+      }
     } catch (err) {
       throw new QueueError(`Failed to initiate TemplateCosts.json on s3Bucket`);
     }
   }
-  private async updateQueueInS3Bucket() {
+  private async updateQueueInS3Bucket(network_id: string) {
     try {
-      await this.s3Bucket.put(`Queue.json`, JSON.stringify(this.queue));
+      if (network_id === 'L') {
+        await this.s3Bucket_L.put(`Queue.json`, JSON.stringify(this.queueMainnet));
+      } else {
+        await this.s3Bucket_T.put(`Queue.json`, JSON.stringify(this.queueDataTestnet));
+      }
     } catch (err) {
       throw new QueueError(`Failed to initiate Queue.json on s3Bucket`);
     }
   }
-  private async initializeTemplateCostsS3Data(templateCostsS3Bucket: any) {
-    this.templateCosts = templateCostsS3Bucket;
+  private async initializeTemplateCostsS3Data(network_id: string, templateCostsS3Bucket: any) {
+    if (network_id === 'L') {
+      this.templateCostsMainnet = templateCostsS3Bucket;
+    } else {
+      this.templateCostsTestnet = templateCostsS3Bucket;
+    }
     // console.log("templateCosts", this.templateCosts)
   }
 
-  public getTemplateCosts(network: string, templateId: string): string {
-    return this.templateCosts[network][templateId].toString();
+  public getTemplateCosts(ltoNetwork_id: 'L'|'T', evmNetwork: string, templateId: string): string {
+    if (ltoNetwork_id === 'L') {
+      return this.templateCostsMainnet[evmNetwork][templateId].toString();
+    }
+    return this.templateCostsTestnet[evmNetwork][templateId].toString();
 
   }
 
-  private async initializeQueueWithS3Data(queueS3Bucket: any) {
+  private async initializeQueueWithS3Data(ltoNetwork_id: string, queueS3Bucket: any) {
     for (const entry of queueS3Bucket) {
       // Push the entry into the queue
-      this.queue.push({
-        data: entry.data,
-        rid: entry.rid,
-        ltoWallet: entry.ltoWallet,
-        hash: entry.hash,
-        txId: entry.txId,
-        ownableStatus: entry.ownableStatus,
-        templateId: entry.templateId,
-        timestampInQueue: entry.timestampInQueue,
-        timestampProcessing: entry.timestampProcessing,
-        timestampReady: entry.timestampReady,
-        timestampSent: entry.timestampSent,
-        timestampFailed: entry.timestampFailed,
-        failedErrMsg: entry.failedErrMsg,
-        cid: entry.cid ?? '',
-        nftInfo: {
-          network: '',
-          address: '',
-          id: 0
-        }
-      });
-
+      if (ltoNetwork_id === 'L') {
+        this.queueMainnet.push({
+          data: entry.data,
+          rid: entry.rid,
+          ltoWallet: entry.ltoWallet,
+          ltoNetworkId: entry.ltoNetworkId,
+          hash: entry.hash,
+          txId: entry.txId,
+          ownableStatus: entry.ownableStatus,
+          templateId: entry.templateId,
+          timestampInQueue: entry.timestampInQueue,
+          timestampProcessing: entry.timestampProcessing,
+          timestampReady: entry.timestampReady,
+          timestampSent: entry.timestampSent,
+          timestampFailed: entry.timestampFailed,
+          failedErrMsg: entry.failedErrMsg,
+          cid: entry.cid ?? '',
+          nftInfo: {
+            network: '',
+            address: '',
+            id: 0
+          }
+        });
+      } else {
+        this.queueTestnet.push({
+          data: entry.data,
+          rid: entry.rid,
+          ltoWallet: entry.ltoWallet,
+          ltoNetworkId: entry.ltoNetworkId,
+          hash: entry.hash,
+          txId: entry.txId,
+          ownableStatus: entry.ownableStatus,
+          templateId: entry.templateId,
+          timestampInQueue: entry.timestampInQueue,
+          timestampProcessing: entry.timestampProcessing,
+          timestampReady: entry.timestampReady,
+          timestampSent: entry.timestampSent,
+          timestampFailed: entry.timestampFailed,
+          failedErrMsg: entry.failedErrMsg,
+          cid: entry.cid ?? '',
+          nftInfo: {
+            network: '',
+            address: '',
+            id: 0
+          }
+        });
+      }
       // Check if the status is not Unknown before fetching data
       if (entry.ownableStatus !== OwnableStatus.Unknown) {
         try {
-          const dataUint8Array = await this.s3Bucket.get(entry.data);
-          this.queueData.push(dataUint8Array);
+          if (ltoNetwork_id === 'L') {
+            const dataUint8Array = await this.s3Bucket_L.get(entry.data);
+            this.queueDataMainnet.push(dataUint8Array);
+          } else {
+            const dataUint8Array = await this.s3Bucket_T.get(entry.data);
+            this.queueDataTestnet.push(dataUint8Array);
+          }
         } catch (err) {
-          throw new QueueError(`Failed to get ${entry.data} from s3Bucket`);
+          throw new QueueError(`Failed to get ${entry.data} from s3Bucket for lto Network ${ltoNetwork_id}`);
         }
       } else {
         // If status is Unknown, push an empty Uint8Array
-        this.queueData.push(new Uint8Array([]));
+        if (ltoNetwork_id === 'L') {
+          this.queueDataMainnet.push(new Uint8Array([]));
+        } else {
+          this.queueDataTestnet.push(new Uint8Array([]));
+        }
       }
     }
 
   }
   // For `getNextQueueEntry`
-  private getNextQueueEntry(): [QueueEntry, number] | [null, null] {
-    const entry = this.queue.find((entry: QueueEntry) => entry.ownableStatus === OwnableStatus.InQueue);
-    return entry ? [entry, this.queue.indexOf(entry)] : [null, null];
+  private getNextQueueEntry(ltoNetwork_id: string): [QueueEntry, number] | [null, null] {
+    if (ltoNetwork_id === 'L') {
+      const entry = this.queueMainnet.find((entry: QueueEntry) => entry.ownableStatus === OwnableStatus.InQueue);
+      return entry ? [entry, this.queueMainnet.indexOf(entry)] : [null, null];
+    } else {
+      const entry = this.queueTestnet.find((entry: QueueEntry) => entry.ownableStatus === OwnableStatus.InQueue);
+      return entry ? [entry, this.queueTestnet.indexOf(entry)] : [null, null];
+    }
   }
 
   // For `getProcessingQueueEntryIndex`
-  private getQueueEntryIndexByStatus(status: OwnableStatus): number | null {
-    const index = this.queue.findIndex((entry: QueueEntry) => entry.ownableStatus === status);
+  private getQueueEntryIndexByStatus(ltoNetwork_id: string, status: OwnableStatus): number | null {
+    let index: any;
+    if (ltoNetwork_id === 'L') {
+      index = this.queueMainnet.findIndex((entry: QueueEntry) => entry.ownableStatus === status);
+    } else {
+      index = this.queueTestnet.findIndex((entry: QueueEntry) => entry.ownableStatus === status);
+    }
     return index >= 0 ? index : null;
   }
 
-  public getRequestIdByTxId(txId: string): string | null {
-    const entry = this.queue.find((entry: QueueEntry) => entry.txId === txId);
-    return entry ? entry.rid : null;
+  public getRequestIdByTxId(txId: string): [string,'L'|'T'] | [null,null] {
+    const entryMainnet: QueueEntry = this.queueMainnet.find((entry: QueueEntry) => entry.txId === txId);
+    const entryTestnet: QueueEntry = this.queueTestnet.find((entry: QueueEntry) => entry.txId === txId);
+    if(typeof entryMainnet !== 'undefined') return [entryMainnet.rid, 'L'];
+    if(typeof entryTestnet !== 'undefined') return [entryTestnet.rid, 'T'];
+
+    return [null,null];
   }
 
 
 
   // Enqueue a new Uint8Array to the queue
-  public async enqueue(requestId: string, data: Uint8Array, ltoWallet: string, txId: string, templateId: number): Promise<QueueEntry> {
+  public async enqueue(ltoNetwork_id: 'L' | 'T', requestId: string, data: Uint8Array, ltoWallet: string, txId: string, templateId: number): Promise<QueueEntry> {
     if (data instanceof Uint8Array) {
+
       const newQueueEntry: QueueEntry = {
         data: `${requestId}_data`,
         rid: `${requestId}`,
         ltoWallet: ltoWallet,
+        ltoNetworkId: ltoNetwork_id,
         hash: '',
         txId: txId,
         ownableStatus: OwnableStatus.InQueue,
@@ -205,38 +330,54 @@ export class QueueService implements OnModuleInit {
         }
       }
       try {
-        await this.s3Bucket.put(`${requestId}_data`, data);
+        if (ltoNetwork_id === 'L') {
+          await this.s3Bucket_L.put(`${requestId}_data`, data);
+        } else {
+          await this.s3Bucket_T.put(`${requestId}_data`, data);
+
+        }
       } catch (err) {
-        throw new Error(`Putting ${requestId}_data into s3 Bucket failed. Error: ${err}`);
+        throw new Error(`Putting ${requestId}_data into s3 Bucket failed for LTO network ${ltoNetwork_id}. Error: ${err}`);
       }
       const timestamp = Math.floor(Date.now());
       const formattedDate = format(timestamp, 'yyyy-MM-dd HH:mm');
       try {
-        await this.telegramService.sendMessageToTelegramBot(`QUEUE-InQueue:(${formattedDate})\nrequestId: ${requestId}\ntxID: ${txId}\nltoWallet: ${ltoWallet}`);
+        await this.telegramService.sendMessageToTelegramBot(ltoNetwork_id, `QUEUE-InQueue(${ltoNetwork_id}): (${formattedDate})\nrequestId: ${requestId}\ntxID: ${txId}\nltoWallet: ${ltoWallet}`);
       } catch (err) {
         throw new Error(`Telegram Service Error.  ${err}`);
       }
-      this.queue.push(newQueueEntry);
-      this.queueData.push(data);
+      if (ltoNetwork_id === 'L') {
+        this.queueMainnet.push(newQueueEntry);
+        this.queueDataMainnet.push(data);
+      } else {
+        this.queueTestnet.push(newQueueEntry);
+        this.queueDataTestnet.push(data);
+      }
       try {
-        await this.updateQueueInS3Bucket();
+        await this.updateQueueInS3Bucket(ltoNetwork_id);
       } catch (err) {
-        this.queue.pop();
-        this.queueData.pop();
-        throw new Error(`Updating Queue in s3 bucket failed. Error: ${err}`);
+        if (ltoNetwork_id === 'L') {
+          this.queueMainnet.pop();
+          this.queueDataMainnet.pop();
+        } else {
+          this.queueTestnet.pop();
+          this.queueDataTestnet.pop();
+        }
+        throw new Error(`Updating Queue in s3 bucket for LTO network ${ltoNetwork_id} failed. Error: ${err}`);
       }
       return newQueueEntry;
-      // this.queueRequestId.push(requestId);
+ 
     } else {
       throw new Error('Data must be of type Uint8Array');
     }
   }
 
-  public getQueueEntryByRequestId(requestId: string): [QueueEntry, number] {
+  public getQueueEntryByRequestId(ltoNetwork_id: 'L' | 'T', requestId: string): [QueueEntry, number] {
     const defaultQueueEntry = {
       data: '',
       rid: '',
       ltoWallet: '',
+      ltoNetworkId: '',
       hash: '',
       txId: '',
       ownableStatus: OwnableStatus.Unknown,
@@ -254,65 +395,112 @@ export class QueueService implements OnModuleInit {
         id: 0
       }
     };
+    if (ltoNetwork_id === 'L') {
+      const entry = this.queueMainnet.find((entry: QueueEntry) => entry.rid === requestId);
+      return entry ? [entry, this.queueMainnet.indexOf(entry)] : [defaultQueueEntry, 0];
+    } else {
+      const entry = this.queueTestnet.find((entry: QueueEntry) => entry.rid === requestId);
+      return entry ? [entry, this.queueTestnet.indexOf(entry)] : [defaultQueueEntry, 0];
 
-    const entry = this.queue.find((entry: QueueEntry) => entry.rid === requestId);
-    return entry ? [entry, this.queue.indexOf(entry)] : [defaultQueueEntry, 0];
+    }
   }
 
 
-  public getQueueEntriesByWallet(ltoWallet: string): QueueEntry[] {
+  public getQueueEntriesByWallet(ltoNetwork_id: 'L' | 'T', ltoWallet: string): QueueEntry[] {
     const queryQueueEntries: QueueEntry[] = [];
-    this.queue.forEach((entry: QueueEntry) => {
-      if (entry.ltoWallet === ltoWallet) {
-        queryQueueEntries.push(entry);
-      }
-    });
+    if (ltoNetwork_id === 'L') {
+      this.queueMainnet.forEach((entry: QueueEntry) => {
+        if (entry.ltoWallet === ltoWallet) {
+          queryQueueEntries.push(entry);
+        }
+      });
+    } else {
+      this.queueTestnet.forEach((entry: QueueEntry) => {
+        if (entry.ltoWallet === ltoWallet) {
+          queryQueueEntries.push(entry);
+        }
+      });
+    }
     return queryQueueEntries;
   }
 
-  public getQueueEntriesByStatus(status: OwnableStatus): QueueEntry[] {
+  public getQueueEntriesByStatus(ltoNetwork_id: 'L' | 'T', status: OwnableStatus): QueueEntry[] {
     const queryQueueEntries: QueueEntry[] = [];
-    this.queue.forEach((entry: QueueEntry) => {
+    if (ltoNetwork_id === 'L') {
+      this.queueMainnet.forEach((entry: QueueEntry) => {
 
-      if (entry.ownableStatus.toString() === status.toString()) {
-        queryQueueEntries.push(entry);
-      }
-    });
+        if (entry.ownableStatus.toString() === status.toString()) {
+          queryQueueEntries.push(entry);
+        }
+      });
+    } else {
+      this.queueTestnet.forEach((entry: QueueEntry) => {
+
+        if (entry.ownableStatus.toString() === status.toString()) {
+          queryQueueEntries.push(entry);
+        }
+      });
+    }
     return queryQueueEntries;
   }
 
-  public async setCidNftInfo(requestId: string, cid: string, nftInfo: NftInfo) {
-    const [entry, index] = this.getQueueEntryByRequestId(requestId);
-    this.queue[index].cid = cid;
-    // this.queue[index].nftNetwork = nftInfo.network;
-    // this.queue[index].nftAddress = nftInfo.address;
-    // this.queue[index].nftId = nftInfo.id;
-    this.queue[index].nftInfo = nftInfo;
+  public async setCidNftInfo(ltoNetwork_id: 'L' | 'T', requestId: string, cid: string, nftInfo: NftInfo) {
+    const [entry, index] = this.getQueueEntryByRequestId(ltoNetwork_id, requestId);
+
+    if (ltoNetwork_id === 'L') {
+      this.queueMainnet[index].cid = cid;
+      this.queueMainnet[index].nftInfo = nftInfo;
+    } else {
+      this.queueTestnet[index].cid = cid;
+      this.queueTestnet[index].nftInfo = nftInfo;
+
+    }
     try {
-      await this.updateQueueInS3Bucket();
+      await this.updateQueueInS3Bucket(ltoNetwork_id);
     } catch (err) {
       throw err;
     }
   }
 
-  public async ownableFailed(requestId: string, errMsg: string) {
-    const [entry, index] = this.getQueueEntryByRequestId(requestId);
-    if (index >= 0 && index < this.queue.length) {
-      this.queue[index].timestampFailed = Math.floor(Date.now() / 1000);
-      this.queue[index].failedErrMsg = errMsg;
-      this.queue[index].ownableStatus = OwnableStatus.Failed;
+  public async ownableFailed(ltoNetwork_id: 'L' | 'T', requestId: string, errMsg: string) {
+    const [entry, index] = this.getQueueEntryByRequestId(ltoNetwork_id, requestId);
+    if (ltoNetwork_id === 'L') {
+      if (index >= 0 && index < this.queueMainnet.length) {
+        this.queueMainnet[index].timestampFailed = Math.floor(Date.now() / 1000);
+        this.queueMainnet[index].failedErrMsg = errMsg;
+        this.queueMainnet[index].ownableStatus = OwnableStatus.Failed;
+      } else {
+        throw new Error(`Index ${index} for LTO network ${ltoNetwork_id} is out of bounds.`);
+      }
     } else {
-      throw new Error(`Index ${index} is out of bounds.`);
+      if (index >= 0 && index < this.queueTestnet.length) {
+        this.queueTestnet[index].timestampFailed = Math.floor(Date.now() / 1000);
+        this.queueTestnet[index].failedErrMsg = errMsg;
+        this.queueTestnet[index].ownableStatus = OwnableStatus.Failed;
+      } else {
+        throw new Error(`Index ${index} for LTO network ${ltoNetwork_id} is out of bounds.`);
+      }
     }
+
     try {
-      await this.s3Bucket.put(`Queue.json`, JSON.stringify(this.queue));
+      if (ltoNetwork_id === 'L') {
+        await this.s3Bucket_L.put(`Queue.json`, JSON.stringify(this.queueMainnet));
+      } else {
+        await this.s3Bucket_T.put(`Queue.json`, JSON.stringify(this.queueTestnet));
+      }
     } catch (err) {
-      throw new Error(`S3 Bucket put Queue.json failed.  ${err}`);
+      throw new Error(`S3 Bucket for LTO network ${ltoNetwork_id} put Queue.json failed.  ${err}`);
     }
     const timestamp = Math.floor(Date.now());
     const formattedDate = format(timestamp, 'yyyy-MM-dd HH:mm');
     try {
-      await this.telegramService.sendMessageToTelegramBot(`QUEUE-Failed:(${formattedDate})\nrequestId: ${requestId}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}\nerrMsg: ${this.queue[index].failedErrMsg}`);
+      let botMessage: string;
+      if (ltoNetwork_id === 'L') {
+        botMessage = `QUEUE-Failed(L): (${formattedDate})\nrequestId: ${requestId}\ntxID: ${this.queueMainnet[index].txId}\nltoWallet: ${this.queueMainnet[index].ltoWallet}\nerrMsg: ${this.queueMainnet[index].failedErrMsg}`
+      } else {
+        botMessage = `QUEUE-Failed(T): (${formattedDate})\nrequestId: ${requestId}\ntxID: ${this.queueTestnet[index].txId}\nltoWallet: ${this.queueTestnet[index].ltoWallet}\nerrMsg: ${this.queueTestnet[index].failedErrMsg}`
+      }
+      await this.telegramService.sendMessageToTelegramBot(ltoNetwork_id, botMessage);
     } catch (err) {
       throw new Error(`Telegram Service Error.  ${err}`);
     }
@@ -329,93 +517,169 @@ export class QueueService implements OnModuleInit {
 
 
 
-  public async deleteOwnableData(requestId: string) {
-    const [entry, index] = this.getQueueEntryByRequestId(requestId);
-    if (index >= 0 && index < this.queue.length) {
+  // public async deleteOwnableData(requestId: string) {
+  //   const [entry, index] = this.getQueueEntryByRequestId(requestId);
+  //   if (index >= 0 && index < this.queue.length) {
 
-      await this.s3Bucket.delete(this.queue[index].data);
+  //     await this.s3Bucket.delete(this.queue[index].data);
 
-      this.queue.splice(index, 1);
-      console.log(`Entry at index ${index} deleted successfully.`);
-    } else {
-      console.log(`Index ${index} is out of bounds.`);
-    }
-    await this.s3Bucket.put(`Queue.json`, JSON.stringify(this.queue));
-  }
+  //     this.queue.splice(index, 1);
+  //     console.log(`Entry at index ${index} deleted successfully.`);
+  //   } else {
+  //     console.log(`Index ${index} is out of bounds.`);
+  //   }
+  //   await this.s3Bucket.put(`Queue.json`, JSON.stringify(this.queue));
+  // }
 
-  public async setQueueEntryStatus(requestId: string, status: OwnableStatus, hash?: string) {
-    const [entry, index] = this.getQueueEntryByRequestId(requestId);
+  public async setQueueEntryStatus(ltoNetwork_id: 'L' | 'T', requestId: string, status: OwnableStatus, hash?: string) {
+    const [entry, index] = this.getQueueEntryByRequestId(ltoNetwork_id, requestId);
 
     if (status == OwnableStatus.Processing) {
-      this.queue[index].timestampProcessing = Math.floor(Date.now() / 1000);
-
+      if (ltoNetwork_id === 'L') {
+        this.queueMainnet[index].timestampProcessing = Math.floor(Date.now() / 1000);
+      } else {
+        this.queueTestnet[index].timestampProcessing = Math.floor(Date.now() / 1000);
+      }
     } else if (status == OwnableStatus.Ready) {
-      this.queue[index].timestampReady = Math.floor(Date.now() / 1000);
-      // const formattedDate = (this.queue[index].timestampReady * 1000).toLocaleString();
-      const formattedDate = format(this.queue[index].timestampReady * 1000, 'yyyy-MM-dd HH:mm');
-      await this.telegramService.sendMessageToTelegramBot(`QUEUE-Ready: (${formattedDate})\nrequestId: ${this.queue[index].rid}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}`);
+      let botMessage: string;
+      let formattedDate: string;
+
+      if (ltoNetwork_id === 'L') {
+        this.queueMainnet[index].timestampReady = Math.floor(Date.now() / 1000);
+        formattedDate = format(this.queueMainnet[index].timestampReady * 1000, 'yyyy-MM-dd HH:mm');
+        botMessage = `QUEUE-Ready(${ltoNetwork_id}): (${formattedDate})\nrequestId: ${this.queueMainnet[index].rid}\ntxID: ${this.queueMainnet[index].txId}\nltoWallet: ${this.queueMainnet[index].ltoWallet}`;
+      } else {
+        this.queueTestnet[index].timestampReady = Math.floor(Date.now() / 1000);
+        formattedDate = format(this.queueTestnet[index].timestampReady * 1000, 'yyyy-MM-dd HH:mm');
+        botMessage = `QUEUE-Ready(${ltoNetwork_id}): (${formattedDate})\nrequestId: ${this.queueTestnet[index].rid}\ntxID: ${this.queueTestnet[index].txId}\nltoWallet: ${this.queueTestnet[index].ltoWallet}`;
+
+      }
+      try {
+        await this.telegramService.sendMessageToTelegramBot(ltoNetwork_id, botMessage);
+      } catch (err) {
+        throw new Error(`Telegram Service Error.  ${err}`);
+      }
 
     } else if (status == OwnableStatus.Sent && typeof hash !== 'undefined') {
-      this.queue[index].hash = hash;
-      this.queue[index].timestampSent = Math.floor(Date.now() / 1000);
-      const formattedDate = format(this.queue[index].timestampReady * 1000, 'yyyy-MM-dd HH:mm');
-      // const formattedDate = (this.queue[index].timestampSent * 1000).toLocaleString();
-      await this.telegramService.sendMessageToTelegramBot(`QUEUE-Sent: (${formattedDate})\nrequestId: ${this.queue[index].rid}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}\nhash: ${this.queue[index].hash}`);
+      let botMessage: string;
+      let formattedDate: string;
+      if (ltoNetwork_id === 'L') {
+        this.queueMainnet[index].hash = hash;
+        this.queueMainnet[index].timestampSent = Math.floor(Date.now() / 1000);
+        formattedDate = format(this.queueMainnet[index].timestampReady * 1000, 'yyyy-MM-dd HH:mm');
+        botMessage = `QUEUE-Sent(${ltoNetwork_id}): (${formattedDate})\nrequestId: ${this.queueMainnet[index].rid}\ntxID: ${this.queueMainnet[index].txId}\nltoWallet: ${this.queueMainnet[index].ltoWallet}\nhash: ${this.queueMainnet[index].hash}`;
+      } else {
+        this.queueTestnet[index].hash = hash;
+        this.queueTestnet[index].timestampSent = Math.floor(Date.now() / 1000);
+        formattedDate = format(this.queueTestnet[index].timestampReady * 1000, 'yyyy-MM-dd HH:mm');
+        botMessage = `QUEUE-Sent(${ltoNetwork_id}): (${formattedDate})\nrequestId: ${this.queueTestnet[index].rid}\ntxID: ${this.queueTestnet[index].txId}\nltoWallet: ${this.queueTestnet[index].ltoWallet}\nhash: ${this.queueTestnet[index].hash}`;
+
+      }
+      try {        
+        await this.telegramService.sendMessageToTelegramBot(ltoNetwork_id, botMessage);
+      } catch (err) {
+        throw new Error(`Telegram Service Error.  ${err}`);
+      }
 
     } else if (status == OwnableStatus.InQueue) {
-      this.queue[index].timestampInQueue = Math.floor(Date.now() / 1000);
-      this.queue[index].timestampProcessing = 0;
-      this.queue[index].timestampReady = 0;
+      if (ltoNetwork_id === 'L') {
+      this.queueMainnet[index].timestampInQueue = Math.floor(Date.now() / 1000);
+      this.queueMainnet[index].timestampProcessing = 0;
+      this.queueMainnet[index].timestampReady = 0;
+    }else {
+        this.queueTestnet[index].timestampInQueue = Math.floor(Date.now() / 1000);
+        this.queueTestnet[index].timestampProcessing = 0;
+        this.queueTestnet[index].timestampReady = 0;
+
+      }
 
     } else if (status == OwnableStatus.Failed) {
-      this.queue[index].timestampFailed = Math.floor(Date.now() / 1000);
+      if (ltoNetwork_id === 'L') {
+      this.queueMainnet[index].timestampFailed = Math.floor(Date.now() / 1000);
+    }else {
+      this.queueTestnet[index].timestampFailed = Math.floor(Date.now() / 1000);
 
+    }
     } else {
       throw new Error(`Unknown Ownable status ${status} for requestId ${requestId}`);
     }
-    this.queue[index].ownableStatus = status;
-    await this.updateQueueInS3Bucket();
+    if (ltoNetwork_id === 'L') {
+    this.queueMainnet[index].ownableStatus = status;
+  }else {
+      this.queueTestnet[index].ownableStatus = status;
+
+    }
+    await this.updateQueueInS3Bucket(ltoNetwork_id);
   }
 
-  public async processNextQueueEntry(): Promise<[string, Uint8Array, string] | [null, null, null]> {
-    const [entry, index] = this.getNextQueueEntry();
-    if (index != null) {
+  public async processNextQueueEntry(): Promise<['L'|'T', string, Uint8Array, string] | [null, null, null]> {
+
+    const [entryL, indexL] = this.getNextQueueEntry('L');
+    if (indexL != null) {
       let data: Uint8Array = new Uint8Array([]);
 
-      data = this.queueData[index];
-      this.queue[index].ownableStatus = OwnableStatus.Processing;
-      this.queue[index].timestampProcessing = Math.floor(Date.now() / 1000);
-      const formattedDate = format(this.queue[index].timestampProcessing * 1000, 'yyyy-MM-dd HH:mm');
-      await this.telegramService.sendMessageToTelegramBot(`QUEUE-Processing: (${formattedDate})\nrequestId: ${this.queue[index].rid}\ntxID: ${this.queue[index].txId}\nltoWallet: ${this.queue[index].ltoWallet}`);
-      await this.updateQueueInS3Bucket();
-      return [entry.rid, data, entry.ltoWallet];
+      data = this.queueDataMainnet[indexL];
+      this.queueMainnet[indexL].ownableStatus = OwnableStatus.Processing;
+      this.queueMainnet[indexL].timestampProcessing = Math.floor(Date.now() / 1000);
+      const formattedDate = format(this.queueMainnet[indexL].timestampProcessing * 1000, 'yyyy-MM-dd HH:mm');
+      await this.telegramService.sendMessageToTelegramBot(this.queueMainnet[indexL].ltoNetworkId, `QUEUE-Processing(L): (${formattedDate})\nrequestId: ${this.queueMainnet[indexL].rid}\ntxID: ${this.queueMainnet[indexL].txId}\nltoWallet: ${this.queueMainnet[indexL].ltoWallet}`);
+      await this.updateQueueInS3Bucket(this.queueMainnet[indexL].ltoNetworkId);
+      return ['L', entryL.rid, data, entryL.ltoWallet];
     } else {
-      // console.log('Queue is empty');
-      return [null, null, null];
+      const [entryT, indexT] = this.getNextQueueEntry('T');
+      if (indexT != null) {
+        let data: Uint8Array = new Uint8Array([]);
+
+        data = this.queueDataTestnet[indexT];
+        this.queueTestnet[indexT].ownableStatus = OwnableStatus.Processing;
+        this.queueTestnet[indexT].timestampProcessing = Math.floor(Date.now() / 1000);
+        const formattedDate = format(this.queueTestnet[indexT].timestampProcessing * 1000, 'yyyy-MM-dd HH:mm');
+        await this.telegramService.sendMessageToTelegramBot(this.queueTestnet[indexT].ltoNetworkId, `QUEUE-Processing(T): (${formattedDate})\nrequestId: ${this.queueTestnet[indexT].rid}\ntxID: ${this.queueTestnet[indexT].txId}\nltoWallet: ${this.queueTestnet[indexT].ltoWallet}`);
+        await this.updateQueueInS3Bucket(this.queueTestnet[indexT].ltoNetworkId);
+        return ['T', entryT.rid, data, entryT.ltoWallet];
+      } else {
+        // console.log('Queue is empty');
+        return [null, null, null];
+      }
     }
   }
 
-  public isCreatingOwnable(): boolean {
-    const index = this.getQueueEntryIndexByStatus(OwnableStatus.Processing);
-    if (index != null) {
-      return true;
+  public isCreatingOwnable(): string {
+    const indexMainnet = this.getQueueEntryIndexByStatus('L', OwnableStatus.Processing);
+    const indexTestnet = this.getQueueEntryIndexByStatus('T', OwnableStatus.Processing);
+    if (indexMainnet != null) {
+      return 'L';
     }
-    return false;
+    if (indexTestnet != null) {
+      return 'T';
+
+    }
+    return '';
   }
 
   public isQueueEmpty(): boolean {
-    const index = this.getQueueEntryIndexByStatus(OwnableStatus.InQueue);
-    if (index != null) {
+    const indexMainnet = this.getQueueEntryIndexByStatus('L', OwnableStatus.InQueue);
+    const indexTestnet = this.getQueueEntryIndexByStatus('T', OwnableStatus.InQueue);
+    if (indexMainnet != null || indexTestnet != null) {
       return false;
     }
     return true;
   }
 
-  public allowQueueing(status: boolean): void {
-    this.isQueueing = status;
+  public allowQueueing(ltoNetwork_id: 'L' | 'T', status: boolean): void {
+    if (ltoNetwork_id === 'L') {
+      this.isQueueingMainnet = status;
+    } else {
+      this.isQueueingTestnet = status;
+
+    }
   }
 
-  public isQueueingAllowed(): boolean {
-    return this.isQueueing;
+  public isQueueingAllowed(ltoNetwork_id: 'L' | 'T'): boolean {
+    if (ltoNetwork_id === 'L') {
+      return this.isQueueingMainnet;
+    } else {
+      return this.isQueueingTestnet;
+    }
   }
 }

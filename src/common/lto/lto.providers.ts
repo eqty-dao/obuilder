@@ -9,7 +9,7 @@ export const ltoProviders: Array<Provider> = [
       await config.onModuleInit(); // Why isn't config service already initialized?
 
       const lto = new LTO(config.get('lto.networkId'));
-      lto.nodeAddress = config.get('lto.node');
+      lto.nodeAddress = config.get('lto.node.mainnet');
       return lto;
     },
     inject: [ConfigService],

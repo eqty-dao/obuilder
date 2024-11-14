@@ -10,7 +10,9 @@ import { LtoModule } from './common/lto/lto.module';
 import { VerifySignatureMiddleware } from './common/http-signature/verify-signature.middleware';
 import { TelegramService } from './services/TelegramBot.service';
 import { LoggingService } from './services/Logging.service';
+import { LTOService } from './services/LTO.service';
 // import { ConfigService } from './common/config/config.service';
+// import { ConfigModule } from './common/config/config.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -18,7 +20,7 @@ import { LoggingService } from './services/Logging.service';
     LtoModule
   ],
   controllers: [AppController],
-  providers: [AppService, QueueService, LoggingService, TelegramService, ConfigService],
+  providers: [AppService, QueueService, LTOService, LoggingService, TelegramService, ConfigService],
   
 })export class AppModule {
   // configure(consumer: MiddlewareConsumer) {
