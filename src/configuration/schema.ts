@@ -33,7 +33,7 @@ export default {
   bucket: {
     obuilder: {
       logs: {
-        default: '',
+        default: 'obuilder-logs',
         env: 'OBUILDER_BUCKET_LOGS'
       },
       queue: {
