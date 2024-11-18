@@ -32,16 +32,30 @@ export default {
   },
   bucket: {
     obuilder: {
+      logs: {
+        default: '',
+        env: 'OBUILDER_BUCKET_LOGS'
+      },
       queue: {
-        mainnet:{
+        mainnet: {
           default: 'obuilder-production',
-          env: 'OWNABLE_BUCKET_L'
+          env: 'OWNABLE_BUCKET_QUEUE_L'
         },
-        testnet:{
+        testnet: {
           default: 'obuilder-staging',
-          env: 'OWNABLE_BUCKET_T'
+          env: 'OWNABLE_BUCKET_QUEUE_T'
         },
       },
+      pinata: {
+        mainnet: {
+          default: 'obuilder-pinata-mainnet',
+          env: 'PINATA_BUCKET_L'
+        },
+        testnet: {
+          default: 'obuilder-pinata-testnet',
+          env: 'PINATA_BUCKET_T'
+        },
+      }
     },
     localTesting: {
       default: false,

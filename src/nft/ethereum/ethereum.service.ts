@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { EthersService } from '../../common/ethers/ethers.service';
+import { EthersService } from '../../ethers/ethers.service';
 import { NftInfo } from '../../interfaces/OwnableInfo';
 
 @Injectable()

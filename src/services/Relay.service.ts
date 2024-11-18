@@ -1,18 +1,18 @@
-import { EventChain, LTO, Message, Relay } from "@ltonetwork/lto";
-import axios from "axios";
-import sendFile from "./relayhelper.service";
-import JSZip from "jszip";
-import mime from "mime/lite";
-// import { MessageExt, MessageInfo } from "../interfaces/MessageInfo";
-import { sign } from "@ltonetwork/http-message-signatures";
-import { LTOService } from "./LTO.service";
+// import { EventChain, LTO, Message, Relay } from "@ltonetwork/lto";
+// import axios from "axios";
+// import sendFile from "./relayhelper.service";
+// import JSZip from "jszip";
+// import mime from "mime/lite";
+// // import { MessageExt, MessageInfo } from "../interfaces/MessageInfo";
+// import { sign } from "@ltonetwork/http-message-signatures";
+// // import { LTOService } from "./LTO.service";
 
-export const lto = new LTO(process.env.REACT_APP_LTO_NETWORK_ID);
+// export const lto = new LTO(process.env.REACT_APP_LTO_NETWORK_ID);
 
-export class RelayService {
-  private static relayURL =
-    process.env.REACT_APP_RELAY || process.env.REACT_APP_LOCAL;
-  private static relay = new Relay(`${this.relayURL}`);
+// export class RelayService {
+//   private static relayURL =
+//     process.env.REACT_APP_RELAY || process.env.REACT_APP_LOCAL;
+//   private static relay = new Relay(`${this.relayURL}`);
 
   /**
    * Handle All Signed Requests
@@ -213,4 +213,4 @@ export class RelayService {
   //       messageHash,
   //     }));
   //   }
-}
+// }

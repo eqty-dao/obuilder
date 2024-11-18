@@ -1,8 +1,8 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ethers } from 'ethers';
 import { ConfigService } from '../config/config.service';
-import { NftInfo } from '../../interfaces/OwnableInfo';
-import { DataError } from '../../interfaces/error';
+import { NftInfo } from '../interfaces/OwnableInfo';
+import { DataError } from '../interfaces/error';
 import * as abis from './abi';
 
 

@@ -1,6 +1,9 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import convict from 'convict';
-import { configurations, schema } from '../../config';
+import * as dotenv from 'dotenv';
+import { configurations, schema } from '../configuration';
+// Load environment variables from .env file
+dotenv.config();
 
 type SchemaOf<T extends convict.Schema<any>> = T extends convict.Schema<infer R> ? R : any;
 type Schema = SchemaOf<typeof schema>;

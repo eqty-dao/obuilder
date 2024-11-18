@@ -1,12 +1,9 @@
 import { Inject, Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-
 import { rmSync, cpSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { ConfigService } from '../common/config/config.service';
 import arrayToString from '../utils/arrayToString';
 import JSZip from 'jszip';
 import fileExists from '../utils/fileExists';
 import path from 'path';
-import { HttpService } from '@nestjs/axios';
 // import { catchError, firstValueFrom } from 'rxjs';
 // import { AxiosError } from 'axios';
 import { Account, LTO, Event, EventChain, Message, Relay, getNetwork } from "@ltonetwork/lto";
@@ -15,21 +12,22 @@ import { exec } from 'child_process';
 import { NftInfo, OwnableInfo } from '../interfaces/OwnableInfo';
 import { TransactionIdData } from '../interfaces/TransactionIdData';
 import { TypedPackage } from "../interfaces/TypedPackage";
-import { NFTService } from '../nft/nft.service';
 import { IEventChainJSON } from '@ltonetwork/lto/interfaces';
 import { Blob } from 'buffer';
-// import { json } from 'node:stream/consumers';
-// import { stringify } from 'querystring';
-// import sendFile from '../services/relayhelper.service';
 import { QueueEntry, OwnableStatus } from '../interfaces/QueueEntry';
 import { PinataSDK } from "pinata";
-import { QueueService } from '../services/Queue.service';
-import { TelegramService } from '../services/TelegramBot.service';
-import { UserError } from 'src/interfaces/error';
+import sharp, { Sharp } from "sharp";
 import { Request, Response } from 'express';
 import { sign, verify } from '@ltonetwork/http-message-signatures';
-import { LoggingService } from '../services/Logging.service';
-import { ltoMainnet, ltoTestnet, LTOService } from '../services/LTO.service';
+
+import { ConfigService } from '../config/config.service';
+import { HttpService } from '@nestjs/axios';
+import { NFTService } from 'src/nft/nft.service';
+import { TelegramBotService } from 'src/telegram-bot/telegram-bot.service';
+import { UserError } from 'src/interfaces/error';
+import { QueueService } from 'src/queue/queue.service';
+import { LoggingService } from 'src/logging/logging.service';
+import { LtoService } from 'src/lto/lto.service';
 
 @Injectable()
 export class UploadZipService implements OnModuleInit, OnModuleDestroy {
@@ -38,33 +36,35 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   private pathToTemplates: string;
   private packageInfo: any;
   private intervalId: NodeJS.Timeout;
-  // private ltoMainnet = new LTO('L');
-  // private ltoTestnet = new LTO('T');
-  // private readonly ltoAccountMainnet: Account = this.ltoMainnet.account({ seed: this.config.get('lto.account.seed.mainnet') });
-  // private readonly ltoAccountTestnet: Account = this.ltoTestnet.account({ seed: this.config.get('lto.account.seed.testnet') });
-
+  
   private nodeVersion = process.version;
-  private pinata = new PinataSDK({
-    pinataJwt: this.config.get('pinata.jwt'), // process.env.PINATA_JWT!,
-    pinataGateway: this.config.get('pinata.gateway') // "example-gateway.mypinata.cloud",
-  });
-  private telegramBotToken = this.config.get('telegramBot.token');
-  private telegramBotChannelId = this.config.get('telegramBot.channelId');
+  private pinata: PinataSDK;
+  private telegramBotToken:string;
+  private telegramBotChannelId_L:string;
+  private telegramBotChannelId_T:string;
 
 
 
   constructor(
     private readonly httpService: HttpService,
     private readonly config: ConfigService,
-    private readonly ltoService: LTOService,
+    private readonly ltoService: LtoService,
     private readonly nft: NFTService,
     private readonly queueService: QueueService,
     private readonly loggingService: LoggingService,
-    private readonly telegramService: TelegramService,
+    private readonly telegramService: TelegramBotService,
     @Inject('IPFS') private readonly ipfs: IPFS,
-  ) { }
+  ) { 
+    
+  }
 
   async onModuleInit() {
+    await this.config.load();
+  
+    this.pinata = new PinataSDK({
+      pinataJwt: this.config.get('pinata.jwt'), // process.env.PINATA_JWT!,
+      pinataGateway: this.config.get('pinata.gateway') // "example-gateway.mypinata.cloud",
+    });
     this.packageInfo = require('../../package.json');
     this.pathToRids = this.packageInfo.ownableRidPath;
     this.pathToCids = this.packageInfo.ownableCidPath;
@@ -97,17 +97,18 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     return [balanceETH, balanceARB];
   }
   public getLTOAccountAddress(ltoNetworkId: 'L' | 'T'): string {
-    return ltoNetworkId === 'L' 
-        ? this.ltoService.ltoAccountMainnet?.address 
-        : this.ltoService.ltoAccountTestnet?.address;
+    // return ltoNetworkId === 'L' 
+    //     ? this.ltoService.ltoAccountMainnet?.address 
+    //     : this.ltoService.ltoAccountTestnet?.address;
+    return this.ltoService.getLTOAccountAddress(ltoNetworkId);
 
   }
   public isEVMAddress(address: string): boolean {
     return this.nft.isEVMAddress(address);
   }
   public isValidLtoAddress(address: string): string {
-    const isValidMainnet = ltoMainnet.isValidAddress(address);
-    const isValidTestnet = ltoTestnet.isValidAddress(address);
+    const isValidMainnet = this.ltoService.ltoMainnet.isValidAddress(address);
+    const isValidTestnet = this.ltoService.ltoTestnet.isValidAddress(address);
     if (isValidMainnet) return "L";
     if (isValidTestnet) return "T";
     return "false";
@@ -214,12 +215,12 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (ltoNetworkId == 'L') {
-      ltoMainnet.relay = new Relay(`${relayURL}`);
-      relay = ltoMainnet.relay;
+      this.ltoService.ltoMainnet.relay = new Relay(`${relayURL}`);
+      relay = this.ltoService.ltoMainnet.relay;
       sender = this.ltoService.ltoAccountMainnet;
     } else if (ltoNetworkId == 'T') {
-      ltoTestnet.relay = new Relay(`${relayURL}`);
-      relay = ltoTestnet.relay;
+      this.ltoService.ltoTestnet.relay = new Relay(`${relayURL}`);
+      relay = this.ltoService.ltoTestnet.relay;
       sender = this.ltoService.ltoAccountTestnet;
     } else {
       this.loggingService.logError(rid, `Unknown ltoNetworkID ${ltoNetworkId}`);
@@ -458,9 +459,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       const anchorMap1 = appendedEvents.anchorMap;
       try {
         if (ltoNetworkId === 'L') {
-          await ltoMainnet.anchor(ltoAccount, ...anchorMap1);
+          await this.ltoService.ltoMainnet.anchor(ltoAccount, ...anchorMap1);
         } else {
-          await ltoTestnet.anchor(ltoAccount, ...anchorMap1);
+          await this.ltoService.ltoTestnet.anchor(ltoAccount, ...anchorMap1);
         }
       } catch (err) {
         this.loggingService.logError(pkg.cid, `Anchoring Failed: ${err}`);
@@ -470,9 +471,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       chain.validate();
       let genesisSigner: Account;
       if (ltoNetworkId === 'L') {
-        genesisSigner = ltoMainnet.account(chain.events[0].signKey);
+        genesisSigner = this.ltoService.ltoMainnet.account(chain.events[0].signKey);
       } else {
-        genesisSigner = ltoTestnet.account(chain.events[0].signKey);
+        genesisSigner = this.ltoService.ltoTestnet.account(chain.events[0].signKey);
       }
       if (!chain.isCreatedBy(genesisSigner)) {
         this.loggingService.logError(pkg.cid, `Event chain hijacking: genesis event not signed by chain creator on lto Network ${ltoNetworkId}`);
@@ -555,7 +556,17 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-
+  // public async createNftS3(pictureBuffer: Buffer): Promise<string> {
+  //   try {
+  //     const jpegBuffer = await sharp(pictureBuffer)
+  //         .jpeg({ quality: 80 }) // Adjust quality (0–100) as needed
+  //         .toBuffer();
+  //     return jpegBuffer;
+  // } catch (error) {
+  //     console.error("Error converting buffer to JPEG:", error);
+  //     throw error;
+  // }
+  // }
   public async createPinataPinnedFile(picture: Buffer): Promise<string> {
 
     let blobPicture: Blob;
@@ -745,9 +756,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     // First try if request has been signed by mainnet account
     try {
       if (ltoNetworkId === 'L') {
-        signerAccount = await verify(signedRequest, ltoMainnet);
+        signerAccount = await verify(signedRequest, this.ltoService.ltoMainnet);
       } else if (ltoNetworkId === 'T') {
-        signerAccount = await verify(signedRequest, ltoTestnet);
+        signerAccount = await verify(signedRequest, this.ltoService.ltoTestnet);
       }
     } catch (err) {
       signerAccount = null;

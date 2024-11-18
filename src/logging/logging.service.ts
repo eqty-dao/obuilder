@@ -1,9 +1,15 @@
 import { Injectable } from '@nestjs/common';
+import { S3Service } from '../s3/s3.service';
 
 @Injectable()
 export class LoggingService {
   private logs: { rid: string, level: string, message: string, timestamp: Date }[] = [];
 
+  constructor(
+    private readonly s3: S3Service
+  ) {
+  }
+  
   log(rid: string, message: string) {
     const logEntry = { rid: rid, level: 'info', message, timestamp: new Date() };
     this.logs.push(logEntry);

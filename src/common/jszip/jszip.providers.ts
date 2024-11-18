@@ -1,9 +1,9 @@
-import JSZip from 'jszip';
-import { Provider } from '@nestjs/common';
+// import JSZip from 'jszip';
+// import { Provider } from '@nestjs/common';
 
-export const jszipProviders: Array<Provider> = [
-  {
-    provide: JSZip,
-    useValue: new JSZip(),
-  },
-];
+// export const jszipProviders: Array<Provider> = [
+//   {
+//     provide: JSZip,
+//     useValue: new JSZip(),
+//   },
+// ];
