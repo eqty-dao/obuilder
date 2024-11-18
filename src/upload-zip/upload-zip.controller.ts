@@ -14,7 +14,13 @@ export class UploadZipController {
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadFile(@Body() inputUploadFile: InputUploadFileDto, @UploadedFile() file: Express.Multer.File,@Req() req: Request,  @Res() res: Response, @Signer() signer?: Account): Promise<Response> {
+  async uploadFile(
+    @Body() inputUploadFile: InputUploadFileDto,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: Request,
+    @Res() res: Response,
+    @Query('ltoNetworkId') ltoNetworkId: 'L'|'T',
+    @Signer() signer?: Account): Promise<Response> {
     let buffer: Buffer = null;
     console.log("file", file);
     console.log("typeof file", typeof file);
@@ -38,7 +44,7 @@ export class UploadZipController {
       console.log('The variable is a Buffer object.');
       buffer = file.buffer;
     }
-   
+
     // if (typeof signer === 'undefined') {
     //   console.log(`Error: Request not signed by any signer. Sign url request and a add it to the header`);
     //   // throw new ForbiddenException({ message: 'Unauthorized: Invalid signature for this address' });
@@ -50,12 +56,10 @@ export class UploadZipController {
 
     let requestId: string;
     try {
-      requestId = await this.uploadZipService.queueRequest(buffer, 1, true, req);
+      requestId = await this.uploadZipService.queueRequest(ltoNetworkId, buffer, 1, req);
       return res.status(201).json(requestId);
-
     } catch (err) {
       return this.errorResponse(res, err);
-
     }
 
   }
@@ -68,34 +72,37 @@ export class UploadZipController {
     // console.error(err);
     return res.status(500).send(`Unexpected error: ${err.message}`);
   }
-
+  @Get('getLogsByRequestId')
+  getLogsByRequestId(@Query('requestId') requestId: string) {
+    return this.uploadZipService.getLogsByRequestId(requestId);
+  }
   @Get('getInQueueEntries')
-  getInQueueEntries() {
-    return this.uploadZipService.getInQueueEntries();
+  getInQueueEntries(@Query('ltoNetworkId') ltoNetworkId: 'L' | 'T') {
+    return this.uploadZipService.getInQueueEntries(ltoNetworkId);
   }
   @Get('getProcessingEntries')
-  getProcessingEntries() {
-    return this.uploadZipService.getProcessingEntries();
+  getProcessingEntries(@Query('ltoNetworkId') ltoNetworkId: 'L' | 'T') {
+    return this.uploadZipService.getProcessingEntries(ltoNetworkId);
   }
   @Get('getReadyEntries')
-  getReadyEntries() {
-    return this.uploadZipService.getReadyEntries();
+  getReadyEntries(@Query('ltoNetworkId') ltoNetworkId: 'L' | 'T') {
+    return this.uploadZipService.getReadyEntries(ltoNetworkId);
   }
   @Get('getSentEntries')
-  getSentEntries() {
-    return this.uploadZipService.getSentEntries();
+  getSentEntries(@Query('ltoNetworkId') ltoNetworkId: 'L' | 'T') {
+    return this.uploadZipService.getSentEntries(ltoNetworkId);
   }
   @Get('getQueueEntriesByRequestId')
-  getQueueEntriesByRequestId(@Query('requestId') requestId: string) {
-    return this.uploadZipService.getQueueEntriesByRequestId(requestId);
+  getQueueEntriesByRequestId(@Query('requestId') requestId: string, @Query('ltoNetworkId') ltoNetworkId: 'L' | 'T') {
+    return this.uploadZipService.getQueueEntriesByRequestId(ltoNetworkId, requestId);
   }
   @Get('getQueueEntriesByWallet')
   getQueueEntriesByWallet(@Query('wallet') wallet: string) {
     return this.uploadZipService.getQueueEntriesByWallet(wallet.toString());
   }
   @Get('getQueueEntriesByStatus')
-  getQueueEntriesByStatus(@Query('status') status: OwnableStatus) {
-    return this.uploadZipService.getQueueEntriesByStatus(status);
+  getQueueEntriesByStatus(@Query('status') status: OwnableStatus, @Query('ltoNetworkId') ltoNetworkId: 'L' | 'T') {
+    return this.uploadZipService.getQueueEntriesByStatus(ltoNetworkId, status);
   }
 
   @Get('getQueueStatus')
@@ -166,10 +173,14 @@ export class UploadZipController {
   //   return await this.uploadZipService.claim(requestId, signer);
   // }
 
-  @Get('ServerWalletAddressLTO')
-  serverWalletAddressLTO() {
+  @Get('ServerLtoWalletAddresses')
+  getServerLtoWalletAddresses() {
     try {
-      return { "serverWalletAddressLTO": `${this.uploadZipService.getServerLTOwalletAddress()}` }
+      const [serverWalletAddressLTO_L, serverWalletAddressLTO_T] = this.uploadZipService.getServerLtoWalletAddresses();
+      return {
+        "serverLtoWalletAddress_L": serverWalletAddressLTO_L,
+        "serverLtoWalletAddress_T": serverWalletAddressLTO_T
+      }
     } catch (err) {
       return { "error": `${err}` };
     }
@@ -178,14 +189,33 @@ export class UploadZipController {
   @Get('GetServerInfo')
   async GetServerInfo() {
     try {
-      const [balanceETH, balanceARB] = await this.uploadZipService.GetServerETHBalance();
-      const balanceLTO = await this.uploadZipService.getLTOAccountBalance();
-      const serverLTOwallet = this.uploadZipService.getServerLTOwalletAddress()
+      const [balanceETH_L, balanceARB_L] = await this.uploadZipService.GetServerETHBalance('L');
+      console.log("balanceETH_L", balanceETH_L);
+      console.log("balanceARB_L", balanceARB_L);
+      const [balanceETH_T, balanceARB_T] = await this.uploadZipService.GetServerETHBalance('T');
+      console.log("balanceETH_T", balanceETH_T);
+      console.log("balanceARB_T", balanceARB_T);
+      // const balanceLTO_L = await this.uploadZipService.getLTOAccountBalance('L');
+      // console.log("balanceLTO_L", balanceLTO_L);
+      const balanceLTO_T = await this.uploadZipService.getLTOAccountBalance('T');
+      console.log("balanceLTO_T", balanceLTO_T);
+      const [serverWalletAddressLTO_L, serverWalletAddressLTO_T] = this.uploadZipService.getServerLtoWalletAddresses();
+      console.log("serverWalletAddressLTO_L", serverWalletAddressLTO_L);
+      console.log("serverWalletAddressLTO_T", serverWalletAddressLTO_T);
+      const [serverWalletAddressEVM_L, serverWalletAddressEVM_T] = this.uploadZipService.getServerEVMwalletAddresses();
+      console.log("serverWalletAddressEVM_L", serverWalletAddressEVM_L);
+      console.log("serverWalletAddressEVM_T", serverWalletAddressEVM_T);
       return {
-        "ServerBalanceETH": balanceETH,
-        "ServerBalanceARB": balanceARB,
-        "ServerBalanceLTO": balanceLTO,
-        "serverLTOwalletAddress": serverLTOwallet
+        "ServerBalanceETH_L": balanceETH_L,
+        "ServerBalanceETH_T": balanceETH_T,
+        "ServerBalanceARB_L": balanceARB_L,
+        "ServerBalanceARB_T": balanceARB_T,
+        // "ServerBalanceLTO_L": balanceLTO_L,
+        "ServerBalanceLTO_T": balanceLTO_T,
+        "serverLtoWalletAddress_L": serverWalletAddressLTO_L,
+        "serverLtoWalletAddress_T": serverWalletAddressLTO_T,
+        "serverEvmWalletAddress_L": serverWalletAddressEVM_L,
+        "serverEvmWalletAddress_T": serverWalletAddressEVM_T
       };
     } catch (err) {
       return { "error": `${err}` };

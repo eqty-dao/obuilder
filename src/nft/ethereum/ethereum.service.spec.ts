@@ -1,7 +1,7 @@
 import { EthereumService } from './ethereum.service';
 import { Test, TestingModule } from '@nestjs/testing';
-import { EthersModule } from '../../common/ethers/ethers.module';
-import { EthersService } from '../../common/ethers/ethers.service';
+import { EthersModule } from '../../ethers/ethers.module';
+import { EthersService } from '../../ethers/ethers.service';
 import { NFTInfo } from '../../interfaces/OwnableInfo';
 import { ethers } from 'ethers';
 

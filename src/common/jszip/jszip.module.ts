@@ -1,8 +1,8 @@
-import { Module } from '@nestjs/common';
-import { jszipProviders } from './jszip.providers';
+// import { Module } from '@nestjs/common';
+// import { jszipProviders } from './jszip.providers';
 
-@Module({
-  providers: [...jszipProviders],
-  exports: [...jszipProviders],
-})
-export class JszipModule {}
+// @Module({
+//   providers: [...jszipProviders],
+//   exports: [...jszipProviders],
+// })
+// export class JszipModule {}

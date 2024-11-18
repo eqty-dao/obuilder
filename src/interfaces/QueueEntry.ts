@@ -4,6 +4,7 @@ export interface QueueEntry {
     rid: string;
     data: string;
     ltoWallet: string;
+    ltoNetworkId: 'L'|'T';
     hash: string;
     txId: string;
     ownableStatus: OwnableStatus;
@@ -12,11 +13,10 @@ export interface QueueEntry {
     timestampProcessing: number;
     timestampReady: number;
     timestampSent: number;
+    timestampFailed: number;
+    failedErrMsg: string;
     cid: string;
     nftInfo: NftInfo;
-    // nftNetwork: string;
-    // nftAddress: string;
-    // nftId: number;
 }
 
 export enum OwnableStatus {
@@ -24,5 +24,6 @@ export enum OwnableStatus {
     InQueue,      // 1
     Processing,   // 2
     Ready,        // 3
-    Sent          // 4
+    Sent,         // 4
+    Failed        // 5
 }
