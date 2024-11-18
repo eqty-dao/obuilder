@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, RequestMethod } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UploadZipModule } from './upload-zip/upload-zip.module';
@@ -7,6 +7,7 @@ import { QueueService } from './services/Queue.service';
 import { ConfigModule } from '@nestjs/config';
 import { ConfigService } from '@nestjs/config';
 import { LtoModule } from './common/lto/lto.module';
+import { VerifySignatureMiddleware } from './common/http-signature/verify-signature.middleware';
 // import { ConfigService } from './common/config/config.service';
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { LtoModule } from './common/lto/lto.module';
   controllers: [AppController],
   providers: [AppService, QueueService, ConfigService],
   
-})
-export class AppModule {
-  // constructor(private dataSource: DataSource) { }
+})export class AppModule {
+  // configure(consumer: MiddlewareConsumer) {
+  //   consumer.apply(VerifySignatureMiddleware).forRoutes({ path: 'api/v1/*', method: RequestMethod.ALL });
+  // }
 }
