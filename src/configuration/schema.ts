@@ -109,7 +109,7 @@ export default {
     },
     local_relay: {
       default: '',
-      env: 'LOCAL_RELAY_SERVER',
+      env: 'RELAY_SERVER',
     },
     queue: {
       mainnet: {
