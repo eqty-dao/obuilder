@@ -151,7 +151,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         //DONE
         try {
           this.loggingService.log(rid, `Message hash: ${message.hash.base58}`);
-          this.loggingService.log(rid, `Message: ${JSON.stringify(message.hash.base58)}`);
+          this.loggingService.log(rid, `Message: ${JSON.stringify(message)}`);
           await relay.send(message);
           this.loggingService.log(rid, `Ownable successfully sent to Relay. Setting Queue status to sent.`);
           if (ltoNetwork === 'L') {
