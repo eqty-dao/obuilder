@@ -149,6 +149,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
         //DONE
         await relay.send(message);
+        this.loggingService.log(rid, `Ownable successfully sent to Relay. Setting Queue status to sent.`);
         const ltoNetwork = getNetwork(recipient);
         if (ltoNetwork === 'L') {
           await this.queueService.setQueueEntryStatus('L', rid, OwnableStatus.Sent, message.hash.base58);
@@ -158,7 +159,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
         }
       } else {
-        console.log("provide the signer and recipient");
+        this.loggingService.logError(rid, `Provide the signer and recipient. signer: ${sender.address}  recipient:${recipient}`);        
         return;
       }
 
@@ -209,6 +210,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     let sender: Account;
 
     const ltoNetworkIdRecipient = getNetwork(recipient);
+    this.loggingService.log(rid, `Sending Ownablefile...  RELAY:${relayURL} SENDER:${sender.address} RECIPIENT:${recipient} RID:${rid} NETWORKID: ${ltoNetworkId}.`);
     if (ltoNetworkId !== ltoNetworkIdRecipient) {
       this.loggingService.logError(rid, `Lto NetworkIds of currently produced Ownable ${ltoNetworkId} and recipient ${ltoNetworkIdRecipient} do not match`);
       throw new Error(`Lto NetworkIds of currently produced Ownable ${ltoNetworkId} and recipient ${ltoNetworkIdRecipient} do not match`);
@@ -229,10 +231,11 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     // const relay = new Relay('http://relay-dev.eba-zrdkspxn.eu-west-1.elasticbeanstalk.com');
 
     try {
+      this.loggingService.log(rid, `Try sending file...  RELAY:${relay} RELAYURL:${relayURL} SENDER:${sender.address} RECIPIENT:${recipient} RID:${rid}.`);
       if (recipient) {
         await this.sendFile(relay, content, sender, recipient, rid);
       } else {
-        this.loggingService.logError(rid, `Failed to send Ownable RELAY:${relay} SENDER:${sender} RECIPIENT:${recipient} RID:${rid}.`);
+        this.loggingService.logError(rid, `Failed to send Ownable RELAY:${relay} SENDER:${sender.address} RECIPIENT:${recipient} RID:${rid}.`);
         throw new Error("No recipient provided");
       }
     } catch (error) {
