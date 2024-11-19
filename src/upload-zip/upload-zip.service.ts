@@ -149,14 +149,19 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         // console.log("message.hash.hex",message.hash.hex);
 
         //DONE
-        await relay.send(message);
-        this.loggingService.log(rid, `Ownable successfully sent to Relay. Setting Queue status to sent.`);
-        if (ltoNetwork === 'L') {
-          await this.queueService.setQueueEntryStatus('L', rid, OwnableStatus.Sent, message.hash.base58);
-        }
-        else {
-          await this.queueService.setQueueEntryStatus('T', rid, OwnableStatus.Sent, message.hash.base58);
+        try {
+          await relay.send(message);
+          this.loggingService.log(rid, `Ownable successfully sent to Relay. Setting Queue status to sent.`);
+          if (ltoNetwork === 'L') {
+            await this.queueService.setQueueEntryStatus('L', rid, OwnableStatus.Sent, message.hash.base58);
+          }
+          else {
+            await this.queueService.setQueueEntryStatus('T', rid, OwnableStatus.Sent, message.hash.base58);
+  
+          }
 
+        }catch(err) {
+          this.loggingService.logError(rid, `Error relay.rend ${err}`);
         }
       } else {
         this.loggingService.logError(rid, `Provide the signer and recipient. signer: ${sender.address}  recipient:${recipient}`);        
@@ -233,6 +238,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     try {
       this.loggingService.log(rid, `Try sending file...  RELAYURL:${relayURL} SENDER:${sender.address} RECIPIENT:${recipient} RID:${rid}.`);
       if (recipient) {
+        this.loggingService.log(rid, `Recipient: ${recipient} RID:${rid}.`);
         await this.sendFile(relay, content, sender, recipient, rid);
       } else {
         this.loggingService.logError(rid, `Failed to send Ownable RELAY:${relay} SENDER:${sender.address} RECIPIENT:${recipient} RID:${rid}.`);
