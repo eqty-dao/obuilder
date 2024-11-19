@@ -141,7 +141,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     try {
       let message: Message;
 
-
+      const ltoNetwork = getNetwork(recipient);
+      this.loggingService.log(rid, `Sending File with sender:${sender.address} and recipient:${recipient}`);
       if (sender && recipient) {
         message = new Message(content).to(recipient).signWith(sender);
         // console.log("message.hash.base58",message.hash.base58);
@@ -150,7 +151,6 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         //DONE
         await relay.send(message);
         this.loggingService.log(rid, `Ownable successfully sent to Relay. Setting Queue status to sent.`);
-        const ltoNetwork = getNetwork(recipient);
         if (ltoNetwork === 'L') {
           await this.queueService.setQueueEntryStatus('L', rid, OwnableStatus.Sent, message.hash.base58);
         }
@@ -231,7 +231,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     // const relay = new Relay('http://relay-dev.eba-zrdkspxn.eu-west-1.elasticbeanstalk.com');
 
     try {
-      this.loggingService.log(rid, `Try sending file...  RELAY:${relay} RELAYURL:${relayURL} SENDER:${sender.address} RECIPIENT:${recipient} RID:${rid}.`);
+      this.loggingService.log(rid, `Try sending file...  RELAYURL:${relayURL} SENDER:${sender.address} RECIPIENT:${recipient} RID:${rid}.`);
       if (recipient) {
         await this.sendFile(relay, content, sender, recipient, rid);
       } else {
@@ -239,6 +239,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         throw new Error("No recipient provided");
       }
     } catch (error) {
+      this.loggingService.logError(rid, `Error sending message: ${error}`);
       throw new Error(`Error sending message: ${error}`);
     }
   }
