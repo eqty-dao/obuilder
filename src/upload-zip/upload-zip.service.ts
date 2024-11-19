@@ -210,7 +210,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     let sender: Account;
 
     const ltoNetworkIdRecipient = getNetwork(recipient);
-    this.loggingService.log(rid, `Sending Ownablefile...  RELAY:${relayURL} SENDER:${sender.address} RECIPIENT:${recipient} RID:${rid} NETWORKID: ${ltoNetworkId}.`);
+    this.loggingService.log(rid, `Sending Ownablefile...  RELAY:${relayURL} RECIPIENT:${recipient} RID:${rid} NETWORKID: ${ltoNetworkId}.`);
     if (ltoNetworkId !== ltoNetworkIdRecipient) {
       this.loggingService.logError(rid, `Lto NetworkIds of currently produced Ownable ${ltoNetworkId} and recipient ${ltoNetworkIdRecipient} do not match`);
       throw new Error(`Lto NetworkIds of currently produced Ownable ${ltoNetworkId} and recipient ${ltoNetworkIdRecipient} do not match`);
@@ -1359,6 +1359,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     }
     try {
       await this.queueService.setQueueEntryStatus(ltoNetworkId, rid, OwnableStatus.Ready);
+      this.loggingService.log(rid, `Setting Queue entry status to Ready for ${rid}`);
     } catch (err) {
       this.loggingService.logError(rid, `Failed to set Queue Entry status to Ready: ${err}`);
       throw err;
@@ -1366,6 +1367,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     // await this.wait(20000); // TODO
     try {
       await this.storeZip(`${this.pathToCids}/${cid}`, cid, zipContent);
+      this.loggingService.log(rid, `Zip file stored at ${this.pathToCids}/${cid}/${cid}.zip`);
     } catch (err) {
       this.loggingService.logError(rid, `Failed to store Zip Content to file ${this.pathToCids}/${cid}/${cid}.zip: ${err}`);
       throw err;
