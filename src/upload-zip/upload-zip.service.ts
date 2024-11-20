@@ -141,24 +141,32 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     try {
       let message: Message;
 
-
+      const ltoNetwork = getNetwork(recipient);
+      this.loggingService.log(rid, `Sending File with sender:${sender.address} and recipient:${recipient}`);
       if (sender && recipient) {
         message = new Message(content).to(recipient).signWith(sender);
         // console.log("message.hash.base58",message.hash.base58);
         // console.log("message.hash.hex",message.hash.hex);
 
         //DONE
-        await relay.send(message);
-        const ltoNetwork = getNetwork(recipient);
-        if (ltoNetwork === 'L') {
-          await this.queueService.setQueueEntryStatus('L', rid, OwnableStatus.Sent, message.hash.base58);
-        }
-        else {
-          await this.queueService.setQueueEntryStatus('T', rid, OwnableStatus.Sent, message.hash.base58);
+        try {
+          this.loggingService.log(rid, `Message hash: ${message.hash.base58}`);
+          this.loggingService.log(rid, `Message: type${message.type} sender:${JSON.stringify(message.sender)} recipient:${message.recipient} timestamp:${message.timestamp} mediaType:${message.mediaType}`);
+          await relay.send(message);
+          this.loggingService.log(rid, `Ownable successfully sent to Relay. Setting Queue status to sent.`);
+          if (ltoNetwork === 'L') {
+            await this.queueService.setQueueEntryStatus('L', rid, OwnableStatus.Sent, message.hash.base58);
+          }
+          else {
+            await this.queueService.setQueueEntryStatus('T', rid, OwnableStatus.Sent, message.hash.base58);
+  
+          }
 
+        }catch(err) {
+          this.loggingService.logError(rid, `Error relay.send: ${err}`);
         }
       } else {
-        console.log("provide the signer and recipient");
+        this.loggingService.logError(rid, `Provide the signer and recipient. signer: ${sender.address}  recipient:${recipient}`);        
         return;
       }
 
@@ -205,22 +213,23 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   }
   public async sendOwnable(ltoNetworkId: 'L' | 'T', rid: string, recipient: string, content?: Uint8Array) {
     const relayURL = this.getRelayUrl();
-    let relay: Relay;
+    let relay: Relay =new Relay(`${relayURL}`);
     let sender: Account;
 
     const ltoNetworkIdRecipient = getNetwork(recipient);
+    this.loggingService.log(rid, `Sending Ownablefile...  RELAY:${relayURL} RECIPIENT:${recipient} RID:${rid} NETWORKID: ${ltoNetworkId}.`);
     if (ltoNetworkId !== ltoNetworkIdRecipient) {
       this.loggingService.logError(rid, `Lto NetworkIds of currently produced Ownable ${ltoNetworkId} and recipient ${ltoNetworkIdRecipient} do not match`);
       throw new Error(`Lto NetworkIds of currently produced Ownable ${ltoNetworkId} and recipient ${ltoNetworkIdRecipient} do not match`);
     }
 
     if (ltoNetworkId == 'L') {
-      this.ltoService.ltoMainnet.relay = new Relay(`${relayURL}`);
-      relay = this.ltoService.ltoMainnet.relay;
+      // this.ltoService.ltoMainnet.relay = 
+      // relay = this.ltoService.ltoMainnet.relay;
       sender = this.ltoService.ltoAccountMainnet;
     } else if (ltoNetworkId == 'T') {
-      this.ltoService.ltoTestnet.relay = new Relay(`${relayURL}`);
-      relay = this.ltoService.ltoTestnet.relay;
+      // this.ltoService.ltoTestnet.relay = new Relay(`${relayURL}`);
+      // relay = this.ltoService.ltoTestnet.relay;
       sender = this.ltoService.ltoAccountTestnet;
     } else {
       this.loggingService.logError(rid, `Unknown ltoNetworkID ${ltoNetworkId}`);
@@ -229,13 +238,16 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     // const relay = new Relay('http://relay-dev.eba-zrdkspxn.eu-west-1.elasticbeanstalk.com');
 
     try {
+      this.loggingService.log(rid, `Try sending file...  RELAYURL:${relayURL} SENDER:${sender.address} RECIPIENT:${recipient} RID:${rid}.`);
       if (recipient) {
+        this.loggingService.log(rid, `Recipient: ${recipient} RID:${rid}.`);
         await this.sendFile(relay, content, sender, recipient, rid);
       } else {
-        this.loggingService.logError(rid, `Failed to send Ownable RELAY:${relay} SENDER:${sender} RECIPIENT:${recipient} RID:${rid}.`);
+        this.loggingService.logError(rid, `Failed to send Ownable RELAY:${relayURL} SENDER:${sender.address} RECIPIENT:${recipient} RID:${rid}.`);
         throw new Error("No recipient provided");
       }
     } catch (error) {
+      this.loggingService.logError(rid, `Error sending message: ${error}`);
       throw new Error(`Error sending message: ${error}`);
     }
   }
@@ -1051,8 +1063,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   public async store(ltoNetworkId: 'L' | 'T', requestId: string, data: Uint8Array, templateId: number, sender: string) {
     try {
       this.loggingService.log(requestId, `Unzipping user input files for Ownable creation into memory`);
-      const requestIdFiles = await this.unzip(data);
-      this.loggingService.log(requestId, `requestIdFiles: ${requestIdFiles}`);
+      const requestIdFiles = await this.unzip(data);      
 
       if (!requestIdFiles.has('ownableData.json')) {
         this.loggingService.logError(requestId, `Invalid package: 'ownableData.json' is missing in requestId: ${requestId}`);
@@ -1060,7 +1071,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       }
 
       const jsonFile = await this.readOwnableDataFromZip(requestIdFiles);
-      this.loggingService.log(requestId, `jsonFile: ${jsonFile}`);
+      this.loggingService.log(requestId, `jsonFile: ${JSON.stringify(jsonFile)}`);
 
       if (this.isValidPackageName(jsonFile.PLACEHOLDER1_NAME)) {
         this.loggingService.log(requestId, `Valid package PLACEHOLDER1_NAME. ${jsonFile.PLACEHOLDER1_NAME}`);
@@ -1342,12 +1353,12 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       this.loggingService.logError(rid, `Reading File failed ${this.pathToCids}/${cid}/${cid}.json Error: ${err}`);
       throw err;
     }
-    this.loggingService.log(rid, `Adding chain.json to new zip`);
+    this.loggingService.log(rid, `Adding chain.json to new zip ${JSON.stringify(eventChainJsonFile)}`);
     new_zip.file('chain.json', eventChainJsonFile);
     this.loggingService.log(rid, `Unique timestamp file to new zip`);
     new_zip.file('timestamp.txt', Buffer.from(timeMillisecondsNow, 'utf-8'));
 
-    let zipContent: any;
+    let zipContent: Uint8Array;
     try {
       zipContent = await new_zip.generateAsync({ type: "uint8array" });
     } catch (err) {
@@ -1356,6 +1367,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     }
     try {
       await this.queueService.setQueueEntryStatus(ltoNetworkId, rid, OwnableStatus.Ready);
+      this.loggingService.log(rid, `Setting Queue entry status to Ready for ${rid}`);
     } catch (err) {
       this.loggingService.logError(rid, `Failed to set Queue Entry status to Ready: ${err}`);
       throw err;
@@ -1363,6 +1375,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     // await this.wait(20000); // TODO
     try {
       await this.storeZip(`${this.pathToCids}/${cid}`, cid, zipContent);
+      this.loggingService.log(rid, `Zip file stored at ${this.pathToCids}/${cid}/${cid}.zip`);
     } catch (err) {
       this.loggingService.logError(rid, `Failed to store Zip Content to file ${this.pathToCids}/${cid}/${cid}.zip: ${err}`);
       throw err;

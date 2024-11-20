@@ -46,15 +46,12 @@ export class LtoService implements OnModuleInit {
         console.log("address1", address);
         let url: string;
         if (ltoNetworkId === 'L') {
-            url = `${this.config.get('lto.node.mainnet')}/addresses/balance/${address}`;
-            // url = `${process.env.LTO_NODE_L}/addresses/balance/${address}`;
+            url = `${this.config.get('lto.node.mainnet')}/addresses/balance/${address}`;      
         } else {
             url = `${this.config.get('lto.node.testnet')}/addresses/balance/${address}`;
-            // url = `${process.env.LTO_NODE_T}/addresses/balance/${address}`;
-
         }
 
-        console.log("url1", url)
+        // console.log("url1", url)
 
         const data = await this.httpService.axiosRef
             .get(url)
@@ -64,7 +61,7 @@ export class LtoService implements OnModuleInit {
                     err?.message + ': ' + JSON.stringify(err?.response?.data),
                 );
             });
-        console.log("data1", data)
+        // console.log("data1", data)
         return data;
     }
 }
