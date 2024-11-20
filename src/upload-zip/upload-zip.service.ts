@@ -151,7 +151,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         //DONE
         try {
           this.loggingService.log(rid, `Message hash: ${message.hash.base58}`);
-          this.loggingService.log(rid, `Message: type${message.type} sender:${message.sender} recipient:${message.recipient} timestamp:${message.timestamp} signature:${message.signature} mediaType:${message.mediaType}`);
+          this.loggingService.log(rid, `Message: type${message.type} sender:${JSON.stringify(message.sender)} recipient:${message.recipient} timestamp:${message.timestamp} mediaType:${message.mediaType}`);
           await relay.send(message);
           this.loggingService.log(rid, `Ownable successfully sent to Relay. Setting Queue status to sent.`);
           if (ltoNetwork === 'L') {
@@ -1063,8 +1063,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   public async store(ltoNetworkId: 'L' | 'T', requestId: string, data: Uint8Array, templateId: number, sender: string) {
     try {
       this.loggingService.log(requestId, `Unzipping user input files for Ownable creation into memory`);
-      const requestIdFiles = await this.unzip(data);
-      this.loggingService.log(requestId, `requestIdFiles: ${requestIdFiles}`);
+      const requestIdFiles = await this.unzip(data);      
 
       if (!requestIdFiles.has('ownableData.json')) {
         this.loggingService.logError(requestId, `Invalid package: 'ownableData.json' is missing in requestId: ${requestId}`);
@@ -1072,7 +1071,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       }
 
       const jsonFile = await this.readOwnableDataFromZip(requestIdFiles);
-      this.loggingService.log(requestId, `jsonFile: ${jsonFile}`);
+      this.loggingService.log(requestId, `jsonFile: ${JSON.stringify(jsonFile)}`);
 
       if (this.isValidPackageName(jsonFile.PLACEHOLDER1_NAME)) {
         this.loggingService.log(requestId, `Valid package PLACEHOLDER1_NAME. ${jsonFile.PLACEHOLDER1_NAME}`);
