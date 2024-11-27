@@ -189,14 +189,14 @@ export class UploadZipController {
   @Get('GetServerInfo')
   async GetServerInfo() {
     try {
-      const [balanceETH_L, balanceARB_L] = await this.uploadZipService.GetServerETHBalance('L');
-      console.log("balanceETH_L", balanceETH_L);
+      const balanceARB_L = await this.uploadZipService.GetServerETHBalance('L', 'arbitrum');
+    //   console.log("balanceETH_L", balanceETH_L);
       console.log("balanceARB_L", balanceARB_L);
-      const [balanceETH_T, balanceARB_T] = await this.uploadZipService.GetServerETHBalance('T');
-      console.log("balanceETH_T", balanceETH_T);
+      const balanceARB_T = await this.uploadZipService.GetServerETHBalance('T', 'arbitrum');
+    //   console.log("balanceETH_T", balanceETH_T);
       console.log("balanceARB_T", balanceARB_T);
-      // const balanceLTO_L = await this.uploadZipService.getLTOAccountBalance('L');
-      // console.log("balanceLTO_L", balanceLTO_L);
+      const balanceLTO_L = await this.uploadZipService.getLTOAccountBalance('L');
+      console.log("balanceLTO_L", balanceLTO_L);
       const balanceLTO_T = await this.uploadZipService.getLTOAccountBalance('T');
       console.log("balanceLTO_T", balanceLTO_T);
       const [serverWalletAddressLTO_L, serverWalletAddressLTO_T] = this.uploadZipService.getServerLtoWalletAddresses();
@@ -206,11 +206,11 @@ export class UploadZipController {
       console.log("serverWalletAddressEVM_L", serverWalletAddressEVM_L);
       console.log("serverWalletAddressEVM_T", serverWalletAddressEVM_T);
       return {
-        "ServerBalanceETH_L": balanceETH_L,
-        "ServerBalanceETH_T": balanceETH_T,
+		"ServerBalanceETH_L": 0,
+        "ServerBalanceETH_T": 0,
         "ServerBalanceARB_L": balanceARB_L,
         "ServerBalanceARB_T": balanceARB_T,
-        // "ServerBalanceLTO_L": balanceLTO_L,
+        "ServerBalanceLTO_L": balanceLTO_L,
         "ServerBalanceLTO_T": balanceLTO_T,
         "serverLtoWalletAddress_L": serverWalletAddressLTO_L,
         "serverLtoWalletAddress_T": serverWalletAddressLTO_T,
