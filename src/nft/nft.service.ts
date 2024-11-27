@@ -26,8 +26,8 @@ export class NFTService {
   public async getBridgeBaseURI(ltoNetworkId: 'L' | 'T', bridgeAddress: string, nftInfo: NftInfo): Promise<string> {
     return await this.ethereum.getBridgeBaseURI(ltoNetworkId, bridgeAddress, nftInfo);
   }
-  public async getServerETHBalance(ltoNetworkId: 'L' | 'T'): Promise<[string, string]> {
-    return await this.ethereum.getServerETHBalance(ltoNetworkId);
+  public async getServerETHBalance(ltoNetworkId: 'L' | 'T', networkName: string): Promise<string> {
+    return await this.ethereum.getServerETHBalance(ltoNetworkId, networkName);
   }
   public async getTokenURI(ltoNetworkId: 'L' | 'T', nftInfo: NftInfo): Promise<string> {
     return await this.ethereum.getTokenURI(ltoNetworkId, nftInfo);

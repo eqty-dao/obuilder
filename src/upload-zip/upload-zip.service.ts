@@ -89,12 +89,12 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   }
 
 
-  public async GetServerETHBalance(ltoNetworkId: 'L' | 'T'): Promise<[string, string]> {
-    const [balanceETH, balanceARB] = await this.nft.getServerETHBalance(ltoNetworkId);
+  public async GetServerETHBalance(ltoNetworkId: 'L' | 'T', networkName: string): Promise<string> {
+    const balance = await this.nft.getServerETHBalance(ltoNetworkId, networkName);
 
-    await this.telegramService.sendMessageToTelegramBot('T', `\nethereum: ${balanceETH}\narbitrum: ${balanceARB}`);
+    await this.telegramService.sendMessageToTelegramBot(ltoNetworkId, `\n${networkName}: ${balance}`);
 
-    return [balanceETH, balanceARB];
+    return balance;
   }
   public getLTOAccountAddress(ltoNetworkId: 'L' | 'T'): string {
     // return ltoNetworkId === 'L' 
@@ -348,22 +348,22 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   }
 
   public async getAvailableNftChains(): Promise<JSON> {
-    const nftInfoETH_L: NftInfo = {
-      network: 'ethereum',
-      id: 0,
-      address: this.config.get('eth.contracts.ethereum.mainnet'),
-    };
+    // const nftInfoETH_L: NftInfo = {
+    //   network: 'ethereum',
+    //   id: 0,
+    //   address: this.config.get('eth.contracts.ethereum.mainnet'),
+    // };
 
     const nftInfoARB_L: NftInfo = {
       network: 'arbitrum',
       id: 0,
       address: this.config.get('eth.contracts.arbitrum.mainnet'),
     };
-    const nftInfoETH_T: NftInfo = {
-      network: 'ethereum',
-      id: 0,
-      address: this.config.get('eth.contracts.ethereum.testnet'),
-    };
+    // const nftInfoETH_T: NftInfo = {
+    //   network: 'ethereum',
+    //   id: 0,
+    //   address: this.config.get('eth.contracts.ethereum.testnet'),
+    // };
 
     const nftInfoARB_T: NftInfo = {
       network: 'arbitrum',
@@ -373,42 +373,42 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 
     // const nftCountETH_L = await this.nft.getNFTcount('L', nftInfoETH_L);
-    // const nftCountARB_L = await this.nft.getNFTcount('L', nftInfoARB_L);
-    const nftCountETH_T = await this.nft.getNFTcount('T', nftInfoETH_T);
+    const nftCountARB_L = await this.nft.getNFTcount('L', nftInfoARB_L);
+    // const nftCountETH_T = await this.nft.getNFTcount('T', nftInfoETH_T);
     const nftCountARB_T = await this.nft.getNFTcount('T', nftInfoARB_T);
     // const nftCountPOL = await this.nft.getNFTcount(nftInfoPOL);
 
     const availableChains = {
-      ethereum: {
-        // mainnet: {
-        //   name: 'ethereum',
-        //   logo: 'https://obuilderassets.s3.eu-west-1.amazonaws.com/ethereum-eth-logo.png',
-        //   smartContractAddress: this.config.get('eth.contracts.ethereum.mainnet'),
-        //   totalAmountNFTs: nftCountETH_L.toString(),
-        //   templateCost: {
-        //     1: this.queueService.getTemplateCosts('L','ethereum', '1')
-        //   }
-        // },
-        testnet: {
-          name: 'ethereum',
-          logo: 'https://obuilderassets.s3.eu-west-1.amazonaws.com/ethereum-eth-logo.png',
-          smartContractAddress: this.config.get('eth.contracts.ethereum.testnet'),
-          totalAmountNFTs: nftCountETH_T.toString(),
-          templateCost: {
-            1: this.queueService.getTemplateCosts('T', 'ethereum', '1')
-          }
-        }
-      },
+    //   ethereum: {
+    //     // mainnet: {
+    //     //   name: 'ethereum',
+    //     //   logo: 'https://obuilderassets.s3.eu-west-1.amazonaws.com/ethereum-eth-logo.png',
+    //     //   smartContractAddress: this.config.get('eth.contracts.ethereum.mainnet'),
+    //     //   totalAmountNFTs: nftCountETH_L.toString(),
+    //     //   templateCost: {
+    //     //     1: this.queueService.getTemplateCosts('L','ethereum', '1')
+    //     //   }
+    //     // },
+    //     testnet: {
+    //       name: 'ethereum',
+    //       logo: 'https://obuilderassets.s3.eu-west-1.amazonaws.com/ethereum-eth-logo.png',
+    //       smartContractAddress: this.config.get('eth.contracts.ethereum.testnet'),
+    //       totalAmountNFTs: nftCountETH_T.toString(),
+    //       templateCost: {
+    //         1: this.queueService.getTemplateCosts('T', 'ethereum', '1')
+    //       }
+    //     }
+    //   },
       arbitrum: {
-        // mainnet: {
-        //   name: 'arbitrum',
-        //   logo: 'https://obuilderassets.s3.eu-west-1.amazonaws.com/arbitrum-arb-logo.png',
-        //   smartContractAddress: this.config.get('eth.contracts.arbitrum.mainnet'),
-        //   totalAmountNFTs: nftCountARB_L.toString(),
-        //   templateCost: {
-        //     1: this.queueService.getTemplateCosts('L','arbitrum', '1')
-        //   }
-        // },
+        mainnet: {
+          name: 'arbitrum',
+          logo: 'https://obuilderassets.s3.eu-west-1.amazonaws.com/arbitrum-arb-logo.png',
+          smartContractAddress: this.config.get('eth.contracts.arbitrum.mainnet'),
+          totalAmountNFTs: nftCountARB_L.toString(),
+          templateCost: {
+            1: this.queueService.getTemplateCosts('L','arbitrum', '1')
+          }
+        },
         testnet: {
           name: 'arbitrum',
           logo: 'https://obuilderassets.s3.eu-west-1.amazonaws.com/arbitrum-arb-logo.png',
@@ -546,7 +546,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     }
     return {
       'L': {
-        'ethereum': this.queueService.getTemplateCosts('L', 'ethereum', '1'),
+        // 'ethereum': this.queueService.getTemplateCosts('L', 'ethereum', '1'),
         'arbitrum': this.queueService.getTemplateCosts('L', 'arbitrum', '1')
       },
       'T': {
@@ -845,7 +845,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (jsonFile.CREATE_NFT === 'true') {
-      if (!(jsonFile.NFT_BLOCKCHAIN === 'arbitrum') && !(jsonFile.NFT_BLOCKCHAIN === 'ethereum')) {
+    //   if (!(jsonFile.NFT_BLOCKCHAIN === 'arbitrum') && !(jsonFile.NFT_BLOCKCHAIN === 'ethereum')) {
+      if (!(jsonFile.NFT_BLOCKCHAIN === 'arbitrum')) {
         this.loggingService.logError(requestId, `Error: Unsupported network: ${jsonFile.NFT_BLOCKCHAIN}`);
         throw new Error(`Error: Unsupported network: ${jsonFile.NFT_BLOCKCHAIN}`);
       }
