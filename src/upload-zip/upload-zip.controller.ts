@@ -190,14 +190,12 @@ export class UploadZipController {
   async GetServerInfo() {
     try {
       const balanceARB_L = await this.uploadZipService.GetServerETHBalance('L', 'arbitrum');
-    //   console.log("balanceETH_L", balanceETH_L);
-      console.log("balanceARB_L", balanceARB_L);
       const balanceARB_T = await this.uploadZipService.GetServerETHBalance('T', 'arbitrum');
-    //   console.log("balanceETH_T", balanceETH_T);
-      console.log("balanceARB_T", balanceARB_T);
       const balanceLTO_L = await this.uploadZipService.getLTOAccountBalance('L');
-      console.log("balanceLTO_L", balanceLTO_L);
       const balanceLTO_T = await this.uploadZipService.getLTOAccountBalance('T');
+      console.log("balanceARB_T", balanceARB_T);
+      console.log("balanceARB_L", balanceARB_L);
+      console.log("balanceLTO_L", balanceLTO_L);
       console.log("balanceLTO_T", balanceLTO_T);
       const [serverWalletAddressLTO_L, serverWalletAddressLTO_T] = this.uploadZipService.getServerLtoWalletAddresses();
       console.log("serverWalletAddressLTO_L", serverWalletAddressLTO_L);
@@ -205,9 +203,7 @@ export class UploadZipController {
       const [serverWalletAddressEVM_L, serverWalletAddressEVM_T] = this.uploadZipService.getServerEVMwalletAddresses();
       console.log("serverWalletAddressEVM_L", serverWalletAddressEVM_L);
       console.log("serverWalletAddressEVM_T", serverWalletAddressEVM_T);
-      return {
-		"ServerBalanceETH_L": 0,
-        "ServerBalanceETH_T": 0,
+      return {		
         "ServerBalanceARB_L": balanceARB_L,
         "ServerBalanceARB_T": balanceARB_T,
         "ServerBalanceLTO_L": balanceLTO_L,
