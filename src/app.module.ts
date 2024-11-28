@@ -18,7 +18,6 @@ import { UploadZipService } from './upload-zip/upload-zip.service';
 import { NFTModule } from './nft/nft.module';
 import { NFTService } from './nft/nft.service';
 import { IpfsModule } from './ipfs/ipfs.module';
-import { EthereumService } from './nft/ethereum/ethereum.service';
 import { EthersService } from './ethers/ethers.service';
 import { S3Module } from './s3/s3.module';
 import { S3Service } from './s3/s3.service';
@@ -42,7 +41,7 @@ import { S3Service } from './s3/s3.service';
     S3Module
   ],
   controllers: [AppController],
-  providers: [AppService,  UploadZipService, NFTService, LtoService, S3Service, QueueService, TelegramBotService, LoggingService,  EthereumService, EthersService]  
+  providers: [AppService,  UploadZipService, NFTService, LtoService, S3Service, QueueService, TelegramBotService, LoggingService,  EthersService]  
 })
 export class AppModule {
   // configure(consumer: MiddlewareConsumer) {

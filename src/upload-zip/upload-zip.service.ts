@@ -91,8 +91,14 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
   public async GetServerETHBalance(ltoNetworkId: 'L' | 'T', networkName: string): Promise<string> {
     const balance = await this.nft.getServerETHBalance(ltoNetworkId, networkName);
+	const numericBalance = parseFloat(balance);
 
-    await this.telegramService.sendMessageToTelegramBot(ltoNetworkId, `\n${networkName}: ${balance}`);
+    if (numericBalance <= 0.01) { // TODO: this comparison should be networkName specific
+        // Handle case where balance is below or equal to 0.1
+        console.log(`Balance is low: ${numericBalance}`);
+		await this.telegramService.sendMessageToTelegramBot(ltoNetworkId, `\n${networkName}: Balance is low: ${numericBalance}`);
+    }
+	
 
     return balance;
   }
@@ -533,8 +539,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
   public getServerLtoWalletAddresses(): [string, string] {
     return [this.getLTOAccountAddress('L'), this.getLTOAccountAddress('T')];
   }
-  public getServerEVMwalletAddresses(): [string, string] {
-    return this.nft.getEvmWalletAddresses();
+  public getServerEVMwalletAddresses(networkName: string): [string, string] {
+    return this.nft.getEvmWalletAddresses(networkName);
   }
   public templateCost(templateId: number) {
     //console.log("templateId", templateId, "chain", chain, " cost: ", this.packageInfo.templateCost[chain][templateId]);
@@ -1110,7 +1116,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       this.loggingService.log(requestId, `ownableData.json:` + JSON.stringify(jsonFile));
 
       if (jsonFile.CREATE_NFT === 'true') {
-        if (!(jsonFile.NFT_BLOCKCHAIN === 'arbitrum') && !(jsonFile.NFT_BLOCKCHAIN === 'ethereum')) {
+        // if (!(jsonFile.NFT_BLOCKCHAIN === 'arbitrum') && !(jsonFile.NFT_BLOCKCHAIN === 'ethereum')) {
+        if (!(jsonFile.NFT_BLOCKCHAIN === 'arbitrum')) {
           this.loggingService.logError(requestId, `Unsupported network: ${jsonFile.NFT_BLOCKCHAIN}`);
           throw new Error(`Error: Unsupported network: ${jsonFile.NFT_BLOCKCHAIN}`);
         }
