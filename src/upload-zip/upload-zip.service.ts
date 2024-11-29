@@ -555,14 +555,16 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       throw (`Currently only Template ID 1 is support`);
 		}
     await this.coinmarketcap.getLatestPrice();
+    const main=this.queueService.getTemplateCosts('L', 'arbitrum', '1');
+    const test= this.queueService.getTemplateCosts('T', 'arbitrum', '1');
 		return {
 			'L': {
 				// 'ethereum': this.queueService.getTemplateCosts('L', 'ethereum', '1'),
-				'arbitrum': this.queueService.getTemplateCosts('L', 'arbitrum', '1')
+				'arbitrum': main
 			},
 			'T': {
 				// 'ethereum': this.queueService.getTemplateCosts('T', 'ethereum', '1'),
-				'arbitrum': this.queueService.getTemplateCosts('T', 'arbitrum', '1')
+				'arbitrum': test
 			}
 			// 'ethereum': (this.packageInfo.templateCost.ethereum[templateId]).toString(),
 			// 'arbitrum': (this.packageInfo.templateCost.arbitrum[templateId]).toString(),

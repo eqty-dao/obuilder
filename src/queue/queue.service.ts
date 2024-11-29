@@ -171,25 +171,23 @@ export class QueueService implements OnModuleInit {
 	public getTemplateCosts(ltoNetwork_id: 'L' | 'T', evmNetwork: string, templateId: string): string {
 		// await this.coinmarketcap.getLatestPrice();
 		if (ltoNetwork_id === 'L') {
-			return this.templateCostsMainnet[evmNetwork][templateId].last;
+			return this.templateCostsMainnet[evmNetwork][templateId]['last'];
 		}
-		return this.templateCostsTestnet[evmNetwork][templateId].last;
+		return this.templateCostsTestnet[evmNetwork][templateId]['last'];
 
 	}
 	public getTemplateCostsIncludingPrevious(ltoNetwork_id: 'L' | 'T', evmNetwork: string, templateId: string): [string, string] {
 		// await this.coinmarketcap.getLatestPrice();
 		if (ltoNetwork_id === 'L') {
-			if(this.templateCostsMainnet[evmNetwork][templateId].prev == 0){
-				return [this.templateCostsMainnet[evmNetwork][templateId].last, this.templateCostsMainnet[evmNetwork][templateId].last];
+			// if(this.templateCostsMainnet[evmNetwork][templateId].prev == 0) {
+				// return [this.templateCostsMainnet[evmNetwork][templateId].last, this.templateCostsMainnet[evmNetwork][templateId].last];
 
-			}else {
 				return [this.templateCostsMainnet[evmNetwork][templateId].last, this.templateCostsMainnet[evmNetwork][templateId].prev];
-			}
 		}
-		if(this.templateCostsTestnet[evmNetwork][templateId].prev ==0) {
-			return [this.templateCostsTestnet[evmNetwork][templateId].last, this.templateCostsTestnet[evmNetwork][templateId].last];
+		// if(this.templateCostsTestnet[evmNetwork][templateId].prev ==0) {
+		// 	return [this.templateCostsTestnet[evmNetwork][templateId].last, this.templateCostsTestnet[evmNetwork][templateId].last];
 
-		}
+		// }
 		return [this.templateCostsTestnet[evmNetwork][templateId].last, this.templateCostsTestnet[evmNetwork][templateId].prev];
 
 	}
