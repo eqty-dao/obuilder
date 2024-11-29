@@ -150,18 +150,18 @@ export class QueueService implements OnModuleInit {
 	}
 	public async setTemplateCosts(ltoNetwork_id: 'L' | 'T', evmNetwork: string, templateId: string, lastValue: number, prevValue: number, usdValue: number) {
 		if (ltoNetwork_id === 'L') {
-			this.templateCostsMainnet[evmNetwork][templateId].last = lastValue.toString();
+			this.templateCostsMainnet[evmNetwork][templateId]['last'] = lastValue.toString();
 			if (prevValue > 0) {
-				this.templateCostsMainnet[evmNetwork][templateId].prev = prevValue.toString();
+				this.templateCostsMainnet[evmNetwork][templateId]['prev'] = prevValue.toString();
 			} else {
-				this.templateCostsMainnet[evmNetwork][templateId].prev = lastValue.toString();
+				this.templateCostsMainnet[evmNetwork][templateId]['prev'] = lastValue.toString();
 			}
 		}
-		this.templateCostsTestnet[evmNetwork][templateId].last = lastValue.toString();
+		this.templateCostsTestnet[evmNetwork][templateId]['last'] = lastValue.toString();
 		if (prevValue > 0) {
-			this.templateCostsTestnet[evmNetwork][templateId].prev = prevValue.toString();
+			this.templateCostsTestnet[evmNetwork][templateId]['prev'] = prevValue.toString();
 		} else {
-			this.templateCostsTestnet[evmNetwork][templateId].prev = lastValue.toString();
+			this.templateCostsTestnet[evmNetwork][templateId]['prev'] = lastValue.toString();
 		}
 
 		await this.updateTemplateCostsInS3Bucket(ltoNetwork_id);

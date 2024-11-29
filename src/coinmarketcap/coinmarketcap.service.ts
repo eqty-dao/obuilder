@@ -102,7 +102,7 @@ export class CoinmarketcapService implements OnModuleInit {
 		// Pass validated whole numbers to setTemplateCosts
 		await this.queue.setTemplateCosts('L', 'arbitrum', "1", newPrice_L, prevPrice_L, this.templateCostsUSD_L);
 		await this.queue.setTemplateCosts('T', 'arbitrum', "1", newPrice_T, prevPrice_T, this.templateCostsUSD_T);
-		console.log("Last Template Costs:", this.queue.getTemplateCosts('T', 'arbitrum', "1"));
+		// console.log("Last Template Costs:", this.queue.getTemplateCosts('T', 'arbitrum', "1"));
 
   
 	  } catch (error) {
