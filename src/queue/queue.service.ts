@@ -150,7 +150,7 @@ export class QueueService implements OnModuleInit {
 	}
 	public async setTemplateCosts(ltoNetwork_id: 'L' | 'T', evmNetwork: string, templateId: string, lastValue: number, prevValue: number, usdValue: number) {
 		
-		if (typeof this.templateCostsTestnet[evmNetwork][templateId] !== 'object') {
+		if (typeof this.templateCostsTestnet[evmNetwork] !== 'object') {
 			this.templateCostsTestnet = {
 				"noNFT": {
 					"1": "5000000"
@@ -169,7 +169,7 @@ export class QueueService implements OnModuleInit {
 				},
 			};
 		}
-		if (typeof this.templateCostsMainnet[evmNetwork][templateId] !== 'object') {
+		if (typeof this.templateCostsMainnet[evmNetwork] !== 'object') {
 			this.templateCostsMainnet = {
 				"noNFT": {
 					"1": "5000000"
