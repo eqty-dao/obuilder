@@ -149,7 +149,7 @@ export class QueueService implements OnModuleInit {
 		// console.log("templateCosts", this.templateCosts)
 	}
 	public async setTemplateCosts(ltoNetwork_id: 'L' | 'T', evmNetwork: string, templateId: string, lastValue: number, prevValue: number, usdValue: number) {
-		
+
 		if (typeof this.templateCostsTestnet[evmNetwork] !== 'object') {
 			this.templateCostsTestnet = {
 				"noNFT": {
@@ -168,6 +168,7 @@ export class QueueService implements OnModuleInit {
 					}
 				},
 			};
+			await this.updateTemplateCostsInS3Bucket('T');
 		}
 		if (typeof this.templateCostsMainnet[evmNetwork] !== 'object') {
 			this.templateCostsMainnet = {
@@ -187,6 +188,7 @@ export class QueueService implements OnModuleInit {
 					}
 				},
 			};
+			await this.updateTemplateCostsInS3Bucket('L');
 		}
 		if (ltoNetwork_id === 'L') {
 			this.templateCostsMainnet[evmNetwork][templateId]['last'] = lastValue.toString();
@@ -196,11 +198,13 @@ export class QueueService implements OnModuleInit {
 				this.templateCostsMainnet[evmNetwork][templateId]['prev'] = lastValue.toString();
 			}
 		}
-		this.templateCostsTestnet[evmNetwork][templateId]['last'] = lastValue.toString();
-		if (prevValue > 0) {
-			this.templateCostsTestnet[evmNetwork][templateId]['prev'] = prevValue.toString();
-		} else {
-			this.templateCostsTestnet[evmNetwork][templateId]['prev'] = lastValue.toString();
+		else if (ltoNetwork_id === 'T') {
+			this.templateCostsTestnet[evmNetwork][templateId]['last'] = lastValue.toString();
+			if (prevValue > 0) {
+				this.templateCostsTestnet[evmNetwork][templateId]['prev'] = prevValue.toString();
+			} else {
+				this.templateCostsTestnet[evmNetwork][templateId]['prev'] = lastValue.toString();
+			}
 		}
 
 		await this.updateTemplateCostsInS3Bucket(ltoNetwork_id);
@@ -210,18 +214,18 @@ export class QueueService implements OnModuleInit {
 	public getTemplateCosts(ltoNetwork_id: 'L' | 'T', evmNetwork: string, templateId: string): string {
 		// await this.coinmarketcap.getLatestPrice();
 		if (ltoNetwork_id === 'L') {
-			return this.templateCostsMainnet[evmNetwork][templateId]['last'];
+			return this.templateCostsMainnet[evmNetwork][templateId].last;
 		}
-		return this.templateCostsTestnet[evmNetwork][templateId]['last'];
+		return this.templateCostsTestnet[evmNetwork][templateId].last;
 
 	}
 	public getTemplateCostsIncludingPrevious(ltoNetwork_id: 'L' | 'T', evmNetwork: string, templateId: string): [string, string] {
 		// await this.coinmarketcap.getLatestPrice();
 		if (ltoNetwork_id === 'L') {
 			// if(this.templateCostsMainnet[evmNetwork][templateId].prev == 0) {
-				// return [this.templateCostsMainnet[evmNetwork][templateId].last, this.templateCostsMainnet[evmNetwork][templateId].last];
+			// return [this.templateCostsMainnet[evmNetwork][templateId].last, this.templateCostsMainnet[evmNetwork][templateId].last];
 
-				return [this.templateCostsMainnet[evmNetwork][templateId].last, this.templateCostsMainnet[evmNetwork][templateId].prev];
+			return [this.templateCostsMainnet[evmNetwork][templateId].last, this.templateCostsMainnet[evmNetwork][templateId].prev];
 		}
 		// if(this.templateCostsTestnet[evmNetwork][templateId].prev ==0) {
 		// 	return [this.templateCostsTestnet[evmNetwork][templateId].last, this.templateCostsTestnet[evmNetwork][templateId].last];
