@@ -149,6 +149,45 @@ export class QueueService implements OnModuleInit {
 		// console.log("templateCosts", this.templateCosts)
 	}
 	public async setTemplateCosts(ltoNetwork_id: 'L' | 'T', evmNetwork: string, templateId: string, lastValue: number, prevValue: number, usdValue: number) {
+		
+		if (typeof this.templateCostsTestnet[evmNetwork][templateId] !== 'object') {
+			this.templateCostsTestnet = {
+				"noNFT": {
+					"1": "5000000"
+				},
+				"ethereum": {
+					"1": {
+						"last": "20000000",
+						"prev": "20000000"
+					}
+				},
+				"arbitrum": {
+					"1": {
+						"last": "20000000",
+						"prev": "20000000"
+					}
+				},
+			};
+		}
+		if (typeof this.templateCostsMainnet[evmNetwork][templateId] !== 'object') {
+			this.templateCostsMainnet = {
+				"noNFT": {
+					"1": "5000000"
+				},
+				"ethereum": {
+					"1": {
+						"last": "20000000",
+						"prev": "20000000"
+					}
+				},
+				"arbitrum": {
+					"1": {
+						"last": "20000000",
+						"prev": "20000000"
+					}
+				},
+			};
+		}
 		if (ltoNetwork_id === 'L') {
 			this.templateCostsMainnet[evmNetwork][templateId]['last'] = lastValue.toString();
 			if (prevValue > 0) {
