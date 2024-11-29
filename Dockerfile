@@ -19,8 +19,8 @@ RUN yes "1" | curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s 
 RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
 # Set default Rust toolchain and add WebAssembly target
-RUN rustup default stable \
-&& rustup update stable \
+RUN rustup default nightly \
+&& rustup update nightly \
 && rustup target add wasm32-unknown-unknown
 
 # Debugging: Verify installation paths
@@ -64,8 +64,8 @@ RUN clang -v
 
 
 # Set Rustup default toolchain in runtime
-RUN /root/.cargo/bin/rustup default stable
-RUN /root/.cargo/bin/rustup update stable
+RUN /root/.cargo/bin/rustup default nightly
+RUN /root/.cargo/bin/rustup update nightly
 RUN /root/.cargo/bin/rustup target add wasm32-unknown-unknown
 
 # Verify the Rust toolchain in runtime
