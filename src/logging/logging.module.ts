@@ -7,6 +7,7 @@ import { TelegramBotService } from 'src/telegram-bot/telegram-bot.service';
 
 @Module({
   imports: [ConfigModule, S3Module],
-  providers: [LoggingService, S3Service, TelegramBotService]
+  providers: [LoggingService, S3Service, TelegramBotService],
+  exports: [LoggingService]
 })
 export class LoggingModule {}

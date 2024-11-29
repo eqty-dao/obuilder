@@ -1,25 +1,37 @@
 <html lang="">
   <head>
-    <title>PLACEHOLDER2_TITLE</title>
+	<title>PLACEHOLDER2_TITLE</title>
     <style>
       html, body {
-        margin: 0;
-        height: 100%;
-      }
+            margin: 0;
+            height: 100%;
+        }
 
-      body {
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-      }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
 
-      img {
-        width: 100%;
-        height: 100%;
-      }
+        .image-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
     </style>
   </head>
   <body>
-    <img src=PLACEHOLDER2_IMG/>
+    <div class="image-container">
+		<img src=PLACEHOLDER2_IMG/>
+    </div>
   </body>
-</html>

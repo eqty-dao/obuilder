@@ -21,6 +21,8 @@ import { IpfsModule } from './ipfs/ipfs.module';
 import { EthersService } from './ethers/ethers.service';
 import { S3Module } from './s3/s3.module';
 import { S3Service } from './s3/s3.service';
+import { CoinmarketcapModule } from './coinmarketcap/coinmarketcap.module';
+import { CoinmarketcapService } from 'src/coinmarketcap/coinmarketcap.service';
 @Module({
   imports: [
     ConfigModule, // Use custom ConfigModule without forRoot()
@@ -35,13 +37,14 @@ import { S3Service } from './s3/s3.service';
     LtoModule,    
     IpfsModule,
     NFTModule,
+    CoinmarketcapModule,
     QueueModule,
     TelegramBotModule,
     LoggingModule,
-    S3Module
+    S3Module,
   ],
   controllers: [AppController],
-  providers: [AppService,  UploadZipService, NFTService, LtoService, S3Service, QueueService, TelegramBotService, LoggingService,  EthersService]  
+  providers: [AppService,  UploadZipService, NFTService, LtoService, S3Service, QueueService,  CoinmarketcapService,TelegramBotService, LoggingService, EthersService]  
 })
 export class AppModule {
   // configure(consumer: MiddlewareConsumer) {

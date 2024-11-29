@@ -15,6 +15,9 @@ import { LtoService } from 'src/lto/lto.service';
 import { IpfsModule } from 'src/ipfs/ipfs.module';
 import { S3Module } from 'src/s3/s3.module';
 import { S3Service } from 'src/s3/s3.service';
+import { CoinmarketcapModule } from 'src/coinmarketcap/coinmarketcap.module';
+import { CoinmarketcapService } from 'src/coinmarketcap/coinmarketcap.service';
+import { QueueModule } from 'src/queue/queue.module';
 
 @Module({
   imports: [
@@ -27,13 +30,15 @@ import { S3Service } from 'src/s3/s3.service';
     ConfigModule, 
     NFTModule,
     TelegramBotModule,
+	QueueModule,
+	CoinmarketcapModule,
     LoggingModule,
     LtoModule,
     IpfsModule,
     S3Module
   ],
   providers: [
-    UploadZipService, QueueService, TelegramBotService, S3Service, LoggingService, LtoService
+    UploadZipService, QueueService, TelegramBotService, S3Service, LoggingService, LtoService, CoinmarketcapService
   ],
   controllers: [UploadZipController],
   exports: [
