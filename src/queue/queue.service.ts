@@ -171,9 +171,9 @@ export class QueueService implements OnModuleInit {
 	public getTemplateCosts(ltoNetwork_id: 'L' | 'T', evmNetwork: string, templateId: string): string {
 		// await this.coinmarketcap.getLatestPrice();
 		if (ltoNetwork_id === 'L') {
-			return this.templateCostsMainnet[evmNetwork][templateId].last;
+			return this.templateCostsMainnet[evmNetwork][templateId].last.toString();
 		}
-		return this.templateCostsTestnet[evmNetwork][templateId].last;
+		return this.templateCostsTestnet[evmNetwork][templateId].last.toString();
 
 	}
 	public getTemplateCostsIncludingPrevious(ltoNetwork_id: 'L' | 'T', evmNetwork: string, templateId: string): [string, string] {
