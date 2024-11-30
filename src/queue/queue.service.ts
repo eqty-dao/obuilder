@@ -1,14 +1,13 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-// import { S3, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
-// import S3Bucket from 'any-bucket/s3';
+
 import { QueueEntry, OwnableStatus } from '../interfaces/QueueEntry';
 import { QueueError } from '../interfaces/error';
 import { NftInfo } from 'src/interfaces/OwnableInfo';
 import { format } from 'date-fns';
-import { ConfigService } from '../config/config.service';
+// import { ConfigService } from '../config/config.service';
 import { TelegramBotService } from '../telegram-bot/telegram-bot.service';
 import { S3Service } from '../s3/s3.service';
-// import { CoinmarketcapService } from 'src/coinmarketcap/coinmarketcap.service';
+
 
 @Injectable()
 export class QueueService implements OnModuleInit {
@@ -24,9 +23,8 @@ export class QueueService implements OnModuleInit {
 
 
 	constructor(
-		private readonly config: ConfigService,
+		// private readonly config: ConfigService,
 		private readonly telegramService: TelegramBotService,
-		// private readonly coinmarketcap: CoinmarketcapService,
 		private readonly s3: S3Service
 	) {
 		this.isQueueingMainnet = true;
@@ -61,74 +59,74 @@ export class QueueService implements OnModuleInit {
 			await this.updateQueueInS3Bucket('T');
 		}
 
-		try {
-			// Now try to retrieve the Mainnet TemplateCosts file
-			const templateCostsBuffer = await this.s3.s3BucketQueue_L.get('TemplateCosts.json');
-			const templateCostsJsonString = templateCostsBuffer.toString('utf-8');
-			const templateCostsJsonData = JSON.parse(templateCostsJsonString);
-			await this.initializeTemplateCostsS3Data('L', templateCostsJsonData);
-		} catch (err) {
-			console.error("Mainnet TemplateCosts.json file not found. Creating one...");
-			this.templateCostsMainnet = {
-				"noNFT": {
-					"1": "5000000"
-				},
-				"ethereum": {
-					"1": {
-						"last": "20000000",
-						"prev": "20000000"
-					}
-				},
-				"arbitrum": {
-					"1": {
-						"last": "20000000",
-						"prev": "20000000"
-					}
-				},
-			};
-			await this.updateTemplateCostsInS3Bucket('L');
-		}
-		try {
-			// Now try to retrieve the Testnet TemplateCosts file
-			const templateCostsBuffer = await this.s3.s3BucketQueue_T.get('TemplateCosts.json');
-			const templateCostsJsonString = templateCostsBuffer.toString('utf-8');
-			const templateCostsJsonData = JSON.parse(templateCostsJsonString);
-			await this.initializeTemplateCostsS3Data('T', templateCostsJsonData);
-		} catch (err) {
-			console.error("Testnet TemplateCosts.json file not found. Creating one...");
-			this.templateCostsTestnet = {
-				"noNFT": {
-					"1": "5000000"
-				},
-				"ethereum": {
-					"1": {
-						"last": "20000000",
-						"prev": "20000000"
-					}
-				},
-				"arbitrum": {
-					"1": {
-						"last": "20000000",
-						"prev": "20000000"
-					}
-				},
-			};
-			await this.updateTemplateCostsInS3Bucket('T');
-		}
+		// try {
+		// 	// Now try to retrieve the Mainnet TemplateCosts file
+		// 	const templateCostsBuffer = await this.s3.s3BucketQueue_L.get('TemplateCosts.json');
+		// 	const templateCostsJsonString = templateCostsBuffer.toString('utf-8');
+		// 	const templateCostsJsonData = JSON.parse(templateCostsJsonString);
+		// 	await this.initializeTemplateCostsS3Data('L', templateCostsJsonData);
+		// } catch (err) {
+		// 	console.error("Mainnet TemplateCosts.json file not found. Creating one...");
+		// 	this.templateCostsMainnet = {
+		// 		"noNFT": {
+		// 			"1": "5000000"
+		// 		},
+		// 		"ethereum": {
+		// 			"1": {
+		// 				"last": "20000000",
+		// 				"prev": "20000000"
+		// 			}
+		// 		},
+		// 		"arbitrum": {
+		// 			"1": {
+		// 				"last": "20000000",
+		// 				"prev": "20000000"
+		// 			}
+		// 		},
+		// 	};
+		// 	await this.updateTemplateCostsInS3Bucket('L');
+		// }
+		// try {
+		// 	// Now try to retrieve the Testnet TemplateCosts file
+		// 	const templateCostsBuffer = await this.s3.s3BucketQueue_T.get('TemplateCosts.json');
+		// 	const templateCostsJsonString = templateCostsBuffer.toString('utf-8');
+		// 	const templateCostsJsonData = JSON.parse(templateCostsJsonString);
+		// 	await this.initializeTemplateCostsS3Data('T', templateCostsJsonData);
+		// } catch (err) {
+		// 	console.error("Testnet TemplateCosts.json file not found. Creating one...");
+		// 	this.templateCostsTestnet = {
+		// 		"noNFT": {
+		// 			"1": "5000000"
+		// 		},
+		// 		"ethereum": {
+		// 			"1": {
+		// 				"last": "20000000",
+		// 				"prev": "20000000"
+		// 			}
+		// 		},
+		// 		"arbitrum": {
+		// 			"1": {
+		// 				"last": "20000000",
+		// 				"prev": "20000000"
+		// 			}
+		// 		},
+		// 	};
+		// 	await this.updateTemplateCostsInS3Bucket('T');
+		// }
 	}
-	private async updateTemplateCostsInS3Bucket(network_id: string) {
+	// private async updateTemplateCostsInS3Bucket(network_id: string) {
 
-		try {
-			if (network_id === 'L') {
-				await this.s3.s3BucketQueue_L.put(`TemplateCosts.json`, JSON.stringify(this.templateCostsMainnet));
-			} else {
-				await this.s3.s3BucketQueue_T.put(`TemplateCosts.json`, JSON.stringify(this.templateCostsTestnet));
+	// 	try {
+	// 		if (network_id === 'L') {
+	// 			await this.s3.s3BucketQueue_L.put(`TemplateCosts.json`, JSON.stringify(this.templateCostsMainnet));
+	// 		} else {
+	// 			await this.s3.s3BucketQueue_T.put(`TemplateCosts.json`, JSON.stringify(this.templateCostsTestnet));
 
-			}
-		} catch (err) {
-			throw new QueueError(`Failed to initiate TemplateCosts.json on s3Bucket`);
-		}
-	}
+	// 		}
+	// 	} catch (err) {
+	// 		throw new QueueError(`Failed to initiate TemplateCosts.json on s3Bucket`);
+	// 	}
+	// }
 	private async updateQueueInS3Bucket(network_id: string) {
 		try {
 			if (network_id === 'L') {
@@ -140,14 +138,14 @@ export class QueueService implements OnModuleInit {
 			throw new QueueError(`Failed to initiate Queue.json on s3Bucket`);
 		}
 	}
-	private async initializeTemplateCostsS3Data(network_id: string, templateCostsS3Bucket: any) {
-		if (network_id === 'L') {
-			this.templateCostsMainnet = templateCostsS3Bucket;
-		} else {
-			this.templateCostsTestnet = templateCostsS3Bucket;
-		}
-		// console.log("templateCosts", this.templateCosts)
-	}
+	// private async initializeTemplateCostsS3Data(network_id: string, templateCostsS3Bucket: any) {
+	// 	if (network_id === 'L') {
+	// 		this.templateCostsMainnet = templateCostsS3Bucket;
+	// 	} else {
+	// 		this.templateCostsTestnet = templateCostsS3Bucket;
+	// 	}
+	// 	// console.log("templateCosts", this.templateCosts)
+	// }
 	public async setTemplateCosts(ltoNetwork_id: 'L' | 'T', evmNetwork: string, templateId: string, lastValue: number, prevValue: number, usdValue: number) {
 
 		if (typeof this.templateCostsTestnet[evmNetwork] !== 'object') {
@@ -168,7 +166,7 @@ export class QueueService implements OnModuleInit {
 					}
 				},
 			};
-			await this.updateTemplateCostsInS3Bucket('T');
+			// await this.updateTemplateCostsInS3Bucket('T');
 		}
 		if (typeof this.templateCostsMainnet[evmNetwork] !== 'object') {
 			this.templateCostsMainnet = {
@@ -188,7 +186,7 @@ export class QueueService implements OnModuleInit {
 					}
 				},
 			};
-			await this.updateTemplateCostsInS3Bucket('L');
+			// await this.updateTemplateCostsInS3Bucket('L');
 		}
 		if (ltoNetwork_id === 'L') {
 			this.templateCostsMainnet[evmNetwork][templateId]['last'] = lastValue.toString();
@@ -207,7 +205,7 @@ export class QueueService implements OnModuleInit {
 			}
 		}
 
-		await this.updateTemplateCostsInS3Bucket(ltoNetwork_id);
+		// await this.updateTemplateCostsInS3Bucket(ltoNetwork_id);
 		await this.telegramService.sendMessageToTelegramBot(ltoNetwork_id, `Updated template ${templateId} price ${ltoNetwork_id} (${evmNetwork}): from ${prevValue} to ${lastValue} LTO (${usdValue} USD)`);
 	}
 
