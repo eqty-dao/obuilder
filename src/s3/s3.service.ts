@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { S3, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
+import { S3, CreateBucketCommand, HeadBucketCommand, PutObjectCommand} from '@aws-sdk/client-s3';
 import S3Bucket from 'any-bucket/s3';
 import { ConfigService } from '../config/config.service';
 import { TelegramBotService } from '../telegram-bot/telegram-bot.service';
@@ -68,4 +68,43 @@ export class S3Service implements OnModuleInit {
         }
 
     }
+
+	public async uploadPictureToS3(picture: Buffer): Promise<string> {	
+
+		const bucketName = this.config.get('bucket.obuilder.pinata.mainnet');
+		const objectKey1 = `image/${Date.now()}.webp`; // Unique file key in S3
+	
+		try {
+			// Upload picture to S3
+			const command1 = new  PutObjectCommand({
+				Bucket: bucketName,
+				Key: objectKey1,
+				Body: picture,
+				ContentType: "image/webp", // Adjust if picture type differs
+			});
+			await this.s3Client.send(command1);
+
+			const jsonData = {
+				nftImage: `https://${bucketName}.s3.eu-west-1.amazonaws.com/${objectKey1}`
+			}
+			
+			const objectKey2 = `json/${Date.now()}.json`;
+			const jsonString = JSON.stringify(jsonData);
+
+			 // Upload JSON string to S3
+			 const command2 = new PutObjectCommand({
+				Bucket: bucketName,
+				Key: objectKey2,
+				Body: jsonString,
+				ContentType: "application/json", // Content type for JSON files
+			});
+			await this.s3Client.send(command2);
+
+			// Return the public URL (assumes bucket is public or uses CloudFront)
+			return `https://${bucketName}.s3.eu-west-1.amazonaws.com/${objectKey2}`;
+		} catch (error) {
+			console.error("Error uploading to S3:", error);
+			throw new Error("Failed to upload picture to S3");
+		}
+	}
 }

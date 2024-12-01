@@ -17,6 +17,8 @@ export class TelegramBotService implements OnModuleInit {
         this.telegramBotToken = this.config.get('telegramBot.token');
         this.telegramBotChannelId_L = this.config.get('telegramBot.channelId.mainnet');
         this.telegramBotChannelId_T = this.config.get('telegramBot.channelId.testnet');
+		console.log("telegramBotChannelId_L", this.telegramBotChannelId_L);
+		console.log("telegramBotChannelId_T", this.telegramBotChannelId_T);
     }
 
     public async sendMessageToTelegramBot(ltoNetwork_id: 'L' | 'T', message: string) {
@@ -37,10 +39,10 @@ export class TelegramBotService implements OnModuleInit {
 
         await axios.post(url, data)
             .then(response => {
-                console.log('Success:', response.data); // Handle the response data
+                // console.log('Success:', response.data); // Handle the response data
             })
             .catch(error => {
-                console.error('Error:', error); // Handle errors
+                // console.error('Error:', error); // Handle errors
             });
     }
 }

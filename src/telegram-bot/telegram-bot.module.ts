@@ -4,6 +4,7 @@ import { ConfigModule } from 'src/config/config.module';
 
 @Module({
   imports: [ConfigModule],
-  providers: [TelegramBotService]
+  providers: [TelegramBotService],
+  exports: [TelegramBotService]
 })
 export class TelegramBotModule {}

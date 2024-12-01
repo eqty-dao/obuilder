@@ -156,9 +156,9 @@ export class UploadZipController {
   // }
   //needs additional Query parameter to get different costs for template 1,2,3...
   @Get('templateCost')
-  templateCost(@Query('templateId') templateId: number) {
+  async templateCost(@Query('templateId') templateId: number) {
     try {
-      return this.uploadZipService.templateCost(templateId);
+      return await this.uploadZipService.templateCost(templateId);
     } catch (err) {
       return { "error": `${err}` };
     }
@@ -200,7 +200,7 @@ export class UploadZipController {
       const [serverWalletAddressLTO_L, serverWalletAddressLTO_T] = this.uploadZipService.getServerLtoWalletAddresses();
       console.log("serverWalletAddressLTO_L", serverWalletAddressLTO_L);
       console.log("serverWalletAddressLTO_T", serverWalletAddressLTO_T);
-      const [serverWalletAddressEVM_L, serverWalletAddressEVM_T] = this.uploadZipService.getServerEVMwalletAddresses();
+      const [serverWalletAddressEVM_L, serverWalletAddressEVM_T] = this.uploadZipService.getServerEVMwalletAddresses('arbitrum');
       console.log("serverWalletAddressEVM_L", serverWalletAddressEVM_L);
       console.log("serverWalletAddressEVM_T", serverWalletAddressEVM_T);
       return {		

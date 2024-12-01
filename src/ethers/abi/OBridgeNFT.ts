@@ -866,5 +866,5 @@ export default [
     "stateMutability": "payable",
     "type": "receive"
   }
-]
+];
 
