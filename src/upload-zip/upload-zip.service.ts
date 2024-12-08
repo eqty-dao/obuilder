@@ -32,7 +32,7 @@ import { CoinmarketcapService } from 'src/coinmarketcap/coinmarketcap.service';
 
 @Injectable()
 export class UploadZipService implements OnModuleInit, OnModuleDestroy {
-	private pathToRids: string;
+	// private pathToRids: string;
 	private pathToCids: string;
 	private pathToTemplates: string;
 	private packageInfo: any;
@@ -40,9 +40,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 	private nodeVersion = process.version;
 	private pinata: PinataSDK;
-	// private telegramBotToken: string;
-	// private telegramBotChannelId_L: string;
-	// private telegramBotChannelId_T: string;
+
 
 
 
@@ -69,10 +67,10 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			pinataGateway: this.config.get('pinata.gateway') // "example-gateway.mypinata.cloud",
 		});
 		this.packageInfo = require('../../package.json');
-		this.pathToRids = this.packageInfo.ownableRidPath;
+		// this.pathToRids = this.packageInfo.ownableRidPath;
 		this.pathToCids = this.packageInfo.ownableCidPath;
 		this.pathToTemplates = this.packageInfo.ownableTemplatesPath;
-		mkdirSync(this.pathToRids, { recursive: true });
+		// mkdirSync(this.pathToRids, { recursive: true });
 		mkdirSync(this.pathToCids, { recursive: true });
 		this.intervalId = setInterval(async () => {
 			try {
