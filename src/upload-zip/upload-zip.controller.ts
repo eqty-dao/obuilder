@@ -20,6 +20,7 @@ export class UploadZipController {
     @Req() req: Request,
     @Res() res: Response,
     @Query('ltoNetworkId') ltoNetworkId: 'L'|'T',
+	// @Query('nftUrl') nftUrl?: string,
     @Signer() signer?: Account): Promise<Response> {
     let buffer: Buffer = null;
     console.log("file", file);
