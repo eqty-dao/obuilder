@@ -40,9 +40,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 	private nodeVersion = process.version;
 	private pinata: PinataSDK;
-	private telegramBotToken: string;
-	private telegramBotChannelId_L: string;
-	private telegramBotChannelId_T: string;
+	// private telegramBotToken: string;
+	// private telegramBotChannelId_L: string;
+	// private telegramBotChannelId_T: string;
 
 
 
@@ -161,6 +161,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 				try {
 					this.loggingService.log(rid, `Message hash: ${message.hash.base58}`);
 					this.loggingService.log(rid, `Message: type${message.type} sender:${JSON.stringify(message.sender)} recipient:${message.recipient} timestamp:${message.timestamp} mediaType:${message.mediaType}`);
+					// throw `test without Relay`;
 					await relay.send(message);
 					this.loggingService.log(rid, `Ownable successfully sent to Relay. Setting Queue status to sent.`);
 					if (ltoNetwork === 'L') {
@@ -271,7 +272,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		}
 	}
 
-	private async checkLtoTransactionId(ltoNetworkId: 'L' | 'T', ltoTransactionId: string, templateId: number, chain: string, requestId: string): Promise<TransactionIdData> {
+	private async checkLtoTransactionId(ltoNetworkId: 'L' | 'T', ltoTransactionId: string, templateId: number, chain: string, requestId: string, reenqueued: boolean): Promise<TransactionIdData> {
 		// FIRST WORKING METHOD
 		let url: string;
 		if (ltoNetworkId === 'L') {
@@ -329,11 +330,14 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		this.loggingService.log(requestId, `data.amount: ${data.amount.toString()}`);
 		this.loggingService.log(requestId, `Template Cost: ${templateCostsLast} ${templateCostsPrev}`);
 
-		if (data.amount.toString() !== templateCostsLast && data.amount.toString() !== templateCostsPrev) {
-			// console.log("templateCost", templateCosts);
-			// console.log("amount sent", data.amount.toString());
-			this.loggingService.logError(requestId, `Sent wrong LTO amount: ${data.amount.toString()} Correct amount should be: ${templateCostsLast} or ${templateCostsPrev}`);
-			throw new Error(`Sent wrong LTO amount: ${data.amount.toString()} Correct amount should be: ${templateCostsLast} or ${templateCostsPrev}`);
+		if (!reenqueued) {
+
+			if (data.amount.toString() !== templateCostsLast && data.amount.toString() !== templateCostsPrev) {
+				// console.log("templateCost", templateCosts);
+				// console.log("amount sent", data.amount.toString());
+				this.loggingService.logError(requestId, `Sent wrong LTO amount: ${data.amount.toString()} Correct amount should be: ${templateCostsLast} or ${templateCostsPrev}`);
+				throw new Error(`Sent wrong LTO amount: ${data.amount.toString()} Correct amount should be: ${templateCostsLast} or ${templateCostsPrev}`);
+			}
 		}
 
 		let thisServerAddress = this.getLTOAccountAddress(ltoNetworkId);
@@ -341,13 +345,14 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			this.loggingService.logError(requestId, `Wrong recipient address: ${data.recipient}! Use Server LTO Wallet address: ${thisServerAddress}`);
 			throw new Error('Wrong recipient! Use Server LTO Wallet address');
 		}
-		try {
-			await this.checkReuseOfTxId(ltoTransactionId, requestId);
-		} catch (err) {
-			this.loggingService.logError(requestId, `Check reuse of TxID failed: ${err}`);
-			throw new Error(`Check reuse of TxID failed: ${err}`);
-		}
-
+		if (!reenqueued) {
+			try {
+				await this.checkReuseOfTxId(ltoTransactionId, requestId);
+			} catch (err) {
+				this.loggingService.logError(requestId, `Check reuse of TxID failed: ${err}`);
+				throw new Error(`Check reuse of TxID failed: ${err}`);
+			}
+		} 
 		return {
 			type: data.type,
 			sender: data.sender,
@@ -552,13 +557,13 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		//   throw (`Undefined Template cost for template number ${templateId} and chain: ${chain}`);
 		// }
 		if (templateId != 1) {
-      throw (`Currently only Template ID 1 is support`);
+			throw (`Currently only Template ID 1 is support`);
 		}
-    await this.coinmarketcap.getLatestPrice();
-    const main=this.queueService.getTemplateCosts('L', 'arbitrum', '1');
-    const test=this.queueService.getTemplateCosts('T', 'arbitrum', '1');
-    console.log("main",main);
-    console.log("test",test);
+		await this.coinmarketcap.getLatestPrice();
+		const main = this.queueService.getTemplateCosts('L', 'arbitrum', '1');
+		const test = this.queueService.getTemplateCosts('T', 'arbitrum', '1');
+		console.log("main", main);
+		console.log("test", test);
 		return {
 			'L': {
 				'arbitrum': main
@@ -581,7 +586,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		}
 	}
 
-	
+
 	public async createPinataPinnedFile(picture: Buffer): Promise<string> {
 
 		let blobPicture: Blob;
@@ -856,7 +861,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		await this.wait(10000);
 		let transactionIdData: TransactionIdData;
 		try {
-			transactionIdData = await this.checkLtoTransactionId(ltoNetworkId, jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, jsonFile.NFT_BLOCKCHAIN, requestId);
+			transactionIdData = await this.checkLtoTransactionId(ltoNetworkId, jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, jsonFile.NFT_BLOCKCHAIN, requestId, false);
 			this.loggingService.log(requestId, `transactionIdData:` + JSON.stringify(transactionIdData));
 		} catch (err) {
 			this.loggingService.logError(requestId, `${err}`);
@@ -894,6 +899,16 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 				await this.queueService.ownableFailed(ltoNetworkId, queryProcessingEntry[0].rid, "More than 300 seconds inactive in Processing Queue");
 			}
 		}
+		// TODO: Delete following lines
+		// const queryFailedEntry: QueueEntry[] = this.queueService.getQueueEntriesByStatus(ltoNetworkId, OwnableStatus.Failed);
+		// if (Array.isArray(queryFailedEntry) && queryFailedEntry.length > 0) {
+		// 	const firstEntry = queryFailedEntry[0];
+		// 	if (firstEntry.rid && firstEntry.rid !== '') {
+		// 		this.loggingService.log(firstEntry.rid, `First Entry: ` + JSON.stringify(firstEntry));
+		// 		await this.queueService.moveBackFailedEntries();
+		// 	}
+
+		// }
 
 	}
 	private async checkQueueStatus() {
@@ -911,16 +926,16 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 					if (!this.queueService.isCreatingOwnable()) {
 						// console.log("Waiting 10 seconds for a possible TX ID that needs to be populated into LTO node network...");
 						await this.wait(10000);
-						let ltoNetworkId, requestId, data, sender;
+						let ltoNetworkId, requestId, data, sender, reenqueued= false;
 						try {
-							[ltoNetworkId, requestId, data, sender] = await this.queueService.processNextQueueEntry();
+							[ltoNetworkId, requestId, data, sender, reenqueued] = await this.queueService.processNextQueueEntry();
 						} catch (err) {
 							this.loggingService.logError(requestId, `processNextQueueEntry failed on lto network ${ltoNetworkId}: ${err}`);
 						}
 
 						if (requestId != null && data != null) {
 							try {
-								await this.store(ltoNetworkId, requestId, data, 1, sender); // true = verbose
+								await this.store(ltoNetworkId, requestId, data, 1, sender, reenqueued); // true = verbose
 							} catch (err) {
 								const queryProcessingEntry1: QueueEntry[] = this.queueService.getQueueEntriesByStatus(ltoNetworkId, OwnableStatus.Processing);
 								this.loggingService.log(queryProcessingEntry1[0].rid, `Ownable creation failed on lto network ${ltoNetworkId}: ${err}`);
@@ -1001,6 +1016,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			timestampFailed: 0,
 			failedErrMsg: '',
 			cid: '',
+			reenqueued: false,
 			nftInfo: {
 				network: '',
 				address: '',
@@ -1055,7 +1071,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	private wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
 
 
-	public async store(ltoNetworkId: 'L' | 'T', requestId: string, data: Uint8Array, templateId: number, sender: string) {
+	public async store(ltoNetworkId: 'L' | 'T', requestId: string, data: Uint8Array, templateId: number, sender: string, reenqueued: boolean) {
 		try {
 			this.loggingService.log(requestId, `Unzipping user input files for Ownable creation into memory`);
 			const requestIdFiles = await this.unzip(data);
@@ -1114,7 +1130,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			}
 			this.loggingService.log(requestId, `checking LTO transaction ID: ${jsonFile.OWNABLE_LTO_TRANSACTION_ID}`);
 
-			const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(ltoNetworkId, jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, jsonFile.NFT_BLOCKCHAIN, requestId);
+			const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(ltoNetworkId, jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, jsonFile.NFT_BLOCKCHAIN, requestId, reenqueued);
 			this.loggingService.log(requestId, `transactionIdData: ` + JSON.stringify(transactionIdData));
 
 			// await this.storeFiles(`${this.pathToRids}/${requestId}`, requestId, requestIdFiles);

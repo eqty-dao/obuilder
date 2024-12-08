@@ -16,6 +16,7 @@ export interface QueueEntry {
     timestampFailed: number;
     failedErrMsg: string;
     cid: string;
+	reenqueued: boolean;
     nftInfo: NftInfo;
 }
 
@@ -25,5 +26,5 @@ export enum OwnableStatus {
     Processing,   // 2
     Ready,        // 3
     Sent,         // 4
-    Failed        // 5
+    Failed,       // 5	
 }

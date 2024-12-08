@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { S3, CreateBucketCommand, HeadBucketCommand, PutObjectCommand} from '@aws-sdk/client-s3';
+import { S3, CreateBucketCommand, HeadBucketCommand, HeadObjectCommand, PutObjectCommand} from '@aws-sdk/client-s3';
 import S3Bucket from 'any-bucket/s3';
 import { ConfigService } from '../config/config.service';
 import { TelegramBotService } from '../telegram-bot/telegram-bot.service';
@@ -68,7 +68,35 @@ export class S3Service implements OnModuleInit {
         }
 
     }
-
+	public async checkFileExists(ltoNetworkId: 'L'|'T', key) {
+		try {
+			let params;
+			if(ltoNetworkId === 'L') {
+				params = {
+					Bucket: this.config.get('bucket.obuilder.queue.mainnet'),
+				Key: key,
+				}
+			} else {
+				params = {
+					Bucket: this.config.get('bucket.obuilder.queue.testnet'),
+					Key: key,
+				};
+			}
+	
+			// Attempt to fetch the object's metadata
+			await this.s3Client.send(new HeadObjectCommand(params));
+			console.log(`File exists: ${key}`);
+			return true; // File exists
+		} catch (error) {
+			if (error.name === 'NotFound') {
+				console.log(`File does not exist: ${key}`);
+				return false; // File does not exist
+			}
+			// Handle other potential errors
+			console.error('Error checking file existence:', error);
+			throw error;
+		}
+	}
 	public async uploadPictureToS3(picture: Buffer): Promise<string> {	
 
 		const bucketName = this.config.get('bucket.obuilder.pinata.mainnet');

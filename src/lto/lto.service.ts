@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { Account, LTO } from "@ltonetwork/lto"
+import { Account, LTO } from "@ltonetwork/lto";
 import { ConfigService } from '../config/config.service';
 import { HttpService } from '@nestjs/axios';
 

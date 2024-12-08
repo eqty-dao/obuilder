@@ -11,7 +11,7 @@ import { CoinmarketcapService } from 'src/coinmarketcap/coinmarketcap.service';
 @Module({
   imports: [ConfigModule, TelegramBotModule, S3Module, CoinmarketcapModule],
 //   providers: [QueueService, TelegramBotService, S3Service, CoinmarketcapService]
-  providers: [QueueService, TelegramBotService, S3Service],
+  providers: [QueueService, TelegramBotService],
   exports: [QueueService],
 })
 export class QueueModule {}

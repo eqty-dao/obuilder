@@ -1,0 +1,248 @@
+
+
+const { Transfer: TransferTx, getNetwork } = require('@ltonetwork/lto');
+const fs = require('fs').promises; // Use fs.promises for async operations
+const JSZip = require("jszip");
+require('dotenv').config(); // Load environment variables from a .env file
+const axios = require('axios');
+const { Account, LTO } = require('@ltonetwork/lto');
+const { sign } = require('@ltonetwork/http-message-signatures');
+const path = require('path'); // For handling file paths
+// Initialize LTO instances for Mainnet and Testnet
+const ltoMainnet = new LTO('L'); // 'L' for Mainnet
+const ltoTestnet = new LTO('T'); // 'T' for Testnet
+
+// Create accounts using seeds from environment variables
+const ltoAccountMainnet = ltoMainnet.account({ seed: process.env.LTO_MYACCOUNT_SEED_L });
+const ltoAccountTestnet = ltoTestnet.account({ seed: process.env.LTO_MYACCOUNT_SEED_T });
+
+// Function to call the external endpoint
+
+async function getOwnableCosts() {
+	let url;
+	if (process.env.LTO_NETWORK_ID === 'L') {
+		url = `${process.env.OBUILDER_L}/api/v1/templateCost?templateId=1`
+	} else {
+		url = `${process.env.OBUILDER_T}/api/v1/templateCost?templateId=1`
+	}
+	const response = await axios.get(url
+		,
+		{
+			headers: {
+				Accept: "*/*",
+			},
+		}
+	);
+	let value;
+	if (process.env.LTO_NETWORK_ID === 'L') {
+		value = +response.data.L['arbitrum'];
+	} else {
+		value = +response.data.T['arbitrum'];
+	}
+	console.log("templateCost value:", value);
+	if (process.env.LTO_NETWORK_ID === 'L') {
+		url = `${process.env.OBUILDER_L}/api/v1/GetServerInfo`
+	} else {
+		url = `${process.env.OBUILDER_T}/api/v1/GetServerInfo`
+	}
+	const address = await axios.get(
+		url,
+		{
+			headers: {
+				Accept: "*/*",
+			},
+		}
+	);
+
+	//   let serverAddress;
+	//   if(process.env.REACT_APP_LTO_NETWORK_ID === 'L') {
+	// 	serverAddress = address.data.serverLtoWalletAddress_L;
+	//   }else {
+	// 	serverAddress = address.data.serverLtoWalletAddress_T;
+	//   }
+	const LTO_REPRESENTATION = 100000000;
+	const calculatesAmount = parseFloat(value.toString()) / LTO_REPRESENTATION + 1;
+	console.log("LTO costs readable:", calculatesAmount);
+	return value;
+
+}
+
+
+
+async function handleCreateOwnable(ownableNumber, amount, image, thumbnail) {
+
+	const owner = "LTO";
+	const name = `ownable${ownableNumber}`;
+	const description = `My new Ownable${ownableNumber}`;
+	const network = "arbitrum";
+
+	
+	// const recipient= "3MxtE2REkCberPpMQ4sF855rdK36madT8p9" // SOME LTO WALLET
+	const recipient= "3N5vwNey9aFkyrQ5KUzMt3qfuwg5jKKzrLB" // Must be OBUILDER WALLET
+	
+	const transaction = new TransferTx(recipient, amount);
+	console.log("transaction", transaction)
+	try {
+		let account;
+		if (process.env.LTO_NETWORK_ID === 'L') {
+			account = ltoAccountMainnet;
+			console.log("LTO Balance Mainnet", await ltoMainnet.getBalance(account));
+		} else {
+			account = ltoAccountTestnet;
+			console.log("LTO Balance Testnet", await ltoTestnet.getBalance(account));
+		}
+		let ltoNode;
+		if (process.env.LTO_NETWORK_ID === 'L') {
+			ltoNode=process.env.LTO_NODE_L;
+		} else {
+			ltoNode=process.env.LTO_NODE_T;
+		}
+		const signedTransaction = await transaction.signWith(account);
+		console.log("signedTransaction",signedTransaction);
+		// await account.sign(transaction);
+		// const transaction = await tx.signWith(account);
+		// const broadcastedTx = await ltoNode.node.broadcast(transaction);
+		let url;
+		url = `${ltoNode}/transactions/broadcast`;
+		const broadcastedTx = await fetch(url, {
+		  method: "POST",
+		  headers: {
+			"Content-Type": "application/json",
+		  },
+		  body: JSON.stringify(signedTransaction),
+		});
+		console.log("broadcastedTx", broadcastedTx);
+		if (broadcastedTx.status >= 400) {
+		  throw new Error(
+			"Broadcast transaction failed: " + (await broadcastedTx.text())
+		  );
+		}
+		const txSuccess = await broadcastedTx.json();
+		console.log("json1",txSuccess);
+		if (process.env.LTO_NETWORK_ID === 'L') {
+			url = `${process.env.OBUILDER_L}/api/v1/upload`
+		} else {
+			url = `${process.env.OBUILDER_T}/api/v1/upload`
+		}
+		console.log("url",url);
+		const request = {
+			headers: {},
+			method: "POST",
+			url,
+		};
+		let signedRequest;
+		if (process.env.LTO_NETWORK_ID === 'L') {
+			signedRequest = await sign(request, { signer: account });
+		}else {
+			signedRequest = await sign(request, { signer: account });
+
+		}
+		console.log("signedRequest", signedRequest);
+
+		request.url =
+			request.url + `?ltoNetworkId=${process.env.LTO_NETWORK_ID}`;
+		const headers1 = {
+			"Content-Type": "multipart/form-data",
+			Accept: "*/*",
+			Origin: "http://localhost",
+		};
+		const combinedHeaders = { ...signedRequest.headers, ...headers1 };
+		console.log("combinedHeaders", combinedHeaders);
+		console.log("request", request);
+		setTimeout(async () => {
+			if (txSuccess.id) {
+				const imageType = "webp";
+				const imageName = name;
+				const ownableData = [
+					{
+						template: "template1",
+						CREATE_NFT: "true",
+						NFT_BLOCKCHAIN: 'arbitrum',
+						// NFT_TOKEN_URI:
+						OWNABLE_THUMBNAIL: "thumbnail.webp",
+						OWNABLE_LTO_TRANSACTION_ID: txSuccess.id,
+						PLACEHOLDER1_NAME: "ownable_" + name,
+						PLACEHOLDER1_DESCRIPTION: description,
+						PLACEHOLDER1_VERSION: "0.1.0",
+						PLACEHOLDER1_KEYWORDS: [],
+						PLACEHOLDER2_TITLE: name,
+						PLACEHOLDER2_IMG: imageName + "." + imageType,
+						PLACEHOLDER4_TYPE: name,
+						PLACEHOLDER4_DESCRIPTION: description,
+						PLACEHOLDER4_NAME: name,
+					},
+				];
+
+				
+				const zip = new JSZip();
+				zip.file("ownableData.json", JSON.stringify(ownableData, null, 2));
+				 if (image) {
+                const imageBuffer = await fs.readFile(image); // Read image file
+                zip.file(`${imageName}.${imageType}`, imageBuffer); // Add to ZIP
+            }
+
+            if (thumbnail) {
+                const thumbnailBuffer = await fs.readFile(thumbnail); // Read thumbnail
+                zip.file(`thumbnail.webp`, thumbnailBuffer); // Add to ZIP
+            }
+				zip.generateAsync({ type: "blob" }).then((zipFile) => {					
+					// Send the zip file to oBuilder
+					// const url = `${process.env.REACT_APP_OBUILDER}/api/v1/upload`;
+					const formData = new FormData();
+					formData.append("file", zipFile, name + ".zip");
+					axios						
+						.post(request.url, formData, {
+							headers: combinedHeaders,
+						})
+						.then((res) => {
+							console.log(res.data);
+						})
+						.catch((err) => {
+							console.log(err);
+						});
+				});
+			}
+		}, 1000);
+	} catch (error) {
+		console.error("Error sending transaction:", error);
+	}
+};
+// Example usage
+(async () => {
+    console.log('Calling external endpoint...');
+
+    // Fetch costs once
+    const costs = await getOwnableCosts();
+    console.log('Costs:', costs);
+
+    // Define an array of image and thumbnail file paths
+    const ownables = [
+        // {
+            // image: '/home/sven/Downloads/Github/LTO/oBuilderStaging/ownable1.webp', //logo_spin_ownable
+            // thumbnail: '/home/sven/Downloads/Github/LTO/oBuilderStaging/thumbnail1.webp',
+        // },
+        {
+            image: '/home/sven/Downloads/Github/LTO/oBuilderStaging/ownable2.webp', // Artwork-layers.webp
+            thumbnail: '/home/sven/Downloads/Github/LTO/oBuilderStaging/thumbnail2.webp',
+        },
+        // {
+        //     image: '/home/sven/Downloads/Github/LTO/oBuilderStaging/ownable3.webp',  //ownables_teaser.webp
+        //     thumbnail: '/home/sven/Downloads/Github/LTO/oBuilderStaging/thumbnail3.webp',
+        // },
+    ];
+
+    // Loop through the array of images and thumbnails
+    for (const ownable of ownables) {
+        for (let i = 1; i <= 1; i++) {
+            try {
+                console.log(`Processing ownable ${i} for image: ${ownable.image} and thumbnail: ${ownable.thumbnail}`);
+                await handleCreateOwnable(i, costs, ownable.image, ownable.thumbnail);
+                console.log(`Successfully processed ownable ${i} for image: ${ownable.image}`);
+            } catch (error) {
+                console.error(`Error processing ownable ${i} with image ${ownable.image}:`, error);
+            }
+        }
+    }
+
+    console.log('All ownables processed!');
+})();

@@ -28,8 +28,9 @@ async function bootstrap() {
   
   app.enableShutdownHooks();
   
-  
+  console.log("test1");
   const packageInfo = require('../package.json');
+  console.log("test2");
   
   const options = new DocumentBuilder()
   .setTitle('LTO oBuilder')
