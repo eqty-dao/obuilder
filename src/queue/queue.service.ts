@@ -62,7 +62,7 @@ export class QueueService implements OnModuleInit {
 				const queueTestFileBuffer = await this.s3.s3BucketQueue_T.get('Queue.json');
 				const queueTestFileJsonString = queueTestFileBuffer.toString('utf-8');
 				const queueTestFileJsonData = JSON.parse(queueTestFileJsonString);
-				console.log("queueTestFileJsonData", queueTestFileJsonData);
+				// console.log("queueTestFileJsonData", queueTestFileJsonData);
 				await this.initializeQueueWithS3Data('T', queueTestFileJsonData);
 			} else {
 				console.log("Queue.json does not exist on Testnet S3 Bucket. Creating one ...");
@@ -85,6 +85,7 @@ export class QueueService implements OnModuleInit {
 			// data: Buffer.isBuffer(entry.data) ? entry.data.toString('utf8') : entry.data,
 			data: entry.data.toString('utf8')
 		}));
+		// console.log("processedQueue", processedQueue)
 		try {
 			if (network_id === 'L') {
 				await this.s3.s3BucketQueue_L.put(`Queue.json`, JSON.stringify(processedQueue));
@@ -371,10 +372,10 @@ export class QueueService implements OnModuleInit {
 				throw new Error(`Telegram Service Error.  ${err}`);
 			}
 			if (ltoNetwork_id === 'L') {
-				this.queueMainnet.push({ ...newQueueEntry, data: typeof newQueueEntry.data === 'string' ? newQueueEntry.data : '' });
+				this.queueMainnet.push(newQueueEntry);
 				this.queueDataMainnet.push(data);
 			} else {
-				this.queueTestnet.push({ ...newQueueEntry, data: typeof newQueueEntry.data === 'string' ? newQueueEntry.data : '' });
+				this.queueTestnet.push(newQueueEntry);
 				this.queueDataTestnet.push(data);
 			}
 			await this.enqueueEntriesStuckInReadyState(ltoNetwork_id);
@@ -623,6 +624,7 @@ export class QueueService implements OnModuleInit {
 			this.queueTestnet[index].ownableStatus = status;
 
 		}
+		console.log("updateQueueInS3Bucket...");
 		await this.updateQueueInS3Bucket(ltoNetwork_id);
 	}
 

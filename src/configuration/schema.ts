@@ -59,6 +59,17 @@ export default {
 					default: 'obuilder-pinata-testnet',
 					env: 'PINATA_BUCKET_T'
 				},
+			},
+			ownables: {
+				mainnet: {
+					default: 'obuilder-ownables-mainnet',
+					env: 'OWNABLES_BUCKET_L'
+				},
+				testnet: {
+					default: 'obuilder-ownables-testnet',
+					env: 'OWNABLES_BUCKET_T'
+				},
+				
 			}
 		},
 		localTesting: {

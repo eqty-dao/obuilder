@@ -10,6 +10,8 @@ export class S3Service implements OnModuleInit {
     public s3BucketQueue_L: S3Bucket;
     public s3BucketQueue_T: S3Bucket;
     public s3BucketLogs: S3Bucket;
+    public s3BucketOwnables_L: S3Bucket;
+    public s3BucketOwnables_T: S3Bucket;
 
     constructor(
         private readonly config: ConfigService,
@@ -36,33 +38,68 @@ export class S3Service implements OnModuleInit {
         this.s3BucketQueue_L = new S3Bucket(this.s3Client, this.config.get('bucket.obuilder.queue.mainnet'));
         this.s3BucketQueue_T = new S3Bucket(this.s3Client, this.config.get('bucket.obuilder.queue.testnet'));
         this.s3BucketLogs = new S3Bucket(this.s3Client, this.config.get('bucket.obuilder.logs'));
-
+		this.s3BucketOwnables_L = new S3Bucket(this.s3Client, this.config.get('bucket.obuilder.ownables.mainnet'));
+		this.s3BucketOwnables_T = new S3Bucket(this.s3Client, this.config.get('bucket.obuilder.ownables.testnet'));
     }
     
     async onModuleInit() {
         try {
             await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('bucket.obuilder.queue.mainnet') }));
-            console.log(`Mainnet Bucket already exists.`);
+            console.log(`Mainnet Queue Bucket already exists.`);
         } catch (err) {
             if (err.name === 'NotFound' || err.name === 'NoSuchBucket') {
-                console.log(`Mainnet Bucket does not exist. Creating it now.`);
+                console.log(`Mainnet Queue Bucket does not exist. Creating it now.`);
                 await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('bucket.obuilder.queue.mainnet') }));
-                // await this.updateQueueInS3Bucket('L');
             } else {
-                console.error('Error checking mainnet bucket existence:', err);
+                console.error('Error checking mainnet Queue bucket existence:', err);
                 return; // Exit early if there's a non-not-found error
             }
         }
         try {
             await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('bucket.obuilder.queue.testnet') }));
-            console.log(`Testnet Bucket already exists.`);
+            console.log(`Testnet Queue Bucket already exists.`);
         } catch (err) {
             if (err.name === 'NotFound' || err.name === 'NoSuchBucket') {
-                console.log(`Testnet Bucket does not exist. Creating it now.`);
+                console.log(`Testnet Queue Bucket does not exist. Creating it now.`);
                 await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('bucket.obuilder.queue.testnet') }));
-                // await this.updateQueueInS3Bucket('T');
             } else {
-                console.error('Error checking testnet bucket existence:', err);
+                console.error('Error checking testnet Queue bucket existence:', err);
+                return; // Exit early if there's a non-not-found error
+            }
+        }
+		try {
+            await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('bucket.obuilder.ownables.mainnet') }));
+            console.log(`Mainnet Ownables Bucket already exists.`);
+        } catch (err) {
+            if (err.name === 'NotFound' || err.name === 'NoSuchBucket') {
+                console.log(`Mainnet Ownables Bucket does not exist. Creating it now.`);
+                await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('bucket.obuilder.ownables.mainnet') }));
+            } else {
+                console.error('Error checking mainnet Ownables bucket existence:', err);
+                return; // Exit early if there's a non-not-found error
+            }
+        }
+        try {
+            await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('bucket.obuilder.ownables.testnet') }));
+            console.log(`Testnet Ownables Bucket already exists.`);
+        } catch (err) {
+            if (err.name === 'NotFound' || err.name === 'NoSuchBucket') {
+                console.log(`Testnet Ownables Bucket does not exist. Creating it now.`);
+                await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('bucket.obuilder.ownables.testnet') }));
+            } else {
+                console.error('Error checking testnet Ownables bucket existence:', err);
+                return; // Exit early if there's a non-not-found error
+            }
+        }
+		try {
+            await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('bucket.obuilder.logs') }));
+            console.log(`Logs Bucket already exists.`);
+        } catch (err) {
+            if (err.name === 'NotFound' || err.name === 'NoSuchBucket') {
+                console.log(`Logs Bucket does not exist. Creating it now.`);
+                await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('bucket.obuilder.logs') }));
+            } else {
+                console.error('Error checking Logs bucket existence:', err);
                 return; // Exit early if there's a non-not-found error
             }
         }
@@ -95,6 +132,18 @@ export class S3Service implements OnModuleInit {
 			// Handle other potential errors
 			console.error('Error checking file existence:', error);
 			throw error;
+		}
+	}
+	
+	public async storeZip(ltoNetworkId: 'L'|'T', cid: string, rid: string, sender: string, zipContent: Uint8Array) {
+		try {
+			if (ltoNetworkId === 'L') {
+				await this.s3BucketOwnables_L.put(`${rid}_${cid}_${sender}_.zip`, zipContent);
+			} else {
+				await this.s3BucketOwnables_T.put(`${rid}_${cid}_${sender}_.zip`, zipContent);
+			}
+		} catch (err) {
+			throw new Error(`Putting ${rid}_${cid}_${sender}_.zip into s3 Bucket failed for LTO network ${ltoNetworkId}. Error: ${err}`);
 		}
 	}
 	public async uploadPictureToS3(picture: Buffer): Promise<string> {	

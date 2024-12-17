@@ -29,6 +29,7 @@ import { LoggingService } from 'src/logging/logging.service';
 import { LtoService } from 'src/lto/lto.service';
 import { S3Service } from '../s3/s3.service';
 import { CoinmarketcapService } from 'src/coinmarketcap/coinmarketcap.service';
+import { JsonFile } from 'src/interfaces/JsonFile';
 
 @Injectable()
 export class UploadZipService implements OnModuleInit, OnModuleDestroy {
@@ -40,8 +41,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 	private nodeVersion = process.version;
 	private pinata: PinataSDK;
-
-
+	private jsonArrayOwnables: string[] = [];
 
 
 	constructor(
@@ -246,7 +246,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		// const relay = new Relay('http://relay-dev.eba-zrdkspxn.eu-west-1.elasticbeanstalk.com');
 
 		try {
-			this.loggingService.log(rid, `Try sending file...  RELAYURL:${relayURL} SENDER:${sender.address} RECIPIENT:${recipient} RID:${rid}.`);
+			this.loggingService.log(rid, `Try sending file...  RELAYURL:${relayURL} SENDER:${sender.address} RECIPIENT:${recipient} RID:${rid}`);
 			if (recipient) {
 				this.loggingService.log(rid, `Recipient: ${recipient} RID:${rid}.`);
 				await this.sendFile(relay, content, sender, recipient, rid);
@@ -350,7 +350,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 				this.loggingService.logError(requestId, `Check reuse of TxID failed: ${err}`);
 				throw new Error(`Check reuse of TxID failed: ${err}`);
 			}
-		} 
+		}
 		return {
 			type: data.type,
 			sender: data.sender,
@@ -585,7 +585,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	}
 
 
-	public async createPinataPinnedFile(picture: Buffer): Promise<string> {
+	public async createPinataPinnedFile(picture: Buffer, name: string, description: string): Promise<string> {
 
 		let blobPicture: Blob;
 		const pinataMetadata = JSON.stringify({
@@ -640,7 +640,10 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 		let blobJson: Blob;
 		const jsonTest = {
-			nftImage: `${pinata_gateway_url}/ipfs/${responsePicture.IpfsHash}`
+			"name": name,
+			"description": description,
+			"image": `${pinata_gateway_url}/ipfs/${responsePicture.IpfsHash}`,
+			"attributes": []
 		}
 
 		var buf = Buffer.from(JSON.stringify(jsonTest));
@@ -924,7 +927,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 					if (!this.queueService.isCreatingOwnable()) {
 						// console.log("Waiting 10 seconds for a possible TX ID that needs to be populated into LTO node network...");
 						await this.wait(10000);
-						let ltoNetworkId, requestId, data, sender, reenqueued= false;
+						let ltoNetworkId, requestId, data, sender, reenqueued = false;
 						try {
 							[ltoNetworkId, requestId, data, sender, reenqueued] = await this.queueService.processNextQueueEntry();
 						} catch (err) {
@@ -1062,7 +1065,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			baseStr = name.slice(0, -5); // Remove the .webp part
 			extension = '.webp';
 		}
-		// Replace all non-alphanumeric characters with underscores
+		// Replace all non-alphanumeric characters with nothing
 		const sanitizedBaseStr = baseStr.replace(/[^a-zA-Z0-9]/g, '');
 		return sanitizedBaseStr + extension;
 	}
@@ -1143,7 +1146,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 				const picture: Buffer = requestIdFiles.get(`${jsonFile.PLACEHOLDER2_IMG}`);
 				this.loggingService.log(requestId, `Creating S3 image File for NFT Token URI ...`);
 				try {
-					jsonFile.NFT_TOKEN_URI = await this.createPinataPinnedFile(picture);
+					jsonFile.NFT_TOKEN_URI = await this.createPinataPinnedFile(picture, jsonFile.PLACEHOLDER1_NAME, jsonFile.PLACEHOLDER1_DESCRIPTION);
 					// jsonFile.NFT_TOKEN_URI = await this.s3.uploadPictureToS3(picture);
 				} catch (err) {
 					this.loggingService.logError(requestId, `Creating S3 image File failed: ${err}`);
@@ -1243,39 +1246,41 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		}
 	}
 
-	private async watchFileCreation(ltoNetworkId: 'L' | 'T', fileName: string, jsonFile: any, nftInfo: NftInfo, sender: string, rid: string) {
-		this.loggingService.log(rid, `Ownable creation startet. Waiting for Zip File ${fileName} to be created...`);
+	private async watchFileCreation(ltoNetworkId: 'L' | 'T', zipFile1: string, jsonFile: any, nftInfo: NftInfo, sender: string, rid: string) {
+		this.loggingService.log(rid, `Ownable creation startet. Waiting for Zip File ${zipFile1} to be created...`);
 
 		let timeout = 0;
-		while (!fileExists(fileName)) {
+		while (!fileExists(zipFile1)) {
 			this.wait(1000);
 			timeout += 1;
 			if (timeout >= 300) {
 				break;
 			}
 		}
-		this.loggingService.log(rid, `Zip File ${fileName} Created successfully.`);
+		this.loggingService.log(rid, `Zip File ${zipFile1} Created successfully.`);
 		this.loggingService.log(rid, `Unzipping to produce unique cid...`);
-		let cidFiles: any;
+		let pkgFiles: any;
 		try {
-			cidFiles = await this.unzip(fileName);
+			pkgFiles = await this.unzip(zipFile1);
 		} catch (err) {
-			this.loggingService.logError(rid, `Unzipping ${fileName} failed`);
+			this.loggingService.logError(rid, `Unzipping ${zipFile1} failed`);
 			throw err;
 		}
 
 		// adding a timestamp file to the Ownable to guarantee uniqueness for the CID
 		const timeMillisecondsNow = Date.now().toString();
-		cidFiles.set('timestamp.txt', Buffer.from(timeMillisecondsNow, 'utf-8'));
+		pkgFiles.set('timestamp.txt', Buffer.from(timeMillisecondsNow, 'utf-8'));
+		this.loggingService.log(rid, `Added unique timestamp.txt ${timeMillisecondsNow} for creating a unique package CID`);
 
 		this.loggingService.log(rid, `getting unique chain ID from created ownable zip files ...`);
 		let cid: any;
 		try {
-			cid = await this.getUniqueId(cidFiles);
+			cid = await this.getUniqueId(pkgFiles);
 		} catch (err) {
 			this.loggingService.logError(rid, `getting unique CID failed`);
 			throw err;
 		}
+
 		this.loggingService.log(rid, `setCidNftInfo rid ${rid}`);
 		this.loggingService.log(rid, `setCidNftInfo cid ${cid}`);
 		this.loggingService.log(rid, `setCidNftInfo nftInfo` + JSON.stringify(nftInfo));
@@ -1289,16 +1294,16 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		const ownableZip = `${this.pathToCids}/${cid}/${cid}.zip`;
 		this.loggingService.log(rid, `Storing new Ownable zip file and deleting the source Ownable zip ...`);
 		try {
-			cpSync(fileName, ownableZip);
+			cpSync(zipFile1, ownableZip);
 		} catch (err) {
-			this.loggingService.logError(rid, `Error cpSync ${fileName}. Error: ${err}`);
+			this.loggingService.logError(rid, `Error cpSync ${zipFile1}. Error: ${err}`);
 			throw err;
 		}
 
 		try {
-			rmSync(fileName);
+			rmSync(zipFile1);
 		} catch (err) {
-			this.loggingService.logError(rid, `Error rmSync ${fileName}. Error: ${err}`);
+			this.loggingService.logError(rid, `Error rmSync ${zipFile1}. Error: ${err}`);
 			throw err;
 		}
 		try {
@@ -1333,10 +1338,10 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			throw err;
 		}
 
-		cidFiles.set('chain.json', chainBuffer);
+		pkgFiles.set('chain.json', chainBuffer);
 
 		try {
-			await this.storeFiles(`${this.pathToCids}/${cid}`, cid, cidFiles);
+			await this.storeFiles(`${this.pathToCids}/${cid}`, cid, pkgFiles);
 		} catch (err) {
 			this.loggingService.logError(rid, `Storing files failed ${this.pathToCids}/${cid} Error: ${err}`);
 			throw err;
@@ -1346,6 +1351,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 		let zipFile: Buffer;
 		try {
+
 			zipFile = readFileSync(`${this.pathToCids}/${cid}/${cid}.zip`);
 		} catch (err) {
 			this.loggingService.logError(rid, `Reading File failed ${this.pathToCids}/${cid}/${cid}.zip Error: ${err}`);
@@ -1385,25 +1391,98 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		}
 		// await this.wait(20000); // TODO
 		try {
-			await this.storeZip(`${this.pathToCids}/${cid}`, cid, zipContent);
-			this.loggingService.log(rid, `Zip file stored at ${this.pathToCids}/${cid}/${cid}.zip`);
+			await this.s3.storeZip(ltoNetworkId, cid, rid, sender, zipContent);
 		} catch (err) {
-			this.loggingService.logError(rid, `Failed to store Zip Content to file ${this.pathToCids}/${cid}/${cid}.zip: ${err}`);
+			this.loggingService.logError(rid, `Failed to store ${cid}_${rid}_${sender}_.zip on s3 Bucket: ${err}`);
 			throw err;
 		}
+		// try {
+		// 	await this.storeZip(`${this.pathToCids}/${cid}`, cid, zipContent);
+		// 	this.loggingService.log(rid, `Zip file stored at ${this.pathToCids}/${cid}/${cid}.zip`);
+		// } catch (err) {
+		// 	this.loggingService.logError(rid, `Failed to store Zip Content to file ${this.pathToCids}/${cid}/${cid}.zip: ${err}`);
+		// 	throw err;
+		// }
 		try {
+			this.loggingService.log(rid, `Sending Ownable.. ltoNetworkId:${ltoNetworkId} rid:${rid} sender:${sender}`);
 			await this.sendOwnable(ltoNetworkId, rid, sender, zipContent);
 		} catch (err) {
 			this.loggingService.logError(rid, `Failed to send Ownable RID:${rid} SENDER:${sender}: ${err}`);
 			throw err;
 		}
+		try {
+			this.loggingService.log(rid, `rm -rf ${this.pathToCids}/${cid}`);
+			const output = await this.executeCommand(`rm -rf ${this.pathToCids}/${cid}`, rid);
+			this.loggingService.log(rid, `${output}`);
+		} catch (error) {
+			this.loggingService.logError(rid, `Command: rm -rf ownables/${jsonFile.PLACEHOLDER1_NAME} failed: ${error}`);
+			throw error;
+		}
+		this.addCidToJsonArray(cid);
+
 	}
 
+	public async resendOwnableByRequestId(ltoNetworkId: 'L' | 'T', requestId: string): Promise<any> {
+		let files: string[];
+		if (ltoNetworkId === 'L') {
+			files = await this.s3.s3BucketOwnables_L.list();
+		} else {
+			files = await this.s3.s3BucketOwnables_T.list();
+		}
+		console.log("Bucket files:", files);
 
+		// Build the regex pattern
+		const myReg = new RegExp(`^${requestId}_`, 'g');
+		console.log('Regex pattern:', myReg);
+		const matchingFile = files.find((file) => file.match(myReg));
+
+
+		const retVal = {
+			ltoNetworkId: ltoNetworkId,
+			requestId: requestId,
+			cid: "",
+			sender: "",
+			resend: false
+		};
+
+		if (matchingFile) {
+			const filesArray = matchingFile.split('_');
+			console.log("Matching file array:", filesArray);
+
+			retVal.cid = filesArray[1]; // cid
+			retVal.sender = filesArray[2];
+			let zipContent: Buffer;
+
+			if (ltoNetworkId === 'L') {
+				zipContent = await this.s3.s3BucketOwnables_L.get(`${requestId}_${retVal.cid}_${retVal.sender}_.zip`);
+			} else {
+				zipContent = await this.s3.s3BucketOwnables_T.get(`${requestId}_${retVal.cid}_${retVal.sender}_.zip`);
+			}
+
+			try {
+				await this.sendOwnable(ltoNetworkId, requestId, retVal.sender, zipContent);
+				retVal.resend = true;
+			} catch (err) {
+				retVal.resend = false;
+				this.loggingService.logError(requestId, `Failed to re-send Ownable RID:${requestId} SENDER:${retVal.sender}: ${err}`);
+				throw err;
+			}
+
+			return JSON.parse(JSON.stringify(retVal));
+
+		}
+	}
+
+	private addCidToJsonArray(cid: string) {
+		this.jsonArrayOwnables.push(cid);
+		let jsonFormattedArray = JSON.stringify(this.jsonArrayOwnables, null, 2);
+		console.log("jsonFormattedArray", jsonFormattedArray);
+	}
 	private async startOwnableCreation(ltoNetworkId: 'L' | 'T', rid: string, jsonFile: any, nftInfo: NftInfo, sender: string, requestIdFiles: Map<string, Buffer>) {
 		this.loggingService.log(rid, `Starting Ownable creation...`);
 		this.loggingService.log(rid, `Copying template 1 to template directory for modification`);
 		let cpCmdFrom = `${this.pathToTemplates}/template1`
+
 		let cpCmdTo = `ownables/${jsonFile.PLACEHOLDER1_NAME}`;
 		try {
 			cpSync(cpCmdFrom, cpCmdTo, { "recursive": true });
@@ -1428,7 +1507,6 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		}
 
 		this.loggingService.log(rid, `copying thumbnail image file into template`);
-
 		const thumbnail = requestIdFiles.get(`${jsonFile.OWNABLE_THUMBNAIL}`);
 		writeCommand = `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.OWNABLE_THUMBNAIL}`;
 		try {

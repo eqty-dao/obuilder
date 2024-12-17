@@ -105,6 +105,11 @@ export class UploadZipController {
   getQueueEntriesByStatus(@Query('status') status: OwnableStatus, @Query('ltoNetworkId') ltoNetworkId: 'L' | 'T') {
     return this.uploadZipService.getQueueEntriesByStatus(ltoNetworkId, status);
   }
+  
+  @Get('resendOwnableByRequestId')
+  async resendOwnableByRequestId(@Query('requestId') requestId: string, @Query('ltoNetworkId') ltoNetworkId: 'L' | 'T') {
+    return await this.uploadZipService.resendOwnableByRequestId(ltoNetworkId, requestId);
+  }
 
   @Get('getQueueStatus')
   getQueueStatus() {
