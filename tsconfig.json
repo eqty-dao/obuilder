@@ -2,6 +2,8 @@
   "compilerOptions": {
     "module": "node16",
     "declaration": true,
+	"typeRoots": ["node_modules/@types"],
+    "types": ["node"],
     "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,

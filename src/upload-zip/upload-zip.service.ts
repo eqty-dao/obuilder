@@ -1389,20 +1389,15 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			this.loggingService.logError(rid, `Failed to set Queue Entry status to Ready: ${err}`);
 			throw err;
 		}
-		// await this.wait(20000); // TODO
+		// Store Package zip including new anchored eventChain to s3Bucket
 		try {
 			await this.s3.storeZip(ltoNetworkId, cid, rid, sender, zipContent);
+			this.loggingService.log(rid, `Stored successfully ${cid}_${rid}_${sender}_.zip on s3 Bucket`);
 		} catch (err) {
 			this.loggingService.logError(rid, `Failed to store ${cid}_${rid}_${sender}_.zip on s3 Bucket: ${err}`);
 			throw err;
 		}
-		// try {
-		// 	await this.storeZip(`${this.pathToCids}/${cid}`, cid, zipContent);
-		// 	this.loggingService.log(rid, `Zip file stored at ${this.pathToCids}/${cid}/${cid}.zip`);
-		// } catch (err) {
-		// 	this.loggingService.logError(rid, `Failed to store Zip Content to file ${this.pathToCids}/${cid}/${cid}.zip: ${err}`);
-		// 	throw err;
-		// }
+		
 		try {
 			this.loggingService.log(rid, `Sending Ownable.. ltoNetworkId:${ltoNetworkId} rid:${rid} sender:${sender}`);
 			await this.sendOwnable(ltoNetworkId, rid, sender, zipContent);
@@ -1410,14 +1405,14 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			this.loggingService.logError(rid, `Failed to send Ownable RID:${rid} SENDER:${sender}: ${err}`);
 			throw err;
 		}
-		try {
-			this.loggingService.log(rid, `rm -rf ${this.pathToCids}/${cid}`);
-			const output = await this.executeCommand(`rm -rf ${this.pathToCids}/${cid}`, rid);
-			this.loggingService.log(rid, `${output}`);
-		} catch (error) {
-			this.loggingService.logError(rid, `Command: rm -rf ownables/${jsonFile.PLACEHOLDER1_NAME} failed: ${error}`);
-			throw error;
-		}
+		// try {
+		// 	this.loggingService.log(rid, `rm -rf ${this.pathToCids}/${cid}`);
+		// 	const output = await this.executeCommand(`rm -rf ${this.pathToCids}/${cid}`, rid);
+		// 	this.loggingService.log(rid, `${output}`);
+		// } catch (error) {
+		// 	this.loggingService.logError(rid, `rm -rf ${this.pathToCids}/${cid} failed: ${error}`);
+		// 	throw error;
+		// }
 		this.addCidToJsonArray(cid);
 
 	}
