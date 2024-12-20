@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, UseInterceptors, UploadedFile, Res, Req, Q
 import { UploadZipService } from './upload-zip.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Express } from 'express';
+import multer from 'multer';
 import { Request, Response } from 'express';
 import { InputUploadFileDto } from './dto/inputUploadFileDto.dto';
 import { Account, EventChain } from '@ltonetwork/lto';

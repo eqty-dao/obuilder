@@ -437,7 +437,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	}
 
 
-	private async createEventChain(pkg: TypedPackage, nftInfo: NftInfo, receiver: string): Promise<Buffer> {
+	private async createEventChain(pkg: TypedPackage, nftInfo: NftInfo, receiver: string, firstIteration: boolean): Promise<Buffer> {
 		const ltoNetworkId = getNetwork(receiver);
 		let ltoAccount: Account;
 
@@ -507,21 +507,26 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 				this.loggingService.log(pkg.cid, `All good! Genesis signer correct after creating the Ownable on lto Network ${ltoNetworkId}`);
 			}
 
+			let file: any;
+
 			const json1 = `${this.pathToCids}/${pkg.cid}/${pkg.cid}.json`
+			// const json1 = `${this.pathToTemplates}/eventChain.json`
 			try {
+				const packageDir = `${this.pathToCids}/${pkg.cid}`;
+				mkdirSync(packageDir, { recursive: true });
 				writeFileSync(json1, JSON.stringify(chain));
 			} catch (err) {
 				this.loggingService.logError(pkg.cid, `Writing ${json1} failed`);
 				throw err;
 			}
 
-			let file: any;
 			try {
 				file = readFileSync(json1, { encoding: 'utf8' });
 			} catch (err) {
 				this.loggingService.logError(pkg.cid, `Reading ${json1} failed`);
 				throw err;
 			}
+
 			buf = Buffer.from(file, 'utf8');
 
 			// Checking the import of the EvenChain json if this still works (e.g. for ownables-sdk)
@@ -936,7 +941,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 						if (requestId != null && data != null) {
 							try {
-								await this.store(ltoNetworkId, requestId, data, 1, sender, reenqueued); // true = verbose
+								await this.store(ltoNetworkId, requestId, data, 1, sender, reenqueued);
 							} catch (err) {
 								const queryProcessingEntry1: QueueEntry[] = this.queueService.getQueueEntriesByStatus(ltoNetworkId, OwnableStatus.Processing);
 								this.loggingService.log(queryProcessingEntry1[0].rid, `Ownable creation failed on lto network ${ltoNetworkId}: ${err}`);
@@ -1073,6 +1078,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 
 	public async store(ltoNetworkId: 'L' | 'T', requestId: string, data: Uint8Array, templateId: number, sender: string, reenqueued: boolean) {
+		const firstIteration = true; // TOUPDATE
 		try {
 			this.loggingService.log(requestId, `Unzipping user input files for Ownable creation into memory`);
 			const requestIdFiles = await this.unzip(data);
@@ -1146,7 +1152,14 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 				const picture: Buffer = requestIdFiles.get(`${jsonFile.PLACEHOLDER2_IMG}`);
 				this.loggingService.log(requestId, `Creating S3 image File for NFT Token URI ...`);
 				try {
-					jsonFile.NFT_TOKEN_URI = await this.createPinataPinnedFile(picture, jsonFile.PLACEHOLDER1_NAME, jsonFile.PLACEHOLDER1_DESCRIPTION);
+					if (firstIteration) {
+						jsonFile.NFT_TOKEN_URI = await this.createPinataPinnedFile(picture, jsonFile.PLACEHOLDER1_NAME, jsonFile.PLACEHOLDER1_DESCRIPTION);
+						console.log("NFT_TOKEN_URI", jsonFile.NFT_TOKEN_URI);
+					} else {
+						jsonFile.NFT_TOKEN_URI = 'https://ltonetwork.mypinata.cloud/ipfs/bafkreiegrefdl76cdj6bgqaqe4ozlohfx6st56glmesbtt24ipmcebkome'; // TOUPDATE this was with ownable1.webp
+						// jsonFile.NFT_TOKEN_URI = 'https://ltonetwork.mypinata.cloud/ipfs/bafkreiesjdqnkwopuwnc27j7j3ey2c2lbdjaweg3cegrapontvcpnzqyfe'; // TOUPDATE this was with ownable2.webp
+						console.log("Reusing TOKEN URI: ", jsonFile.NFT_TOKEN_URI);
+					}
 					// jsonFile.NFT_TOKEN_URI = await this.s3.uploadPictureToS3(picture);
 				} catch (err) {
 					this.loggingService.logError(requestId, `Creating S3 image File failed: ${err}`);
@@ -1172,7 +1185,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 			try {
 				this.loggingService.log(requestId, `creating template with request ID ${requestId} and modifying requestIdFiles...`);
-				await this.startOwnableCreation(ltoNetworkId, requestId, jsonFile, nftInfo, sender, requestIdFiles);
+				await this.startOwnableCreation(ltoNetworkId, requestId, jsonFile, nftInfo, sender, requestIdFiles, firstIteration);
 			} catch (err) {
 				this.loggingService.logError(requestId, `start Ownable Creation failed ${err}`);
 				throw err;
@@ -1246,25 +1259,40 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		}
 	}
 
-	private async watchFileCreation(ltoNetworkId: 'L' | 'T', zipFile1: string, jsonFile: any, nftInfo: NftInfo, sender: string, rid: string) {
-		this.loggingService.log(rid, `Ownable creation startet. Waiting for Zip File ${zipFile1} to be created...`);
-
-		let timeout = 0;
-		while (!fileExists(zipFile1)) {
-			this.wait(1000);
-			timeout += 1;
-			if (timeout >= 300) {
-				break;
-			}
-		}
-		this.loggingService.log(rid, `Zip File ${zipFile1} Created successfully.`);
-		this.loggingService.log(rid, `Unzipping to produce unique cid...`);
+	private async watchFileCreation(ltoNetworkId: 'L' | 'T', zipFile1: string, jsonFile: any, nftInfo: NftInfo, sender: string, rid: string, firstIteration: boolean) {
 		let pkgFiles: any;
-		try {
-			pkgFiles = await this.unzip(zipFile1);
-		} catch (err) {
-			this.loggingService.logError(rid, `Unzipping ${zipFile1} failed`);
-			throw err;
+
+		if (firstIteration) {
+			this.loggingService.log(rid, `Ownable creation startet. Waiting for Zip File ${zipFile1} to be created...`);
+
+			let timeout = 0;
+			while (!fileExists(zipFile1)) {
+				this.wait(1000);
+				timeout += 1;
+				if (timeout >= 300) {
+					break;
+				}
+			}
+			this.loggingService.log(rid, `Zip File ${zipFile1} Created successfully.`);
+			this.loggingService.log(rid, `Unzipping to produce unique cid...`);
+			try {
+				pkgFiles = await this.unzip(zipFile1);
+			} catch (err) {
+				this.loggingService.logError(rid, `Unzipping ${zipFile1} failed`);
+				throw err;
+			}
+
+			const ownableZip = `${this.pathToTemplates}/reusablePackage.zip`;
+
+			try {
+				cpSync(zipFile1, ownableZip, { force: true });
+			} catch (err) {
+				this.loggingService.logError(rid, `Error cpSync ${zipFile1}. Error: ${err}`);
+				throw err;
+			}
+		} else {
+			pkgFiles = await this.unzip(`${this.pathToTemplates}/reusablePackage.zip`);
+			console.log(`REUSING PKG ZIP: ${this.pathToTemplates}/reusablePackage.zip`);
 		}
 
 		// adding a timestamp file to the Ownable to guarantee uniqueness for the CID
@@ -1291,28 +1319,31 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			throw err;
 		}
 
-		const ownableZip = `${this.pathToCids}/${cid}/${cid}.zip`;
-		this.loggingService.log(rid, `Storing new Ownable zip file and deleting the source Ownable zip ...`);
-		try {
-			cpSync(zipFile1, ownableZip);
-		} catch (err) {
-			this.loggingService.logError(rid, `Error cpSync ${zipFile1}. Error: ${err}`);
-			throw err;
-		}
+		if (firstIteration) {
+			const ownableZip = `${this.pathToCids}/${cid}/${cid}.zip`;
+			this.loggingService.log(rid, `Storing new Ownable zip file and deleting the source Ownable zip ...`);
+			try {
+				cpSync(zipFile1, ownableZip, { force: true });
+			} catch (err) {
+				this.loggingService.logError(rid, `Error cpSync ${zipFile1}. Error: ${err}`);
+				throw err;
+			}
 
-		try {
-			rmSync(zipFile1);
-		} catch (err) {
-			this.loggingService.logError(rid, `Error rmSync ${zipFile1}. Error: ${err}`);
-			throw err;
-		}
-		try {
-			rmSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}`, { recursive: true });
-		} catch (err) {
-			this.loggingService.logError(rid, `Error rmSync ownables/${jsonFile.PLACEHOLDER1_NAME}. Error: ${err}`);
-			throw err;
-		}
+			try {
+				rmSync(zipFile1);
+			} catch (err) {
+				this.loggingService.logError(rid, `Error rmSync ${zipFile1}. Error: ${err}`);
+				throw err;
+			}
+			try {
+				rmSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}`, { recursive: true });
+			} catch (err) {
+				this.loggingService.logError(rid, `Error rmSync ownables/${jsonFile.PLACEHOLDER1_NAME}. Error: ${err}`);
+				throw err;
+			}
+		} else {
 
+		}
 		const pkgOwnable: TypedPackage = {
 			isDynamic: true,
 			hasMetadata: false,
@@ -1332,7 +1363,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 		let chainBuffer: Buffer;
 		try {
-			chainBuffer = await this.createEventChain(pkgOwnable, nftInfo, sender); // sender from TX ID is new ownable owner
+			chainBuffer = await this.createEventChain(pkgOwnable, nftInfo, sender, firstIteration); // sender from TX ID is new ownable owner
 		} catch (err) {
 			this.loggingService.logError(rid, `Create Event Chain failed ${nftInfo} ${sender} Error: ${err}`);
 			throw err;
@@ -1352,9 +1383,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		let zipFile: Buffer;
 		try {
 
-			zipFile = readFileSync(`${this.pathToCids}/${cid}/${cid}.zip`);
+			zipFile = readFileSync(`${this.pathToTemplates}/reusablePackage.zip`);
 		} catch (err) {
-			this.loggingService.logError(rid, `Reading File failed ${this.pathToCids}/${cid}/${cid}.zip Error: ${err}`);
+			this.loggingService.logError(rid, `Reading File failed ${this.pathToTemplates}/reusablePackage.zip Error: ${err}`);
 			throw err;
 		}
 		try {
@@ -1410,15 +1441,15 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			this.loggingService.logError(rid, `Failed to send Ownable RID:${rid} SENDER:${sender}: ${err}`);
 			throw err;
 		}
-		try {
-			this.loggingService.log(rid, `rm -rf ${this.pathToCids}/${cid}`);
-			const output = await this.executeCommand(`rm -rf ${this.pathToCids}/${cid}`, rid);
-			this.loggingService.log(rid, `${output}`);
-		} catch (error) {
-			this.loggingService.logError(rid, `Command: rm -rf ownables/${jsonFile.PLACEHOLDER1_NAME} failed: ${error}`);
-			throw error;
-		}
-		this.addCidToJsonArray(cid);
+		// try {
+		// 	this.loggingService.log(rid, `rm -rf ${this.pathToCids}/${cid}`);
+		// 	const output = await this.executeCommand(`rm -rf ${this.pathToCids}/${cid}`, rid);
+		// 	this.loggingService.log(rid, `${output}`);
+		// } catch (error) {
+		// 	this.loggingService.logError(rid, `Command: rm -rf ownables/${jsonFile.PLACEHOLDER1_NAME} failed: ${error}`);
+		// 	throw error;
+		// }
+		this.addCidToJsonArray(cid, firstIteration);
 
 	}
 
@@ -1473,118 +1504,125 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		}
 	}
 
-	private addCidToJsonArray(cid: string) {
+	private addCidToJsonArray(cid: string, firstIteration: boolean) {
+		// if (firstIteration) {// TOUPDATE
+		// 	console.log("Reusing bafybeic6ntpdi7yebs3z5gfwsda4kivjp6kbtexyzvzqnv3p3qt7eqs4uu")
+		// 	this.jsonArrayOwnables.push('bafybeic6ntpdi7yebs3z5gfwsda4kivjp6kbtexyzvzqnv3p3qt7eqs4uu'); 
+		// }
 		this.jsonArrayOwnables.push(cid);
 		let jsonFormattedArray = JSON.stringify(this.jsonArrayOwnables, null, 2);
 		console.log("jsonFormattedArray", jsonFormattedArray);
 	}
-	private async startOwnableCreation(ltoNetworkId: 'L' | 'T', rid: string, jsonFile: any, nftInfo: NftInfo, sender: string, requestIdFiles: Map<string, Buffer>) {
-		this.loggingService.log(rid, `Starting Ownable creation...`);
-		this.loggingService.log(rid, `Copying template 1 to template directory for modification`);
-		let cpCmdFrom = `${this.pathToTemplates}/template1`
+	private async startOwnableCreation(ltoNetworkId: 'L' | 'T', rid: string, jsonFile: any, nftInfo: NftInfo, sender: string, requestIdFiles: Map<string, Buffer>, firstIteration: boolean) {
+		if (firstIteration) {
 
-		let cpCmdTo = `ownables/${jsonFile.PLACEHOLDER1_NAME}`;
-		try {
-			cpSync(cpCmdFrom, cpCmdTo, { "recursive": true });
-			this.loggingService.log(rid, `Success: copy template from ${cpCmdFrom} to ${cpCmdTo}`);
-		} catch (err) {
-			this.loggingService.logError(rid, `Failed to copy template from ${cpCmdFrom} to ${cpCmdTo}`);
-			throw (err);
-		}
-		this.loggingService.log(rid, `Request ID: ${rid}`);
-		this.loggingService.log(rid, `PLACEHOLDER2_IMG: ${jsonFile.PLACEHOLDER2_IMG}`);
-		this.loggingService.log(rid, `OWNABLE_THUMBNAIL: ${jsonFile.OWNABLE_THUMBNAIL}`);
+			this.loggingService.log(rid, `Starting Ownable creation...`);
+			this.loggingService.log(rid, `Copying template 1 to template directory for modification`);
+			let cpCmdFrom = `${this.pathToTemplates}/template1`
 
-		this.loggingService.log(rid, `copying image file into template`);
-		const image = requestIdFiles.get(`${jsonFile.PLACEHOLDER2_IMG}`);
-		let writeCommand = `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`;
-		try {
-			writeFileSync(writeCommand, image);
-		}
-		catch (err) {
-			this.loggingService.logError(rid, `Write command failed ${writeCommand} for image ${image}`);
-			throw (err);
-		}
-
-		this.loggingService.log(rid, `copying thumbnail image file into template`);
-		const thumbnail = requestIdFiles.get(`${jsonFile.OWNABLE_THUMBNAIL}`);
-		writeCommand = `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.OWNABLE_THUMBNAIL}`;
-		try {
-			writeFileSync(writeCommand, thumbnail);
-		}
-		catch (err) {
-			this.loggingService.logError(rid, `Write command failed ${writeCommand} for thumbnail ${thumbnail}`);
-			throw (err);
-		}
-
-		this.loggingService.log(rid, `Replacing Placeholder texts of template with user input data`);
-		try {
-			await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_NAME".toString(), `"${jsonFile.PLACEHOLDER1_NAME}"`.toString());
-			await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_DESCRIPTION".toString(), `"${jsonFile.PLACEHOLDER1_DESCRIPTION}"`.toString());
-			await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_VERSION".toString(), `"${jsonFile.PLACEHOLDER1_VERSION}"`.toString());
-			if (typeof jsonFile.PLACEHOLDER1_AUTHORS === 'undefined')
-				jsonFile.PLACEHOLDER1_AUTHORS = '';
-			await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_AUTHORS".toString(), `"${jsonFile.PLACEHOLDER1_AUTHORS}"`.toString());
-
-			await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_KEYWORDS".toString(), arrayToString(jsonFile.PLACEHOLDER1_KEYWORDS));
-
-			await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/index.html`.toString(), "PLACEHOLDER2_TITLE".toString(), `${jsonFile.PLACEHOLDER2_TITLE}`);
-			await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/index.html`.toString(), "PLACEHOLDER2_IMG".toString(), `"${jsonFile.PLACEHOLDER2_IMG}"`.toString());
-
-			await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/examples/schema.rs`.toString(), "PLACEHOLDER3_MSG".toString(), `${jsonFile.PLACEHOLDER1_NAME}`);
-			await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/examples/schema.rs`.toString(), "PLACEHOLDER3_STATE".toString(), `${jsonFile.PLACEHOLDER1_NAME}`);
-
-			await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_CONTRACT_NAME".toString(), `"crates.io:${jsonFile.PLACEHOLDER1_NAME}"`.toString());
-			await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_TYPE".toString(), `"${jsonFile.PLACEHOLDER4_TYPE}"`.toString());
-			await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_DESCRIPTION".toString(), `"${jsonFile.PLACEHOLDER4_DESCRIPTION}"`.toString());
-			await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_NAME".toString(), `"${jsonFile.PLACEHOLDER4_NAME}"`.toString());
-		} catch (err) {
-			this.loggingService.logError(rid, `Replacing Placeholder texts failed ${err}`);
-			throw (err);
-		}
-
-		this.loggingService.log(rid, `Checking Cargo, Wasm-Pack and Rustup existance...`);
-		try {
-			const output = await this.executeCommand('cargo --version', rid);
-			this.loggingService.log(rid, `${output}`);
-		} catch (err) {
-			this.loggingService.logError(rid, `Cargo command failed, but essential for Ownable creation: ${err}`);
-			throw err;
-		}
-		try {
-			const output = await this.executeCommand('rustup --version', rid);
-			this.loggingService.log(rid, `${output}`);
-		} catch (err) {
-			this.loggingService.logError(rid, `Rustup command failed, but essential for Ownable creation: ${err}`);
-			throw err;
-		}
-		try {
-			const output = await this.executeCommand('wasm-pack --version', rid);
-			this.loggingService.log(rid, `${output}`);
-		} catch (err) {
-			this.loggingService.logError(rid, `Wasm-Pack command failed, but essential for Ownable creation: ${err}`);
-			throw err;
-		}
-
-		try {
-			this.loggingService.log(rid, `Building Ownable...`);
-			const output = await this.executeCommand1(ltoNetworkId, `npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}`, rid);
-			this.loggingService.log(rid, `${output}`);
-		} catch (err) {
-			this.loggingService.logError(rid, `Command: npm run ownables command failed: ${err}`);
+			let cpCmdTo = `ownables/${jsonFile.PLACEHOLDER1_NAME}`;
 			try {
-				const output = await this.executeCommand(`rm -rf ownables/${jsonFile.PLACEHOLDER1_NAME}`, rid);
-				this.loggingService.log(rid, `${output}`);
-			} catch (error) {
-				this.loggingService.logError(rid, `Command: rm -rf ownables/${jsonFile.PLACEHOLDER1_NAME} failed: ${error}`);
-				throw error;
+				cpSync(cpCmdFrom, cpCmdTo, { "recursive": true });
+				this.loggingService.log(rid, `Success: copy template from ${cpCmdFrom} to ${cpCmdTo}`);
+			} catch (err) {
+				this.loggingService.logError(rid, `Failed to copy template from ${cpCmdFrom} to ${cpCmdTo}`);
+				throw (err);
 			}
-		}
+			this.loggingService.log(rid, `Request ID: ${rid}`);
+			this.loggingService.log(rid, `PLACEHOLDER2_IMG: ${jsonFile.PLACEHOLDER2_IMG}`);
+			this.loggingService.log(rid, `OWNABLE_THUMBNAIL: ${jsonFile.OWNABLE_THUMBNAIL}`);
 
+			this.loggingService.log(rid, `copying image file into template`);
+			const image = requestIdFiles.get(`${jsonFile.PLACEHOLDER2_IMG}`);
+			let writeCommand = `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`;
+			try {
+				writeFileSync(writeCommand, image);
+			}
+			catch (err) {
+				this.loggingService.logError(rid, `Write command failed ${writeCommand} for image ${image}`);
+				throw (err);
+			}
+
+			this.loggingService.log(rid, `copying thumbnail image file into template`);
+			const thumbnail = requestIdFiles.get(`${jsonFile.OWNABLE_THUMBNAIL}`);
+			writeCommand = `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.OWNABLE_THUMBNAIL}`;
+			try {
+				writeFileSync(writeCommand, thumbnail);
+			}
+			catch (err) {
+				this.loggingService.logError(rid, `Write command failed ${writeCommand} for thumbnail ${thumbnail}`);
+				throw (err);
+			}
+
+			this.loggingService.log(rid, `Replacing Placeholder texts of template with user input data`);
+			try {
+				await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_NAME".toString(), `"${jsonFile.PLACEHOLDER1_NAME}"`.toString());
+				await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_DESCRIPTION".toString(), `"${jsonFile.PLACEHOLDER1_DESCRIPTION}"`.toString());
+				await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_VERSION".toString(), `"${jsonFile.PLACEHOLDER1_VERSION}"`.toString());
+				if (typeof jsonFile.PLACEHOLDER1_AUTHORS === 'undefined')
+					jsonFile.PLACEHOLDER1_AUTHORS = '';
+				await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_AUTHORS".toString(), `"${jsonFile.PLACEHOLDER1_AUTHORS}"`.toString());
+
+				await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/Cargo.toml`.toString(), "PLACEHOLDER1_KEYWORDS".toString(), arrayToString(jsonFile.PLACEHOLDER1_KEYWORDS));
+
+				await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/index.html`.toString(), "PLACEHOLDER2_TITLE".toString(), `${jsonFile.PLACEHOLDER2_TITLE}`);
+				await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/index.html`.toString(), "PLACEHOLDER2_IMG".toString(), `"${jsonFile.PLACEHOLDER2_IMG}"`.toString());
+
+				await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/examples/schema.rs`.toString(), "PLACEHOLDER3_MSG".toString(), `${jsonFile.PLACEHOLDER1_NAME}`);
+				await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/examples/schema.rs`.toString(), "PLACEHOLDER3_STATE".toString(), `${jsonFile.PLACEHOLDER1_NAME}`);
+
+				await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_CONTRACT_NAME".toString(), `"crates.io:${jsonFile.PLACEHOLDER1_NAME}"`.toString());
+				await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_TYPE".toString(), `"${jsonFile.PLACEHOLDER4_TYPE}"`.toString());
+				await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_DESCRIPTION".toString(), `"${jsonFile.PLACEHOLDER4_DESCRIPTION}"`.toString());
+				await this.replaceLineInFile(`ownables/${jsonFile.PLACEHOLDER1_NAME}/src/contract.rs`.toString(), "PLACEHOLDER4_NAME".toString(), `"${jsonFile.PLACEHOLDER4_NAME}"`.toString());
+			} catch (err) {
+				this.loggingService.logError(rid, `Replacing Placeholder texts failed ${err}`);
+				throw (err);
+			}
+
+			this.loggingService.log(rid, `Checking Cargo, Wasm-Pack and Rustup existance...`);
+			try {
+				const output = await this.executeCommand('cargo --version', rid);
+				this.loggingService.log(rid, `${output}`);
+			} catch (err) {
+				this.loggingService.logError(rid, `Cargo command failed, but essential for Ownable creation: ${err}`);
+				throw err;
+			}
+			try {
+				const output = await this.executeCommand('rustup --version', rid);
+				this.loggingService.log(rid, `${output}`);
+			} catch (err) {
+				this.loggingService.logError(rid, `Rustup command failed, but essential for Ownable creation: ${err}`);
+				throw err;
+			}
+			try {
+				const output = await this.executeCommand('wasm-pack --version', rid);
+				this.loggingService.log(rid, `${output}`);
+			} catch (err) {
+				this.loggingService.logError(rid, `Wasm-Pack command failed, but essential for Ownable creation: ${err}`);
+				throw err;
+			}
+
+			try {
+				this.loggingService.log(rid, `Building Ownable...`);
+				const output = await this.executeCommand1(ltoNetworkId, `npm run ownables:build --package=${jsonFile.PLACEHOLDER1_NAME}`, rid);
+				this.loggingService.log(rid, `${output}`);
+			} catch (err) {
+				this.loggingService.logError(rid, `Command: npm run ownables command failed: ${err}`);
+				try {
+					const output = await this.executeCommand(`rm -rf ownables/${jsonFile.PLACEHOLDER1_NAME}`, rid);
+					this.loggingService.log(rid, `${output}`);
+				} catch (error) {
+					this.loggingService.logError(rid, `Command: rm -rf ownables/${jsonFile.PLACEHOLDER1_NAME} failed: ${error}`);
+					throw error;
+				}
+			}
+
+		}
 		const zipFileToWatch = `ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`;
 		try {
 			this.loggingService.log(rid, `Starting file watcher for zip file: ${zipFileToWatch}`);
-			await this.watchFileCreation(ltoNetworkId, `ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, rid);
+			await this.watchFileCreation(ltoNetworkId, `ownables/${jsonFile.PLACEHOLDER1_NAME}.zip`, jsonFile, nftInfo, sender, rid, firstIteration);
 		} catch (err) {
 			this.loggingService.logError(rid, `Failed to watch File creation for ${zipFileToWatch}. ${err}`);
 			throw err;
