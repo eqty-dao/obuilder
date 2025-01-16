@@ -41,7 +41,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 	private nodeVersion = process.version;
 	private pinata: PinataSDK;
-	private jsonArrayOwnables: string[] = [];
+	// private jsonArrayOwnables: string[] = [];
 
 
 	constructor(
@@ -927,16 +927,16 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 					if (!this.queueService.isCreatingOwnable()) {
 						// console.log("Waiting 10 seconds for a possible TX ID that needs to be populated into LTO node network...");
 						await this.wait(10000);
-						let ltoNetworkId, requestId, data, sender, reenqueued = false;
+						let ltoNetworkId, requestId, data, sender, reenqueued_NFTURI, reenqueued_NFTINFO, reenqueued = false;
 						try {
-							[ltoNetworkId, requestId, data, sender, reenqueued] = await this.queueService.processNextQueueEntry();
+							[ltoNetworkId, requestId, data, sender, reenqueued, reenqueued_NFTURI, reenqueued_NFTINFO] = await this.queueService.processNextQueueEntry();
 						} catch (err) {
 							this.loggingService.logError(requestId, `processNextQueueEntry failed on lto network ${ltoNetworkId}: ${err}`);
 						}
 
 						if (requestId != null && data != null) {
 							try {
-								await this.store(ltoNetworkId, requestId, data, 1, sender, reenqueued); // true = verbose
+								await this.store(ltoNetworkId, requestId, data, 1, sender, reenqueued, reenqueued_NFTURI, reenqueued_NFTINFO);
 							} catch (err) {
 								const queryProcessingEntry1: QueueEntry[] = this.queueService.getQueueEntriesByStatus(ltoNetworkId, OwnableStatus.Processing);
 								this.loggingService.log(queryProcessingEntry1[0].rid, `Ownable creation failed on lto network ${ltoNetworkId}: ${err}`);
@@ -1018,6 +1018,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			failedErrMsg: '',
 			cid: '',
 			reenqueued: false,
+			reenqueued_NFTURI: '',
 			nftInfo: {
 				network: '',
 				address: '',
@@ -1072,7 +1073,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	private wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
 
 
-	public async store(ltoNetworkId: 'L' | 'T', requestId: string, data: Uint8Array, templateId: number, sender: string, reenqueued: boolean) {
+	public async store(ltoNetworkId: 'L' | 'T', requestId: string, data: Uint8Array, templateId: number, sender: string, reenqueued: boolean, reenqueued_NFTURI: string, reenqueued_NFTINFO:NftInfo) {
 		try {
 			this.loggingService.log(requestId, `Unzipping user input files for Ownable creation into memory`);
 			const requestIdFiles = await this.unzip(data);
@@ -1142,11 +1143,17 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			let nftInfo: NftInfo;
 
 			if (jsonFile.CREATE_NFT === 'true') {
+
 				// const picture: Buffer = readFileSync(`${this.pathToRids}/${requestId}/${requestId}/${jsonFile.PLACEHOLDER2_IMG}`);
 				const picture: Buffer = requestIdFiles.get(`${jsonFile.PLACEHOLDER2_IMG}`);
 				this.loggingService.log(requestId, `Creating S3 image File for NFT Token URI ...`);
 				try {
-					jsonFile.NFT_TOKEN_URI = await this.createPinataPinnedFile(picture, jsonFile.PLACEHOLDER1_NAME, jsonFile.PLACEHOLDER1_DESCRIPTION);
+					if (!reenqueued) {
+						jsonFile.NFT_TOKEN_URI = await this.createPinataPinnedFile(picture, jsonFile.PLACEHOLDER1_NAME, jsonFile.PLACEHOLDER1_DESCRIPTION);
+
+					} else {
+						jsonFile.NFT_TOKEN_URI = reenqueued_NFTURI;
+					}
 					// jsonFile.NFT_TOKEN_URI = await this.s3.uploadPictureToS3(picture);
 				} catch (err) {
 					this.loggingService.logError(requestId, `Creating S3 image File failed: ${err}`);
@@ -1154,7 +1161,11 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 				}
 				this.loggingService.log(requestId, `NFT Token URI: ${jsonFile.NFT_TOKEN_URI}`);
 				try {
-					nftInfo = await this.mintNewNft(ltoNetworkId, jsonFile, requestId);
+					if (!reenqueued) {
+						nftInfo = await this.mintNewNft(ltoNetworkId, jsonFile, requestId);
+					} else {
+						nftInfo = reenqueued_NFTINFO;
+				}
 				} catch (err) {
 					this.loggingService.logError(requestId, `Minting NFT failed: ${err}`);
 					throw (err);
@@ -1284,8 +1295,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		this.loggingService.log(rid, `setCidNftInfo rid ${rid}`);
 		this.loggingService.log(rid, `setCidNftInfo cid ${cid}`);
 		this.loggingService.log(rid, `setCidNftInfo nftInfo` + JSON.stringify(nftInfo));
+		this.loggingService.log(rid, `setCidNftInfo nft TOken URI ${jsonFile.NFT_TOKEN_URI}` );
 		try {
-			await this.queueService.setCidNftInfo(ltoNetworkId, rid, cid, nftInfo);
+			await this.queueService.setCidNftInfo(ltoNetworkId, rid, cid, nftInfo, jsonFile.NFT_TOKEN_URI);
 		} catch (err) {
 			this.loggingService.logError(rid, `setting Cid Nft Info failed`);
 			throw err;
@@ -1397,7 +1409,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			this.loggingService.logError(rid, `Failed to store ${cid}_${rid}_${sender}_.zip on s3 Bucket: ${err}`);
 			throw err;
 		}
-		
+
 		try {
 			this.loggingService.log(rid, `Sending Ownable.. ltoNetworkId:${ltoNetworkId} rid:${rid} sender:${sender}`);
 			await this.sendOwnable(ltoNetworkId, rid, sender, zipContent);
@@ -1413,7 +1425,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		// 	this.loggingService.logError(rid, `rm -rf ${this.pathToCids}/${cid} failed: ${error}`);
 		// 	throw error;
 		// }
-		this.addCidToJsonArray(cid);
+		// this.addCidToJsonArray(cid);
 
 	}
 
@@ -1468,11 +1480,11 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		}
 	}
 
-	private addCidToJsonArray(cid: string) {
-		this.jsonArrayOwnables.push(cid);
-		let jsonFormattedArray = JSON.stringify(this.jsonArrayOwnables, null, 2);
-		console.log("jsonFormattedArray", jsonFormattedArray);
-	}
+	// private addCidToJsonArray(cid: string) {
+	// 	this.jsonArrayOwnables.push(cid);
+	// 	let jsonFormattedArray = JSON.stringify(this.jsonArrayOwnables, null, 2);
+	// 	console.log("jsonFormattedArray", jsonFormattedArray);
+	// }
 	private async startOwnableCreation(ltoNetworkId: 'L' | 'T', rid: string, jsonFile: any, nftInfo: NftInfo, sender: string, requestIdFiles: Map<string, Buffer>) {
 		this.loggingService.log(rid, `Starting Ownable creation...`);
 		this.loggingService.log(rid, `Copying template 1 to template directory for modification`);

@@ -177,6 +177,8 @@ export class QueueService implements OnModuleInit {
 					timestampFailed: entry.timestampFailed,
 					failedErrMsg: entry.failedErrMsg,
 					cid: entry.cid ?? '',
+					reenqueued: entry.reenqueued,
+					reenqueued_NFTURI: entry.reenqueued_NFTURI,	
 					nftInfo: {
 						network: '',
 						address: '',
@@ -200,6 +202,8 @@ export class QueueService implements OnModuleInit {
 					timestampFailed: entry.timestampFailed,
 					failedErrMsg: entry.failedErrMsg,
 					cid: entry.cid ?? '',
+					reenqueued: entry.reenqueued,
+					reenqueued_NFTURI: entry.reenqueued_NFTURI,	
 					nftInfo: {
 						network: '',
 						address: '',
@@ -348,6 +352,7 @@ export class QueueService implements OnModuleInit {
 				failedErrMsg: '',
 				cid: '',
 				reenqueued: false,
+				reenqueued_NFTURI: '',
 				nftInfo: {
 					network: '',
 					address: '',
@@ -416,6 +421,7 @@ export class QueueService implements OnModuleInit {
 			failedErrMsg: '',
 			cid: '',
 			reenqueued: false,
+			reenqueued_NFTURI: '',
 			nftInfo: {
 				network: '',
 				address: '',
@@ -471,15 +477,17 @@ export class QueueService implements OnModuleInit {
 		return queryQueueEntries;
 	}
 
-	public async setCidNftInfo(ltoNetwork_id: 'L' | 'T', requestId: string, cid: string, nftInfo: NftInfo) {
+	public async setCidNftInfo(ltoNetwork_id: 'L' | 'T', requestId: string, cid: string, nftInfo: NftInfo, nftURI: string) {
 		const [entry, index] = this.getQueueEntryByRequestId(ltoNetwork_id, requestId);
 
 		if (ltoNetwork_id === 'L') {
 			this.queueMainnet[index].cid = cid;
 			this.queueMainnet[index].nftInfo = nftInfo;
+			this.queueMainnet[index].reenqueued_NFTURI = nftURI;
 		} else {
 			this.queueTestnet[index].cid = cid;
 			this.queueTestnet[index].nftInfo = nftInfo;
+			this.queueTestnet[index].reenqueued_NFTURI = nftURI;
 
 		}
 		try {
@@ -628,7 +636,7 @@ export class QueueService implements OnModuleInit {
 		await this.updateQueueInS3Bucket(ltoNetwork_id);
 	}
 
-	public async processNextQueueEntry(): Promise<['L' | 'T', string, Uint8Array, string, boolean] | [null, null, null, null]> {
+	public async processNextQueueEntry(): Promise<['L' | 'T', string, Uint8Array, string, boolean, string, NftInfo] | [null, null, null, null, null, null, null]> {
 
 		const [entryL, indexL] = this.getNextQueueEntry('L');
 		if (indexL != null) {
@@ -640,7 +648,7 @@ export class QueueService implements OnModuleInit {
 			const formattedDate = format(this.queueMainnet[indexL].timestampProcessing * 1000, 'yyyy-MM-dd HH:mm');
 			await this.telegramService.sendMessageToTelegramBot(this.queueMainnet[indexL].ltoNetworkId, `QUEUE-Processing(L): (${formattedDate})\nrequestId: ${this.queueMainnet[indexL].rid}\ntxID: ${this.queueMainnet[indexL].txId}\nltoWallet: ${this.queueMainnet[indexL].ltoWallet}`);
 			await this.updateQueueInS3Bucket(this.queueMainnet[indexL].ltoNetworkId);
-			return ['L', entryL.rid, data, entryL.ltoWallet, entryL.reenqueued];
+			return ['L', entryL.rid, data, entryL.ltoWallet, entryL.reenqueued, entryL.reenqueued_NFTURI, entryL.nftInfo];
 		} else {
 			const [entryT, indexT] = this.getNextQueueEntry('T');
 			if (indexT != null) {
@@ -652,10 +660,10 @@ export class QueueService implements OnModuleInit {
 				const formattedDate = format(this.queueTestnet[indexT].timestampProcessing * 1000, 'yyyy-MM-dd HH:mm');
 				await this.telegramService.sendMessageToTelegramBot(this.queueTestnet[indexT].ltoNetworkId, `QUEUE-Processing(T): (${formattedDate})\nrequestId: ${this.queueTestnet[indexT].rid}\ntxID: ${this.queueTestnet[indexT].txId}\nltoWallet: ${this.queueTestnet[indexT].ltoWallet}`);
 				await this.updateQueueInS3Bucket(this.queueTestnet[indexT].ltoNetworkId);
-				return ['T', entryT.rid, data, entryT.ltoWallet, entryT.reenqueued];
+				return ['T', entryT.rid, data, entryT.ltoWallet, entryT.reenqueued, entryT.reenqueued_NFTURI, entryT.nftInfo];
 			} else {
 				// console.log('Queue is empty');
-				return [null, null, null, null];
+				return [null, null, null, null, null, null, null];
 			}
 		}
 	}

@@ -8,6 +8,8 @@ import { Account, EventChain } from '@ltonetwork/lto';
 import { Signer } from '../common/http-signature/signer';
 import { AuthError, UserError, DataError } from '../interfaces/error';
 import { QueueEntry, OwnableStatus } from 'src/interfaces/QueueEntry';
+import { } from 'multer';
+
 @Controller('api/v1')
 export class UploadZipController {
   constructor(private readonly uploadZipService: UploadZipService) { }

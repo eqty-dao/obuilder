@@ -17,6 +17,7 @@ export interface QueueEntry {
     failedErrMsg: string;
     cid: string;
 	reenqueued: boolean;
+	reenqueued_NFTURI: string;	
     nftInfo: NftInfo;
 }
 
