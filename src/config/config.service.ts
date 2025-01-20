@@ -1,7 +1,7 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import convict from 'convict';
 import * as dotenv from 'dotenv';
-import { configurations, schema } from '../configuration';
+import { configurations } from '../configuration';
 // Load environment variables from .env file
 dotenv.config();
 
@@ -26,6 +26,29 @@ convict.addFormat({
     }
   },
 });
+
+const schema = {
+  ssl: {
+    enabled: {
+      doc: 'Whether SSL is enabled',
+      format: Boolean,
+      default: false,
+      env: 'SSL_ENABLED'
+    },
+    key: {
+      doc: 'Path to SSL key file',
+      format: String,
+      default: '',
+      env: 'SSL_KEY_PATH'
+    },
+    cert: {
+      doc: 'Path to SSL certificate file',
+      format: String,
+      default: '',
+      env: 'SSL_CERT_PATH'
+    }
+  }
+};
 
 @Injectable()
 export class ConfigService implements OnModuleInit, OnModuleDestroy {

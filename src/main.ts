@@ -5,6 +5,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from './config/config.service';
 // import { ConfigService } from '@nestjs/config';
 import bodyParser from 'body-parser';
+import fs from 'fs';
 
 dotenv.config();  
 
@@ -14,18 +15,42 @@ async function bootstrap() {
   });
   // const app = await NestFactory.create(AppModule);
   
-  // Enable CORS
+  // Enhanced CORS configuration to match NGINX settings
   app.enableCors({
-    origin: '*',  // Allows requests from any origin
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Signature-Input', 'Signature'],
+    origin: true, 
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: [
+      'Origin',
+      'Accept',
+      'Signature-Input',
+      'Signature',
+      'DNT',
+      'User-Agent',
+      'X-Requested-With',
+      'If-Modified-Since',
+      'Cache-Control',
+      'Content-Type',
+      'Range',
+      'Authorization'
+    ],
+    exposedHeaders: ['Content-Length', 'Content-Range'],
+    maxAge: 1728000,
+  });
+
+  app.use(
+    bodyParser.json({ limit: '1024mb' }),
+    bodyParser.urlencoded({ extended: false, limit: '1024mb' })
+  );
+
+  app.use((req, res, next) => {
+    res.header('X-Real-IP', req.ip);
+    res.header('X-Forwarded-For', req.ip);
+    next();
   });
 
   const config = await app.get<ConfigService>(ConfigService);
   await config.load();
 
-  app.use(bodyParser.json({}), bodyParser.urlencoded({ extended: false }));
-  
   app.enableShutdownHooks();
   
   console.log("test1");
@@ -45,11 +70,17 @@ async function bootstrap() {
   
   const localTesting = config.get('bucket.localTesting');
   
-  if(localTesting) {
-    await app.listen(3001); // TODO For testing !
-  }else {
-    await app.listen(3000);
+  const sslEnabled = config.get('ssl.enabled') || false;
+  const port = sslEnabled ? 443 : 80;
 
+  if (sslEnabled) {
+    const httpsOptions = {
+      key: fs.readFileSync(config.get('ssl.key')),
+      cert: fs.readFileSync(config.get('ssl.cert'))
+    };
+    await app.listen(port, '0.0.0.0', httpsOptions);
+  } else {
+    await app.listen(port, '0.0.0.0');
   }
 
   console.log(`Application is running on: ${await app.getUrl()}`);
