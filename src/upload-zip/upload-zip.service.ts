@@ -1139,7 +1139,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 			// Before creating the Ownable a new NFT is minted with NFT id and the user NFT input data is checked
 
-
+			this.loggingService.log(requestId, `jsonFile: ` + JSON.stringify(jsonFile));
 			let nftInfo: NftInfo;
 
 			if (jsonFile.CREATE_NFT === 'true') {

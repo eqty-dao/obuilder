@@ -273,7 +273,7 @@ export class QueueService implements OnModuleInit {
 		const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
 
 		// Define a threshold time (e.g., 1 hour in seconds)
-		const thresholdTime = 60;
+		const thresholdTime = 600;
 
 
 		if (ltoNetwork_id === 'L')
