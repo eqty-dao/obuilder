@@ -1148,7 +1148,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 				const picture: Buffer = requestIdFiles.get(`${jsonFile.PLACEHOLDER2_IMG}`);
 				this.loggingService.log(requestId, `Creating S3 image File for NFT Token URI ...`);
 				try {
-					if (!reenqueued) {
+					if (!reenqueued || reenqueued_NFTURI === '') {
 						jsonFile.NFT_TOKEN_URI = await this.createPinataPinnedFile(picture, jsonFile.PLACEHOLDER1_NAME, jsonFile.PLACEHOLDER1_DESCRIPTION);
 
 					} else {

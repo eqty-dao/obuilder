@@ -178,7 +178,7 @@ export class QueueService implements OnModuleInit {
 					failedErrMsg: entry.failedErrMsg,
 					cid: entry.cid ?? '',
 					reenqueued: entry.reenqueued,
-					reenqueued_NFTURI: entry.reenqueued_NFTURI,	
+					reenqueued_NFTURI: entry.reenqueued_NFTURI ?? '',	
 					nftInfo: {
 						network: '',
 						address: '',
@@ -203,7 +203,7 @@ export class QueueService implements OnModuleInit {
 					failedErrMsg: entry.failedErrMsg,
 					cid: entry.cid ?? '',
 					reenqueued: entry.reenqueued,
-					reenqueued_NFTURI: entry.reenqueued_NFTURI,	
+					reenqueued_NFTURI: entry.reenqueued_NFTURI ?? '',	
 					nftInfo: {
 						network: '',
 						address: '',
