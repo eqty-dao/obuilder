@@ -31,8 +31,8 @@ export class CoinmarketcapService implements OnModuleInit {
       this.apiCallIntervalSec = 3600; // 1h in seconds
     //   this.apiCallIntervalSec = 10; // in seconds
       this.latestApiCall = 0;
-      this.templateCostsUSD_L = 0.15;
-      this.templateCostsUSD_T = 0.15;
+      this.templateCostsUSD_L = 0.16;
+      this.templateCostsUSD_T = 0.16;
     }else {
       console.log("Initialized");
     }
@@ -102,6 +102,10 @@ export class CoinmarketcapService implements OnModuleInit {
 		// Pass validated whole numbers to setTemplateCosts
 		await this.queue.setTemplateCosts('L', 'arbitrum', "1", newPrice_L, prevPrice_L, this.templateCostsUSD_L);
 		await this.queue.setTemplateCosts('T', 'arbitrum', "1", newPrice_T, prevPrice_T, this.templateCostsUSD_T);
+		await this.queue.setTemplateCosts('L', 'arbitrum', "2", newPrice_L, prevPrice_L, this.templateCostsUSD_L);
+		await this.queue.setTemplateCosts('T', 'arbitrum', "2", newPrice_T, prevPrice_T, this.templateCostsUSD_T);
+		await this.queue.setTemplateCosts('L', 'arbitrum', "3", newPrice_L, prevPrice_L, this.templateCostsUSD_L);
+		await this.queue.setTemplateCosts('T', 'arbitrum', "3", newPrice_T, prevPrice_T, this.templateCostsUSD_T);
 		// console.log("Last Template Costs:", this.queue.getTemplateCosts('T', 'arbitrum', "1"));
 
   

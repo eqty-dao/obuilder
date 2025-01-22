@@ -105,6 +105,14 @@ export class QueueService implements OnModuleInit {
 					"1": {
 						"last": "20000000",
 						"prev": "20000000"
+					},
+					"2": {
+						"last": "20000000",
+						"prev": "20000000"
+					},
+					"3": {
+						"last": "20000000",
+						"prev": "20000000"
 					}
 				},
 			};
@@ -114,6 +122,14 @@ export class QueueService implements OnModuleInit {
 			this.templateCostsMainnet = {				
 				"arbitrum": {
 					"1": {
+						"last": "20000000",
+						"prev": "20000000"
+					},
+					"2": {
+						"last": "20000000",
+						"prev": "20000000"
+					},
+					"3": {
 						"last": "20000000",
 						"prev": "20000000"
 					}

@@ -59,7 +59,7 @@ export class UploadZipController {
 
     let requestId: string;
     try {
-      requestId = await this.uploadZipService.queueRequest(ltoNetworkId, buffer, 1, req);
+      requestId = await this.uploadZipService.queueRequest(ltoNetworkId, buffer, req);
       return res.status(201).json(requestId);
     } catch (err) {
       return this.errorResponse(res, err);

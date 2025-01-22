@@ -418,7 +418,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 					smartContractAddress: this.config.get('eth.contracts.arbitrum.mainnet'),
 					totalAmountNFTs: nftCountARB_L.toString(),
 					templateCost: {
-						1: this.queueService.getTemplateCosts('L', 'arbitrum', '1')
+						1: this.queueService.getTemplateCosts('L', 'arbitrum', '1'),
+						2: this.queueService.getTemplateCosts('L', 'arbitrum', '2'),
+						3: this.queueService.getTemplateCosts('L', 'arbitrum', '3')
 					}
 				},
 				testnet: {
@@ -427,7 +429,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 					smartContractAddress: this.config.get('eth.contracts.arbitrum.testnet'),
 					totalAmountNFTs: nftCountARB_T.toString(),
 					templateCost: {
-						1: this.queueService.getTemplateCosts('T', 'arbitrum', '1')
+						1: this.queueService.getTemplateCosts('T', 'arbitrum', '1'),
+						2: this.queueService.getTemplateCosts('T', 'arbitrum', '2'),
+						3: this.queueService.getTemplateCosts('T', 'arbitrum', '3')
 					}
 				}
 			}
@@ -554,12 +558,12 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		// if (this.packageInfo.templateCost[chain.toString()][templateId] === undefined) {
 		//   throw (`Undefined Template cost for template number ${templateId} and chain: ${chain}`);
 		// }
-		if (templateId != 1) {
-			throw (`Currently only Template ID 1 is support`);
+		if (!(templateId > 0 && templateId <4)) {
+			throw (`Template ID must be between 1 and 3`);
 		}
 		await this.coinmarketcap.getLatestPrice();
-		const main = this.queueService.getTemplateCosts('L', 'arbitrum', '1');
-		const test = this.queueService.getTemplateCosts('T', 'arbitrum', '1');
+		const main = this.queueService.getTemplateCosts('L', 'arbitrum', templateId.toString());
+		const test = this.queueService.getTemplateCosts('T', 'arbitrum', templateId.toString());
 		console.log("main", main);
 		console.log("test", test);
 		return {
@@ -784,7 +788,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		return signerAccount.address;
 
 	}
-	public async queueRequest(ltoNetworkId: 'L' | 'T', uint8ArrayData: Uint8Array, templateId: number, req: Request): Promise<any> {
+	public async queueRequest(ltoNetworkId: 'L' | 'T', uint8ArrayData: Uint8Array, req: Request): Promise<any> {
 		let signerAccountAddress: string;
 		// let ltoNetworkId: 'L' | 'T';
 		try {
@@ -857,7 +861,11 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		const thisLtoServerAddress = this.getLTOAccountAddress(ltoNetworkId);
 		this.loggingService.log(requestId, `LTO ACCOUNT: ${thisLtoServerAddress}`);
 		this.loggingService.log(requestId, `Checking LTO transaction ID: ${jsonFile.OWNABLE_LTO_TRANSACTION_ID}`);
-
+		
+		const input = jsonFile.template;
+		const match = input.match(/\d+$/); // Match one or more digits at the end of the string
+        let templateId: number;
+		templateId = match ? Number(match[0]) : null; // Convert to number if a match is found
 
 		await this.wait(10000);
 		let transactionIdData: TransactionIdData;
@@ -936,7 +944,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 						if (requestId != null && data != null) {
 							try {
-								await this.store(ltoNetworkId, requestId, data, 1, sender, reenqueued, reenqueued_NFTURI, reenqueued_NFTINFO);
+								await this.store(ltoNetworkId, requestId, data, sender, reenqueued, reenqueued_NFTURI, reenqueued_NFTINFO);
 							} catch (err) {
 								const queryProcessingEntry1: QueueEntry[] = this.queueService.getQueueEntriesByStatus(ltoNetworkId, OwnableStatus.Processing);
 								this.loggingService.log(queryProcessingEntry1[0].rid, `Ownable creation failed on lto network ${ltoNetworkId}: ${err}`);
@@ -1072,8 +1080,14 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	}
 	private wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
 
-
-	public async store(ltoNetworkId: 'L' | 'T', requestId: string, data: Uint8Array, templateId: number, sender: string, reenqueued: boolean, reenqueued_NFTURI: string, reenqueued_NFTINFO:NftInfo) {
+	private getTemplateIdNumber(jsonFile: any): number {
+		let templateId: number;
+		const input = jsonFile.template;
+		const match = input.match(/\d+$/); // Match one or more digits at the end of the string
+		templateId = match ? Number(match[0]) : null; // Convert to number if a match is found
+		return templateId;
+	}
+	public async store(ltoNetworkId: 'L' | 'T', requestId: string, data: Uint8Array, sender: string, reenqueued: boolean, reenqueued_NFTURI: string, reenqueued_NFTINFO:NftInfo) {
 		try {
 			this.loggingService.log(requestId, `Unzipping user input files for Ownable creation into memory`);
 			const requestIdFiles = await this.unzip(data);
@@ -1130,6 +1144,11 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			} else {
 				jsonFile.NFT_BLOCKCHAIN = 'noNFT';
 			}
+			let templateId: number;
+			templateId = this.getTemplateIdNumber(jsonFile);
+			 
+			
+
 			this.loggingService.log(requestId, `checking LTO transaction ID: ${jsonFile.OWNABLE_LTO_TRANSACTION_ID}`);
 
 			const transactionIdData: TransactionIdData = await this.checkLtoTransactionId(ltoNetworkId, jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, jsonFile.NFT_BLOCKCHAIN, requestId, reenqueued);
@@ -1487,8 +1506,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	// }
 	private async startOwnableCreation(ltoNetworkId: 'L' | 'T', rid: string, jsonFile: any, nftInfo: NftInfo, sender: string, requestIdFiles: Map<string, Buffer>) {
 		this.loggingService.log(rid, `Starting Ownable creation...`);
-		this.loggingService.log(rid, `Copying template 1 to template directory for modification`);
-		let cpCmdFrom = `${this.pathToTemplates}/template1`
+		this.loggingService.log(rid, `Copying ${jsonFile.template} to template directory for modification`);
+		let cpCmdFrom = `${this.pathToTemplates}/${jsonFile.template}`
 
 		let cpCmdTo = `ownables/${jsonFile.PLACEHOLDER1_NAME}`;
 		try {
