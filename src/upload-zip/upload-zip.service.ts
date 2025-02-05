@@ -1156,8 +1156,12 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 						jsonFile.NFT_TOKEN_URI = await this.createPinataPinnedFile(picture, jsonFile.PLACEHOLDER1_NAME, jsonFile.PLACEHOLDER1_DESCRIPTION);
 						console.log("NFT_TOKEN_URI", jsonFile.NFT_TOKEN_URI);
 					} else {
-						jsonFile.NFT_TOKEN_URI = 'https://ltonetwork.mypinata.cloud/ipfs/bafkreiegrefdl76cdj6bgqaqe4ozlohfx6st56glmesbtt24ipmcebkome'; // TOUPDATE this was with ownable1.webp
-						// jsonFile.NFT_TOKEN_URI = 'https://ltonetwork.mypinata.cloud/ipfs/bafkreiesjdqnkwopuwnc27j7j3ey2c2lbdjaweg3cegrapontvcpnzqyfe'; // TOUPDATE this was with ownable2.webp
+
+						jsonFile.NFT_TOKEN_URI = 'https://ltonetwork.mypinata.cloud/ipfs/bafkreifjunmh2bwdssrdcf3cmzgkirrtnqgkwc6n27qukuwu5wp6adgsuy'; // TOUPDATE MICHAEL JORDAN
+						// jsonFile.NFT_TOKEN_URI = 'https://ltonetwork.mypinata.cloud/ipfs/bafkreidfozqbfmqgpk3uzlzmh3eeoco4u56pbz2qn52ubrax62evocrfsq'; // TOUPDATE Wen Moon
+						// jsonFile.NFT_TOKEN_URI = 'https://ltonetwork.mypinata.cloud/ipfs/bafkreidvwg52vruquo3fxf43r5pxcr4hzvwlwpgnfdfesfpjulvhth332a'; // TOUPDATE Home
+						// jsonFile.NFT_TOKEN_URI = 'https://ltonetwork.mypinata.cloud/ipfs/bafkreidz6loyp5jzvvs4dkt4jci4fbxc6ewnwybvlscvlfbdqnyvul3f6e'; // TOUPDATE Meta 3D LTO
+						// jsonFile.NFT_TOKEN_URI = 'https://ltonetwork.mypinata.cloud/ipfs/bafkreicltxappitx4gq6k36fqcvywtfwstqttsvxjzhbuw4x5dzdcdv3ay'; // TOUPDATE Hello OWNABLES
 						console.log("Reusing TOKEN URI: ", jsonFile.NFT_TOKEN_URI);
 					}
 					// jsonFile.NFT_TOKEN_URI = await this.s3.uploadPictureToS3(picture);
@@ -1449,7 +1453,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		// 	this.loggingService.logError(rid, `Command: rm -rf ownables/${jsonFile.PLACEHOLDER1_NAME} failed: ${error}`);
 		// 	throw error;
 		// }
-		this.addCidToJsonArray(cid, firstIteration);
+		this.addCidToJsonArray(cid);
 
 	}
 
@@ -1504,11 +1508,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		}
 	}
 
-	private addCidToJsonArray(cid: string, firstIteration: boolean) {
-		// if (firstIteration) {// TOUPDATE
-		// 	console.log("Reusing bafybeic6ntpdi7yebs3z5gfwsda4kivjp6kbtexyzvzqnv3p3qt7eqs4uu")
-		// 	this.jsonArrayOwnables.push('bafybeic6ntpdi7yebs3z5gfwsda4kivjp6kbtexyzvzqnv3p3qt7eqs4uu'); 
-		// }
+	private addCidToJsonArray(cid: string) {		
 		this.jsonArrayOwnables.push(cid);
 		let jsonFormattedArray = JSON.stringify(this.jsonArrayOwnables, null, 2);
 		console.log("jsonFormattedArray", jsonFormattedArray);
@@ -1517,8 +1517,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		if (firstIteration) {
 
 			this.loggingService.log(rid, `Starting Ownable creation...`);
-			this.loggingService.log(rid, `Copying template 1 to template directory for modification`);
-			let cpCmdFrom = `${this.pathToTemplates}/template1`
+			this.loggingService.log(rid, `Copying template 2 to template directory for modification`);
+			let cpCmdFrom = `${this.pathToTemplates}/template2`
 
 			let cpCmdTo = `ownables/${jsonFile.PLACEHOLDER1_NAME}`;
 			try {
