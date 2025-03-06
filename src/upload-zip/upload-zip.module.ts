@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { UploadZipService } from './upload-zip.service';
+import { FileManagementModule } from '../file-management/file-management.module';
 import { UploadZipController } from './upload-zip.controller';
 import { ConfigModule } from '../config/config.module'; // Ensure custom config module
 import { HttpModule, HttpService } from '@nestjs/axios';
@@ -27,6 +28,7 @@ import { QueueModule } from 'src/queue/queue.module';
         maxRedirects: 5,
       }),
     }),
+	FileManagementModule,
     ConfigModule, 
     NFTModule,
     TelegramBotModule,

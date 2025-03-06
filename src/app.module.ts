@@ -23,8 +23,10 @@ import { S3Module } from './s3/s3.module';
 import { S3Service } from './s3/s3.service';
 import { CoinmarketcapModule } from './coinmarketcap/coinmarketcap.module';
 import { CoinmarketcapService } from 'src/coinmarketcap/coinmarketcap.service';
+import { FileManagementModule } from './file-management/file-management.module';
 @Module({
   imports: [
+	FileManagementModule,
     ConfigModule, // Use custom ConfigModule without forRoot()
     HttpModule.registerAsync({
       useFactory: () => ({

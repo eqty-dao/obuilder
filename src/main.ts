@@ -5,7 +5,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from './config/config.service';
 // import { ConfigService } from '@nestjs/config';
 import bodyParser from 'body-parser';
-
+// Add this import at the top of the file
+import * as path from 'path';
 dotenv.config();  
 
 async function bootstrap() {
@@ -29,7 +30,7 @@ async function bootstrap() {
   app.enableShutdownHooks();
   
   console.log("test1");
-  const packageInfo = require('../package.json');
+  const packageInfo = require(path.join(__dirname, '../../package.json'));
   console.log("test2");
   
   const options = new DocumentBuilder()

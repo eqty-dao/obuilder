@@ -1,13 +1,10 @@
 import { Inject, Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { rmSync, cpSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { FileManagementService } from '../file-management/file-management.service';
 import arrayToString from '../utils/arrayToString';
 import JSZip from 'jszip';
-import fileExists from '../utils/fileExists';
-import path from 'path';
-// import { catchError, firstValueFrom } from 'rxjs';
-// import { AxiosError } from 'axios';
+
 import { Account, LTO, Event, EventChain, Message, Relay, getNetwork } from "@ltonetwork/lto";
-import { exec } from 'child_process';
+
 // import chokidar from 'chokidar';
 import { NftInfo, OwnableInfo } from '../interfaces/OwnableInfo';
 import { TransactionIdData } from '../interfaces/TransactionIdData';
@@ -29,7 +26,8 @@ import { LoggingService } from 'src/logging/logging.service';
 import { LtoService } from 'src/lto/lto.service';
 import { S3Service } from '../s3/s3.service';
 import { CoinmarketcapService } from 'src/coinmarketcap/coinmarketcap.service';
-import { JsonFile } from 'src/interfaces/JsonFile';
+
+import { packageInfo } from '../utils/package-info';
 
 @Injectable()
 export class UploadZipService implements OnModuleInit, OnModuleDestroy {
@@ -41,10 +39,11 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 	private nodeVersion = process.version;
 	private pinata: PinataSDK;
-	// private jsonArrayOwnables: string[] = [];
+
 
 
 	constructor(
+		private readonly fileManagement: FileManagementService,
 		private readonly httpService: HttpService,
 		private readonly config: ConfigService,
 		private readonly ltoService: LtoService,
@@ -58,6 +57,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	) {
 
 	}
+	
+	// Add this helper method to compare CIDs
+    
 
 	async onModuleInit() {
 		await this.config.load();
@@ -66,12 +68,13 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			pinataJwt: this.config.get('pinata.jwt'), // process.env.PINATA_JWT!,
 			pinataGateway: this.config.get('pinata.gateway') // "example-gateway.mypinata.cloud",
 		});
-		this.packageInfo = require('../../package.json');
-		// this.pathToRids = this.packageInfo.ownableRidPath;
+	
+		this.packageInfo = packageInfo;
+	
 		this.pathToCids = this.packageInfo.ownableCidPath;
 		this.pathToTemplates = this.packageInfo.ownableTemplatesPath;
-		// mkdirSync(this.pathToRids, { recursive: true });
-		mkdirSync(this.pathToCids, { recursive: true });
+	
+		await this.fileManagement.ensureDirectoryExists(this.pathToCids);
 		this.intervalId = setInterval(async () => {
 			try {
 				await this.checkQueueStatus();
@@ -482,7 +485,6 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 			new Event({ "@context": 'execute_msg.json', transfer: { to: receiver } }).addTo(chain).signWith(ltoAccount);
 
-			// DONE: THIS NEEDS TO BE ENABLED !
 			const appendedEvents = chain.startingWith(chain.events[0]);
 			const anchorMap1 = appendedEvents.anchorMap;
 			try {
@@ -512,16 +514,16 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			}
 
 			const json1 = `${this.pathToCids}/${pkg.cid}/${pkg.cid}.json`
-			try {
-				writeFileSync(json1, JSON.stringify(chain));
+			try {				
+				await this.fileManagement.writeFile(json1, JSON.stringify(chain));
 			} catch (err) {
 				this.loggingService.logError(pkg.cid, `Writing ${json1} failed`);
 				throw err;
 			}
 
 			let file: any;
-			try {
-				file = readFileSync(json1, { encoding: 'utf8' });
+			try {				
+				file = await this.fileManagement.readTextFile(json1);
 			} catch (err) {
 				this.loggingService.logError(pkg.cid, `Reading ${json1} failed`);
 				throw err;
@@ -822,7 +824,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		}
 
 		console.log("unzipping user input file into memory...");
-		const requestIdFiles = await this.unzip(uint8ArrayData);
+		const requestIdFiles = await this.fileManagement.unzip(uint8ArrayData);
 
 		const timeMillisecondsNow = Date.now().toString();
 		requestIdFiles.set('timestamp.txt', Buffer.from(timeMillisecondsNow, 'utf-8'));
@@ -830,7 +832,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		console.log("requestIdFiles", requestIdFiles);
 		console.log("getting request ID of input requestIdFiles...");
 
-		const requestId: string = await this.getUniqueId(requestIdFiles);
+		const requestId: string = await this.fileManagement.getUniqueId(requestIdFiles);
 		this.loggingService.log(requestId, `New Logging Service added for unique request ID: ${requestId}`);
 
 
@@ -1090,7 +1092,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	public async store(ltoNetworkId: 'L' | 'T', requestId: string, data: Uint8Array, sender: string, reenqueued: boolean, reenqueued_NFTURI: string, reenqueued_NFTINFO:NftInfo) {
 		try {
 			this.loggingService.log(requestId, `Unzipping user input files for Ownable creation into memory`);
-			const requestIdFiles = await this.unzip(data);
+			const requestIdFiles = await this.fileManagement.unzip(data);
 
 			if (!requestIdFiles.has('ownableData.json')) {
 				this.loggingService.logError(requestId, `Invalid package: 'ownableData.json' is missing in requestId: ${requestId}`);
@@ -1212,75 +1214,57 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		}
 	}
 	private async executeCommand(command: string, requestId: string) {
-		return new Promise((resolve, reject) => {
-			const child = exec(command, { env: { ...process.env, PATH: `${process.env.PATH}:/root/.cargo/bin` } }, (error, stdout, stderr) => {
-				if (error) {
-					this.loggingService.logError(requestId, `Error executing command: ${stderr}`);
-					return reject(error);
-				}
-				// console.log(stdout);
-				resolve(stdout ? stdout : stderr);
-			});
-
-			// Listen for process exit
-			child.on('exit', (code) => {
-				this.loggingService.log(requestId, `Child process exited with code ${code}`);
-			});
-
-			// Optional: listen for any uncaught exceptions
-			child.on('error', (err) => {
-				this.loggingService.logError(requestId, `Failed to start subprocess: ${err}`);
-				reject(err);
-			});
-		});
-	}
-	private async executeCommand1(ltoNetworkId: 'L' | 'T', command: string, requestId: string) {
-		return new Promise((resolve, reject) => {
-			const child = exec(command, { env: { ...process.env, PATH: `${process.env.PATH}:/root/.cargo/bin` } }, (error, stdout, stderr) => {
-				if (error) {
-					this.loggingService.logError(requestId, `Error executing command on LTO network ${ltoNetworkId}: ${stderr}`);
-					this.queueService.ownableFailed(ltoNetworkId, requestId, `Error executing command ${stderr} with error: ${error}`);
-					return reject(error);
-				}
-				// console.log(stdout);
-				resolve(stdout ? stdout : stderr);
-			});
-
-			// Listen for process exit
-			child.on('exit', (code) => {
-				this.loggingService.log(requestId, `Child process exited with code ${code} on LTO network ${ltoNetworkId}`);
-			});
-
-			// Optional: listen for any uncaught exceptions
-			child.on('error', (err) => {
-				this.loggingService.logError(requestId, `Failed to start subprocess on LTO network ${ltoNetworkId}: ${err}`);
-				reject(err);
-			});
-		});
-	}
-
-
-	private async replaceLineInFile(file: string, key: string, value: string) {
-		let data: any;
 		try {
-			data = readFileSync(file, 'utf8');
-		} catch (err) {
-			throw new Error(`Read File Sync failed for file ${file}. Error: ${err}`);
+		  const options = { 
+			env: { 
+			  ...process.env, 
+			  PATH: `${process.env.PATH}:/root/.cargo/bin` 
+			} 
+		  };
+		  
+		  const { stdout, stderr } = await this.fileManagement.executeCommand(command, options);
+		  
+		  // Log process exit (similar to the 'exit' event)
+		  this.loggingService.log(requestId, `Command executed successfully`);
+		  
+		  return stdout || stderr;
+		} catch (error) {
+		  this.loggingService.logError(requestId, `Error executing command: ${error.message}`);
+		  throw error;
 		}
-
-		var formatted = data.replace(key, value);
+	  }
+	  
+	  private async executeCommand1(ltoNetworkId: 'L' | 'T', command: string, requestId: string) {
 		try {
-			writeFileSync(file, formatted, 'utf8');
-		} catch (err) {
-			throw new Error(`Write File Sync failed for file ${file}. Error: ${err}`);
+		  const options = { 
+			env: { 
+			  ...process.env, 
+			  PATH: `${process.env.PATH}:/root/.cargo/bin` 
+			} 
+		  };
+		  
+		  const { stdout, stderr } = await this.fileManagement.executeCommand(command, options);
+		  
+		  // Log process exit
+		  this.loggingService.log(requestId, `Command executed successfully on LTO network ${ltoNetworkId}`);
+		  
+		  return stdout || stderr;
+		} catch (error) {
+		  this.loggingService.logError(requestId, `Error executing command on LTO network ${ltoNetworkId}: ${error.message}`);
+		  this.queueService.ownableFailed(ltoNetworkId, requestId, `Error executing command ${error.message}`);
+		  throw error;
 		}
-	}
+	  }
+
+	  private async replaceLineInFile(filePath: string, searchValue: string | RegExp, replacement: string): Promise<boolean> {
+		return this.fileManagement.replaceLineInFile(filePath, searchValue, replacement);
+	  }
 
 	private async watchFileCreation(ltoNetworkId: 'L' | 'T', zipFile1: string, jsonFile: any, nftInfo: NftInfo, sender: string, rid: string) {
 		this.loggingService.log(rid, `Ownable creation startet. Waiting for Zip File ${zipFile1} to be created...`);
 
 		let timeout = 0;
-		while (!fileExists(zipFile1)) {
+		while (!(await this.fileManagement.fileExists(zipFile1))) {
 			this.wait(1000);
 			timeout += 1;
 			if (timeout >= 300) {
@@ -1291,7 +1275,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		this.loggingService.log(rid, `Unzipping to produce unique cid...`);
 		let pkgFiles: any;
 		try {
-			pkgFiles = await this.unzip(zipFile1);
+			pkgFiles = await this.fileManagement.unzip(zipFile1);			
 		} catch (err) {
 			this.loggingService.logError(rid, `Unzipping ${zipFile1} failed`);
 			throw err;
@@ -1305,7 +1289,10 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		this.loggingService.log(rid, `getting unique chain ID from created ownable zip files ...`);
 		let cid: any;
 		try {
-			cid = await this.getUniqueId(pkgFiles);
+			cid = await this.fileManagement.getUniqueId(pkgFiles);
+			console.log("cid", cid); // bafybeihdb2sxegxk52crm5xkxond2cvdqdue5lzhqzloj2dae4ivzqls5i
+	
+        	
 		} catch (err) {
 			this.loggingService.logError(rid, `getting unique CID failed`);
 			throw err;
@@ -1325,20 +1312,20 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		const ownableZip = `${this.pathToCids}/${cid}/${cid}.zip`;
 		this.loggingService.log(rid, `Storing new Ownable zip file and deleting the source Ownable zip ...`);
 		try {
-			cpSync(zipFile1, ownableZip);
+			await this.fileManagement.copyFile(zipFile1, ownableZip);
 		} catch (err) {
 			this.loggingService.logError(rid, `Error cpSync ${zipFile1}. Error: ${err}`);
 			throw err;
 		}
 
 		try {
-			rmSync(zipFile1);
+			await this.fileManagement.deleteFile(zipFile1);
 		} catch (err) {
 			this.loggingService.logError(rid, `Error rmSync ${zipFile1}. Error: ${err}`);
 			throw err;
 		}
 		try {
-			rmSync(`ownables/${jsonFile.PLACEHOLDER1_NAME}`, { recursive: true });
+			await this.fileManagement.cleanupDirectory(`ownables/${jsonFile.PLACEHOLDER1_NAME}`);			
 		} catch (err) {
 			this.loggingService.logError(rid, `Error rmSync ownables/${jsonFile.PLACEHOLDER1_NAME}. Error: ${err}`);
 			throw err;
@@ -1372,7 +1359,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		pkgFiles.set('chain.json', chainBuffer);
 
 		try {
-			await this.storeFiles(`${this.pathToCids}/${cid}`, cid, pkgFiles);
+			await this.fileManagement.storeFiles(`${this.pathToCids}/${cid}`, cid, pkgFiles);
 		} catch (err) {
 			this.loggingService.logError(rid, `Storing files failed ${this.pathToCids}/${cid} Error: ${err}`);
 			throw err;
@@ -1382,8 +1369,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 		let zipFile: Buffer;
 		try {
-
-			zipFile = readFileSync(`${this.pathToCids}/${cid}/${cid}.zip`);
+			// await this.fileManagement.readTextFile(file);
+			zipFile = await this.fileManagement.readFile(`${this.pathToCids}/${cid}/${cid}.zip`);
 		} catch (err) {
 			this.loggingService.logError(rid, `Reading File failed ${this.pathToCids}/${cid}/${cid}.zip Error: ${err}`);
 			throw err;
@@ -1396,7 +1383,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		}
 		let eventChainJsonFile: Buffer;
 		try {
-			eventChainJsonFile = readFileSync(`${this.pathToCids}/${cid}/${cid}.json`);
+			eventChainJsonFile = await this.fileManagement.readFile(`${this.pathToCids}/${cid}/${cid}.json`);
 		} catch (err) {
 			this.loggingService.logError(rid, `Reading File failed ${this.pathToCids}/${cid}/${cid}.json Error: ${err}`);
 			throw err;
@@ -1511,7 +1498,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 		let cpCmdTo = `ownables/${jsonFile.PLACEHOLDER1_NAME}`;
 		try {
-			cpSync(cpCmdFrom, cpCmdTo, { "recursive": true });
+			await this.fileManagement.copyFile(cpCmdFrom, cpCmdTo);
 			this.loggingService.log(rid, `Success: copy template from ${cpCmdFrom} to ${cpCmdTo}`);
 		} catch (err) {
 			this.loggingService.logError(rid, `Failed to copy template from ${cpCmdFrom} to ${cpCmdTo}`);
@@ -1523,23 +1510,24 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 		this.loggingService.log(rid, `copying image file into template`);
 		const image = requestIdFiles.get(`${jsonFile.PLACEHOLDER2_IMG}`);
-		let writeCommand = `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`;
+		let filePath = `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`;
 		try {
-			writeFileSync(writeCommand, image);
+			await this.fileManagement.writeFile(filePath, image);
+			// writeFileSync(writeCommand, image);
 		}
 		catch (err) {
-			this.loggingService.logError(rid, `Write command failed ${writeCommand} for image ${image}`);
+			this.loggingService.logError(rid, `Write command failed ${filePath} for image ${image}`);
 			throw (err);
 		}
 
 		this.loggingService.log(rid, `copying thumbnail image file into template`);
 		const thumbnail = requestIdFiles.get(`${jsonFile.OWNABLE_THUMBNAIL}`);
-		writeCommand = `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.OWNABLE_THUMBNAIL}`;
-		try {
-			writeFileSync(writeCommand, thumbnail);
+		filePath = `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.OWNABLE_THUMBNAIL}`;
+		try {			
+			await this.fileManagement.writeFile(filePath, thumbnail);
 		}
 		catch (err) {
-			this.loggingService.logError(rid, `Write command failed ${writeCommand} for thumbnail ${thumbnail}`);
+			this.loggingService.logError(rid, `Write command failed ${filePath} for thumbnail ${thumbnail}`);
 			throw (err);
 		}
 
@@ -1616,53 +1604,4 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			throw err;
 		}
 	}
-
-	private async unzip(data: Uint8Array | string): Promise<Map<string, Buffer>> {
-		let archive: JSZip;
-		var zip = new JSZip();
-		if (typeof data === "string") {
-			archive = await zip.loadAsync(readFileSync(data), { createFolders: true });
-		} else {
-			archive = await zip.loadAsync(data, { createFolders: true });
-		}
-
-		const entries: Array<[string, Buffer]> = await Promise.all(
-			Object.entries(archive.files)
-				// .filter(([filename]) => filename !== 'chain.json')
-				.map(async ([filename, file]) => [filename, await file.async('nodebuffer')]),
-		);
-
-		return new Map(entries);
-	}
-
-	private async getUniqueId(files: Map<string, Buffer>): Promise<string> {
-		const source = Array.from(files.entries()).map(([filename, content]) => ({
-			path: `./${filename}`,
-			content,
-		}));
-
-		for await (const entry of this.ipfs.addAll(source, { onlyHash: true, cidVersion: 1 })) {
-			//if (entry.path === entry.cid.toString() && !!entry.mode) return entry.cid.toString();
-			if (entry.path === entry.cid.toString()) {
-				return entry.cid.toString();
-			}
-		}
-		throw new Error('Failed to calculate directory CID: importer did not find a directory entry in the input files');
-	}
-
-	private async storeZip(destPath: string, uniqueId: string, data: Uint8Array): Promise<void> {
-		const file = path.join(destPath, `${uniqueId}.zip`);
-		writeFileSync(file, data);
-	}
-
-
-	private async storeFiles(destPath: string, cid: string, files: Map<string, Buffer>): Promise<void> {
-		const packageDir = path.join(destPath, cid);
-		mkdirSync(packageDir, { recursive: true });
-
-		await Promise.all(
-			Array.from(files.entries()).map(([filename, content]) => writeFileSync(path.join(packageDir, filename), content)),
-		);
-	}
-
 }

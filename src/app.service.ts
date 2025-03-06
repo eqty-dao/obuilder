@@ -1,14 +1,14 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InfoDto } from './info-app.dto';
-
+import { packageInfo } from './utils/package-info';
 @Injectable()
 export class AppService implements OnModuleInit {
   info = new InfoDto();
-
+  packageInfo: any; 
   onModuleInit(): void {
     
-    const packageInfo = require('../package.json');
-
+    // const packageInfo = require('../package.json');
+	this.packageInfo = packageInfo;
     this.info = {
       name: packageInfo.name,
       version: packageInfo.version,
