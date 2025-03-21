@@ -1,0 +1,83 @@
+// Use the correct import pattern from the original code
+const { Transfer, getNetwork } = require('@ltonetwork/lto');
+const { LTO } = require('@ltonetwork/lto');
+
+// Initialize the LTO instance with the appropriate network
+const lto = new LTO('T'); // 'T' for Testnet, 'L' for Mainnet
+
+// Configure the API node URL
+lto.nodeAddress = 'https://testnet.lto.network'; // For Testnet
+// lto.nodeAddress = 'https://nodes.lto.network'; // For Mainnet
+
+// Create the signing account (the one who is sending LTO)
+const signingAccount = lto.account({ seed: 'mixed arctic tool tree quarter hotel menu upset exit reopen swing rare food pen athlete' });
+
+// Create the broadcasting account (different user who will broadcast)
+const broadcastingAccount = lto.account({ seed: 'mixed arctic tool tree quarter hotel menu upset exit reopen swing rare food pen athlete' });
+
+async function signAndBroadcast(recipient, amount) {
+  try {
+    // Check the signer's balance before the transaction
+    const balanceBefore = await lto.getBalance(signingAccount);
+    console.log("Signer's balance before:", balanceBefore / 100000000, "LTO");
+    
+    // Check recipient's balance before (need to create a temporary account for this)
+    const recipientAccount = lto.account({ seed: 'mixed arctic tool tree quarter hotel menu upset exit reopen swing rare food pen athlete' });
+    const recipientBalanceBefore = await lto.getBalance(recipientAccount);
+    console.log("Recipient's balance before:", recipientBalanceBefore / 100000000, "LTO");
+    
+    // Create the transaction
+    const transaction = new Transfer(recipientAccount, amount);
+    
+    // Sign with the signing account
+    transaction.signWith(signingAccount);
+    
+    console.log("Transaction signed by:", signingAccount.address);
+    console.log("Transaction ID:", transaction.id);
+    console.log("Sending amount:", amount / 100000000, "LTO");
+    
+    // The transaction is now signed but not broadcast
+    const serializedTx = JSON.stringify(transaction.toJSON());
+    
+    // Broadcast using the node associated with the broadcasting account
+    const response = await fetch(`${lto.nodeAddress}/transactions/broadcast`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: serializedTx
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Broadcast failed: ${await response.text()}`);
+    }
+    
+    const result = await response.json();
+    console.log("Transaction successfully broadcast:", result);
+    
+    // Wait a moment for the transaction to be processed on the blockchain
+    console.log("Waiting for transaction confirmation...");
+    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+    
+    // Check the signer's balance after the transaction
+    const balanceAfter = await lto.getBalance(signingAccount);
+    console.log("Signer's balance after:", balanceAfter / 100000000, "LTO");
+    console.log("Balance change:", (balanceAfter - balanceBefore) / 100000000, "LTO");
+    
+    // Check recipient's balance after
+    const recipientBalanceAfter = await lto.getBalance(recipientAccount);
+    console.log("Recipient's balance after:", recipientBalanceAfter / 100000000, "LTO");
+    console.log("Recipient balance change:", (recipientBalanceAfter - recipientBalanceBefore) / 100000000, "LTO");
+    
+    return result;
+    
+  } catch (error) {
+    console.error("Error during sign and broadcast:", error);
+    throw error;
+  }
+}
+
+// Example usage
+signAndBroadcast('3JmCa4jLVv57XydS4P13A5S2aNX1YuZ3gJy', 100000000) // 1 LTO
+  .then(result => console.log("Transaction complete!"))
+  .catch(err => console.error("Failed:", err));

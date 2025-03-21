@@ -19,6 +19,7 @@ export interface QueueEntry {
 	reenqueued: boolean;
 	reenqueued_NFTURI: string;	
     nftInfo: NftInfo;
+	paymentTransactionId?: string;
 }
 
 export enum OwnableStatus {

@@ -1,7 +1,7 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Inject, forwardRef, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '../config/config.service';
 import { TelegramBotService } from '../telegram-bot/telegram-bot.service';
-import { QueueService } from 'src/queue/queue.service';
+import { QueueService } from '../queue/queue.service';
 
 const axios = require("axios");
 
@@ -18,6 +18,7 @@ export class CoinmarketcapService implements OnModuleInit {
   private initialized: boolean;
 
   constructor(
+	
     private readonly config: ConfigService,
     private readonly queue: QueueService,
     private readonly telegramService: TelegramBotService,
@@ -51,20 +52,16 @@ export class CoinmarketcapService implements OnModuleInit {
       await this.getLatestPrice();
     }
   }
-  public async getLatestPrice() {
+  public async getLatestPrice(forceUpdate: boolean = false): Promise<void> {
 	const timeNow = Math.floor(Date.now() / 1000);
-	if (timeNow > this.latestApiCall + this.apiCallIntervalSec) {
-	//   console.log("timeNow", timeNow);
-	//   console.log("this.latestApiCall", this.latestApiCall);
-	//   console.log("this.apiCallIntervalSec", this.apiCallIntervalSec);
-	//   if(this.latestApiCall == 0) {
-
-	//   }
+	
+	// Check if we need to update prices - either forced or time interval passed
+	if (forceUpdate || timeNow > this.latestApiCall + this.apiCallIntervalSec) {
 	  this.latestApiCall = timeNow;
-	  console.log("this.latestApiCall1", this.latestApiCall);
-  
+	  console.log("Updating template costs from CoinMarketCap");
+	  
 	  const url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest";
-  
+	  
 	  try {
 		const response = await axios.get(url, {
 		  headers: {
@@ -78,27 +75,28 @@ export class CoinmarketcapService implements OnModuleInit {
   
 		const data = response.data.data;
   
-		let prevPrice_L=0;
-		let prevPrice_T=0;
-		if(this.previousPriceLTOUSD > 0){
-			prevPrice_L = Math.floor((1 / this.previousPriceLTOUSD) * this.templateCostsUSD_L * 100000000);
-			prevPrice_T = Math.floor((1 / this.previousPriceLTOUSD) * this.templateCostsUSD_T * 100000000);
+		let prevPrice_L = 0;
+		let prevPrice_T = 0;
+		if (this.previousPriceLTOUSD > 0) {
+		  prevPrice_L = Math.floor((1 / this.previousPriceLTOUSD) * this.templateCostsUSD_L * 100000000);
+		  prevPrice_T = Math.floor((1 / this.previousPriceLTOUSD) * this.templateCostsUSD_T * 100000000);
 		} 
 		
-  
 		this.previousPriceARBUSD = this.latestPriceARBUSD;
 		this.previousPriceLTOUSD = this.latestPriceLTOUSD;
   
 		this.latestPriceARBUSD = parseFloat(data.ARB.quote.USD.price.toFixed(8));
 		this.latestPriceLTOUSD = parseFloat(data.LTO.quote.USD.price.toFixed(8));
   
-		let newPrice_L=20000000;
-		let newPrice_T=20000000;
-		if(this.latestPriceLTOUSD > 0) {
-			newPrice_L = Math.floor((1 / this.latestPriceLTOUSD) * this.templateCostsUSD_L * 100000000);
-			newPrice_T = Math.floor((1 / this.latestPriceLTOUSD) * this.templateCostsUSD_T * 100000000);
+		let newPrice_L = 20000000;
+		let newPrice_T = 20000000;
+		if (this.latestPriceLTOUSD > 0) {
+		  newPrice_L = Math.floor((1 / this.latestPriceLTOUSD) * this.templateCostsUSD_L * 100000000);
+		  newPrice_T = Math.floor((1 / this.latestPriceLTOUSD) * this.templateCostsUSD_T * 100000000);
 		}
-		console.log("newPrice_T2",newPrice_T);
+		
+		console.log("Updated LTO prices - Mainnet:", newPrice_L, "Testnet:", newPrice_T);
+		
 		// Pass validated whole numbers to setTemplateCosts
 		await this.queue.setTemplateCosts('L', 'arbitrum', "1", newPrice_L, prevPrice_L, this.templateCostsUSD_L);
 		await this.queue.setTemplateCosts('T', 'arbitrum', "1", newPrice_T, prevPrice_T, this.templateCostsUSD_T);
@@ -106,17 +104,16 @@ export class CoinmarketcapService implements OnModuleInit {
 		await this.queue.setTemplateCosts('T', 'arbitrum', "2", newPrice_T, prevPrice_T, this.templateCostsUSD_T);
 		await this.queue.setTemplateCosts('L', 'arbitrum', "3", newPrice_L, prevPrice_L, this.templateCostsUSD_L);
 		await this.queue.setTemplateCosts('T', 'arbitrum', "3", newPrice_T, prevPrice_T, this.templateCostsUSD_T);
-		// console.log("Last Template Costs:", this.queue.getTemplateCosts('T', 'arbitrum', "1"));
-
-  
+		
+		// Return the updated values for reference
+		return;
 	  } catch (error) {
+		console.error("CoinMarketCap API error:", error);
 		this.telegramService.sendMessageToTelegramBot('L', `Error fetching data from CoinMarketCap: ${error.message}`);
+		throw error; // Rethrow to properly handle in calling code
 	  }
 	} else {
-	//   console.log("ELSE");
-	//   console.log("timeNow", timeNow);
-	//   console.log("this.latestApiCall", this.latestApiCall);
-	//   console.log("this.apiCallIntervalSec", this.apiCallIntervalSec);
+	  console.log("Using cached template costs - last updated at:", new Date(this.latestApiCall * 1000).toISOString());
 	}
   }
   

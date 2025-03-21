@@ -1,27 +1,29 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject,Injectable } from '@nestjs/common';
 import * as crypto from 'crypto';
 import {
 	rmSync, cpSync, mkdirSync, readFileSync, writeFileSync,
 	existsSync, unlinkSync, rmdirSync, readdirSync, statSync,
-	createReadStream, createWriteStream
+	createReadStream, createWriteStream, promises
 } from 'fs';
-import * as fs from 'fs/promises';
+// import * as fs from 'fs';
 import JSZip from 'jszip';
 import * as path from 'path';
 import * as os from 'os';
 import { exec, execFile, spawn } from 'child_process';
 import { promisify } from 'util';
+import { LoggingService } from '../logging/logging.service';
 
 // Promisify exec for async/await usage
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
+
 @Injectable()
 export class FileManagementService {
 	constructor(
 		@Inject('IPFS') private readonly ipfs: IPFS,
-	) {
+		private readonly loggingService: LoggingService		
+	) { }
 
-	}
 	public async getUniqueId(files: Map<string, Buffer>): Promise<string> {
 		const source = Array.from(files.entries()).map(([filename, content]) => ({
 			path: `./${filename}`,
@@ -37,7 +39,14 @@ export class FileManagementService {
 		throw new Error('Failed to calculate directory CID: importer did not find a directory entry in the input files');
 	}
 
-
+	public async directoryExists(path: string): Promise<boolean> {
+		try {
+		  const stats = await promises.stat(path);
+		  return stats.isDirectory();
+		} catch (err) {
+		  return false;
+		}
+	  }
 
 	public async unzip(data: Uint8Array | string): Promise<Map<string, Buffer>> {
 		let archive: JSZip;
@@ -56,7 +65,17 @@ export class FileManagementService {
 
 		return new Map(entries);
 	}
-
+	public async zipMap(files: Map<string, Buffer>): Promise<Uint8Array> {
+		const zip = new JSZip();
+		
+		// Add each file to the zip
+		for (const [filename, content] of files.entries()) {
+		  zip.file(filename, content);
+		}
+		
+		// Generate zip as Uint8Array
+		return await zip.generateAsync({ type: 'uint8array' });
+	  }
 	public async storeZip(destPath: string, uniqueId: string, data: Uint8Array): Promise<void> {
 		const file = path.join(destPath, `${uniqueId}.zip`);
 		writeFileSync(file, data);
@@ -97,14 +116,56 @@ export class FileManagementService {
 		return readFileSync(filePath, 'utf8');
 	}
 
-	public async writeFile(filePath: string, data: Buffer | string): Promise<void> {
-		this.ensureDirectoryExists(path.dirname(filePath));
-		writeFileSync(filePath, data);
+	public async copyFile(source: string, destination: string, requestId?: string): Promise<void> {
+		try {
+			this.ensureDirectoryExists(path.dirname(destination));
+			cpSync(source, destination);
+			if (requestId) {
+				this.loggingService.log(requestId, `Successfully copied ${source} to ${destination}`);
+			}
+		} catch (error) {
+			if (requestId) {
+				this.loggingService.logError(requestId, `Failed to copy ${source} to ${destination}: ${error.message}`);
+			}
+			throw error;
+		}
 	}
-
-	public async copyFile(sourcePath: string, destPath: string): Promise<void> {
-		this.ensureDirectoryExists(path.dirname(destPath));
-		cpSync(sourcePath, destPath, { "recursive": true });
+	/**
+ * Copies a directory recursively
+ * @param sourceDir Source directory path
+ * @param destinationDir Destination directory path
+ * @param requestId Optional request ID for logging
+ */
+public async copyDirectory(sourceDir: string, destinationDir: string, requestId?: string): Promise<void> {
+	try {
+	  this.ensureDirectoryExists(destinationDir);
+	  
+	  // Use cpSync with recursive option to copy entire directory
+	  cpSync(sourceDir, destinationDir, { recursive: true });
+	  
+	  if (requestId) {
+		this.loggingService.log(requestId, `Successfully copied directory ${sourceDir} to ${destinationDir}`);
+	  }
+	} catch (error) {
+	  if (requestId) {
+		this.loggingService.logError(requestId, `Failed to copy directory ${sourceDir} to ${destinationDir}: ${error.message}`);
+	  }
+	  throw error;
+	}
+  }
+	public async writeFile(filePath: string, data: Buffer | string, requestId?: string): Promise<void> {
+		try {
+			this.ensureDirectoryExists(path.dirname(filePath));
+			writeFileSync(filePath, data);
+			if (requestId) {
+				this.loggingService.log(requestId, `Successfully wrote to ${filePath}`);
+			}
+		} catch (error) {
+			if (requestId) {
+				this.loggingService.logError(requestId, `Failed to write to ${filePath}: ${error.message}`);
+			}
+			throw error;
+		}
 	}
 
 	public async fileExists(filePath: string): Promise<boolean> {
@@ -157,7 +218,68 @@ export class FileManagementService {
 		const content = await this.readFile(filePath);
 		return crypto.createHash('sha256').update(content).digest('hex');
 	}
+	public async executeCommandWithLogging(command: string, requestId: string, options: any = {}): Promise<string> {
+		try {
+			this.loggingService.log(requestId, `Executing command: ${command}`);
+			const { stdout, stderr } = await this.executeCommand(command, options);
+			const output = stdout || stderr;
+			const outputStr = Buffer.isBuffer(output) ? output.toString() : output;
+			this.loggingService.log(requestId, `Command output: ${outputStr}`);
+			return outputStr;
+		} catch (error) {
+			this.loggingService.logError(requestId, `Command failed: ${command} - ${error.message}`);
+			throw error;
+		}
+	}
 
+	// For network-specific commands
+	public async executeCommandWithNetworkLogging(
+		ltoNetworkId: 'L' | 'T',
+		command: string,
+		requestId: string,
+		options: any = {},
+		queueService?: any
+	): Promise<string> {
+		try {
+			this.loggingService.log(requestId, `Executing command on LTO network ${ltoNetworkId}: ${command}`);
+			const { stdout, stderr } = await this.executeCommand(command, options);
+			const output = stdout || stderr;
+			const outputStr = Buffer.isBuffer(output) ? output.toString() : output;
+			this.loggingService.log(requestId, `Command output: ${outputStr}`);
+			return outputStr;
+		} catch (error) {
+			this.loggingService.logError(requestId, `Error executing command on LTO network ${ltoNetworkId}: ${error.message}`);
+			if (queueService) {
+				queueService.ownableFailed(ltoNetworkId, requestId, `Error executing command ${error.message}`);
+			}
+			throw error;
+		}
+	}
+
+	// Batch replace method for multiple replacements in files
+	public async batchReplaceInFile(
+		basePath: string,
+		replacements: Array<{
+			filePath: string;
+			searchValue: string | RegExp;
+			replacement: string | ((line: string, index: number) => string);
+		}>,
+		requestId: string
+	): Promise<void> {
+		try {
+			this.loggingService.log(requestId, `Replacing placeholder texts in ${replacements.length} locations`);
+
+			for (const { filePath, searchValue, replacement } of replacements) {
+				const fullPath = path.join(basePath, filePath);
+				await this.replaceLineInFile(fullPath, searchValue, replacement, requestId);
+			}
+
+			this.loggingService.log(requestId, `Successfully replaced all placeholder texts`);
+		} catch (error) {
+			this.loggingService.logError(requestId, `Failed to replace placeholder texts: ${error.message}`);
+			throw error;
+		}
+	}
 	public async executeCommand(command: string, options: any = {}): Promise<{ stdout: string | Buffer, stderr: string | Buffer }> {
 		try {
 			return await execAsync(command, options);
@@ -166,7 +288,37 @@ export class FileManagementService {
 			throw new Error(`Command execution failed: ${error.message}`);
 		}
 	}
+	public isValidPackageName(name: string): boolean {
+		// Regular expression to match Unicode letters, numbers, underscores, and hyphens
+		const xidRegex = /^[a-zA-Z0-9]+(\.webp)?$/g;
+		console.log("isValidPackageName", xidRegex.test(name));
+		return xidRegex.test(name);
+	}
+	public sanitizePackageName(name: string, hasdotWebp: boolean): string {
+		// Regular expression to match invalid characters
+		let baseStr: string = name;
+		let extension: string = '';
+		if (hasdotWebp && name.endsWith('.webp')) {
+			baseStr = name.slice(0, -5); // Remove the .webp part
+			extension = '.webp';
+		}
+		// Replace all non-alphanumeric characters with nothing
+		const sanitizedBaseStr = baseStr.replace(/[^a-zA-Z0-9]/g, '');
+		return sanitizedBaseStr + extension;
+	}
+	
 
+	public getTemplateIdNumber(jsonFile: any, requestId: string): number {
+		let templateId: number;
+		const input = jsonFile.template;
+		if (!input) {
+			this.loggingService.logError(requestId, "Template not specified in ownableData.json");
+			throw new Error("Template not specified in ownableData.json");
+		  }
+		const match = input.match(/\d+$/); // Match one or more digits at the end of the string
+		templateId = match ? Number(match[0]) : null; // Convert to number if a match is found
+		return templateId;
+	}
 	public async executeFile(file: string, args: string[] = [], options: any = {}): Promise<{ stdout: string | Buffer, stderr: string | Buffer }> {
 		try {
 			return await execFileAsync(file, args, options);
@@ -179,16 +331,18 @@ export class FileManagementService {
 		return spawn(command, args, options);
 	}
 	/**
- * Replaces a specific line in a file that matches a pattern
- * @param filePath Path to the file
- * @param searchValue Pattern to search for (string or RegExp)
- * @param replacement Replacement string or function
- * @returns Promise resolving to boolean indicating if replacement occurred
- */
+   * Replaces a specific line in a file that matches a pattern
+   * @param filePath Path to the file
+   * @param searchValue Pattern to search for (string or RegExp)
+   * @param replacement Replacement string or function
+   * @param requestId Optional request ID for logging
+   * @returns Promise resolving to boolean indicating if replacement occurred
+   */
 	public async replaceLineInFile(
 		filePath: string,
 		searchValue: string | RegExp,
-		replacement: string | ((line: string, index: number) => string)
+		replacement: string | ((line: string, index: number) => string),
+		requestId?: string
 	): Promise<boolean> {
 		try {
 			// Read the file content
@@ -223,10 +377,18 @@ export class FileManagementService {
 			// If replacements were made, write the file
 			if (replaced) {
 				await this.writeFile(filePath, newLines.join('\n'));
+				if (requestId) {
+					this.loggingService.log(requestId, `Replaced content in file ${filePath}`);
+				}
+			} else if (requestId) {
+				this.loggingService.log(requestId, `No matches found for replacement in ${filePath}`);
 			}
 
 			return replaced;
 		} catch (error) {
+			if (requestId) {
+				this.loggingService.logError(requestId, `Failed to replace line in file ${filePath}: ${error.message}`);
+			}
 			throw new Error(`Failed to replace line in file ${filePath}: ${error.message}`);
 		}
 	}

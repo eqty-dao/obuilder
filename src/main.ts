@@ -3,21 +3,19 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from './config/config.service';
-// import { ConfigService } from '@nestjs/config';
 import bodyParser from 'body-parser';
-// Add this import at the top of the file
 import * as path from 'path';
+import { QueueService } from './queue/queue.service';
 dotenv.config();  
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bodyParser: false,
   });
-  // const app = await NestFactory.create(AppModule);
   
-  // Enable CORS
+  // Enable CORS configuration
   app.enableCors({
-    origin: '*',  // Allows requests from any origin
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Signature-Input', 'Signature'],
   });
@@ -29,17 +27,36 @@ async function bootstrap() {
   
   app.enableShutdownHooks();
   
-  console.log("test1");
-  const packageInfo = require(path.join(__dirname, '../../package.json'));
-  console.log("test2");
+  // Important: Ensure queue is fully loaded before starting the server
+  const queueService = app.get<QueueService>(QueueService);
+  console.log("Ensuring queue is fully initialized...");
+  
+  // Package.json loading
+  let packageInfo;
+  try {
+    packageInfo = require(path.join(__dirname, '../../package.json'));
+    console.log("Loaded package.json from ../../package.json");
+  } catch (e) {
+    try {
+      packageInfo = require(path.join(__dirname, '../package.json'));
+      console.log("Loaded package.json from ../package.json");
+    } catch (e) {
+      packageInfo = { 
+        name: 'LTO oBuilder', 
+        description: 'Building Ownables and NFTs made easy',
+        version: '0.0.0' 
+      };
+      console.warn('Unable to load package.json, using fallback values');
+    }
+  }
   
   const options = new DocumentBuilder()
-  .setTitle('LTO oBuilder')
-  .setDescription(packageInfo.description)
-  .setVersion(packageInfo.version)
-  .addTag('Building Ownables and NFTs made easy')
-  .addBearerAuth()
-  .build();
+    .setTitle('LTO oBuilder')
+    .setDescription(packageInfo.description)
+    .setVersion(packageInfo.version)
+    .addTag('Building Ownables and NFTs made easy')
+    .addBearerAuth()
+    .build();
   
   const document = SwaggerModule.createDocument(app, options);
   SwaggerModule.setup('api', app, document);
@@ -47,10 +64,9 @@ async function bootstrap() {
   const localTesting = config.get('bucket.localTesting');
   
   if(localTesting) {
-    await app.listen(3001); // TODO For testing !
-  }else {
+    await app.listen(3001);
+  } else {
     await app.listen(3000);
-
   }
 
   console.log(`Application is running on: ${await app.getUrl()}`);

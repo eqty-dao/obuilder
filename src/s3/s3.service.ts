@@ -1,117 +1,117 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { S3, CreateBucketCommand, HeadBucketCommand, HeadObjectCommand, PutObjectCommand} from '@aws-sdk/client-s3';
+import { S3, CreateBucketCommand, HeadBucketCommand, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import S3Bucket from 'any-bucket/s3';
 import { ConfigService } from '../config/config.service';
 import { TelegramBotService } from '../telegram-bot/telegram-bot.service';
 
 @Injectable()
 export class S3Service implements OnModuleInit {
-    private s3Client: S3;
-    public s3BucketQueue_L: S3Bucket;
-    public s3BucketQueue_T: S3Bucket;
-    public s3BucketLogs: S3Bucket;
-    public s3BucketOwnables_L: S3Bucket;
-    public s3BucketOwnables_T: S3Bucket;
+	private s3Client: S3;
+	public s3BucketQueue_L: S3Bucket;
+	public s3BucketQueue_T: S3Bucket;
+	public s3BucketLogs: S3Bucket;
+	public s3BucketOwnables_L: S3Bucket;
+	public s3BucketOwnables_T: S3Bucket;
 
-    constructor(
-        private readonly config: ConfigService,
-        private readonly telegramService: TelegramBotService
-    ) {
-        const s3LocalConfig = {
-            endpoint: 'http://localhost:4566', // LocalStack endpoint
-            forcePathStyle: true, // Required for local testing
-            credentials: {
-                accessKeyId: 'TESTKEY', // Dummy key
-                secretAccessKey: 'TESTSECRET' // Dummy secret
-            },
-            region: 'eu-west-1'
-        };
-        const localTesting = this.config.get('bucket.localTesting');
-        // const localTesting = config.get('LOCAL_TESTING');
-        if (localTesting) {            
-            this.s3Client = new S3(s3LocalConfig); // FOR TESTING ONLY
+	constructor(
+		private readonly config: ConfigService,
+		private readonly telegramService: TelegramBotService
+	) {
+		const s3LocalConfig = {
+			endpoint: 'http://localhost:4566', // LocalStack endpoint
+			forcePathStyle: true, // Required for local testing
+			credentials: {
+				accessKeyId: 'TESTKEY', // Dummy key
+				secretAccessKey: 'TESTSECRET' // Dummy secret
+			},
+			region: 'eu-west-1'
+		};
+		const localTesting = this.config.get('bucket.localTesting');
+		// const localTesting = config.get('LOCAL_TESTING');
+		if (localTesting) {
+			this.s3Client = new S3(s3LocalConfig); // FOR TESTING ONLY
 
-        } else {
-            this.s3Client = new S3({ region: 'eu-west-1' });
+		} else {
+			this.s3Client = new S3({ region: 'eu-west-1' });
 
-        }
-        this.s3BucketQueue_L = new S3Bucket(this.s3Client, this.config.get('bucket.obuilder.queue.mainnet'));
-        this.s3BucketQueue_T = new S3Bucket(this.s3Client, this.config.get('bucket.obuilder.queue.testnet'));
-        this.s3BucketLogs = new S3Bucket(this.s3Client, this.config.get('bucket.obuilder.logs'));
+		}
+		this.s3BucketQueue_L = new S3Bucket(this.s3Client, this.config.get('bucket.obuilder.queue.mainnet'));
+		this.s3BucketQueue_T = new S3Bucket(this.s3Client, this.config.get('bucket.obuilder.queue.testnet'));
+		this.s3BucketLogs = new S3Bucket(this.s3Client, this.config.get('bucket.obuilder.logs'));
 		this.s3BucketOwnables_L = new S3Bucket(this.s3Client, this.config.get('bucket.obuilder.ownables.mainnet'));
 		this.s3BucketOwnables_T = new S3Bucket(this.s3Client, this.config.get('bucket.obuilder.ownables.testnet'));
-    }
-    
-    async onModuleInit() {
-        try {
-            await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('bucket.obuilder.queue.mainnet') }));
-            console.log(`Mainnet Queue Bucket already exists.`);
-        } catch (err) {
-            if (err.name === 'NotFound' || err.name === 'NoSuchBucket') {
-                console.log(`Mainnet Queue Bucket does not exist. Creating it now.`);
-                await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('bucket.obuilder.queue.mainnet') }));
-            } else {
-                console.error('Error checking mainnet Queue bucket existence:', err);
-                return; // Exit early if there's a non-not-found error
-            }
-        }
-        try {
-            await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('bucket.obuilder.queue.testnet') }));
-            console.log(`Testnet Queue Bucket already exists.`);
-        } catch (err) {
-            if (err.name === 'NotFound' || err.name === 'NoSuchBucket') {
-                console.log(`Testnet Queue Bucket does not exist. Creating it now.`);
-                await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('bucket.obuilder.queue.testnet') }));
-            } else {
-                console.error('Error checking testnet Queue bucket existence:', err);
-                return; // Exit early if there's a non-not-found error
-            }
-        }
-		try {
-            await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('bucket.obuilder.ownables.mainnet') }));
-            console.log(`Mainnet Ownables Bucket already exists.`);
-        } catch (err) {
-            if (err.name === 'NotFound' || err.name === 'NoSuchBucket') {
-                console.log(`Mainnet Ownables Bucket does not exist. Creating it now.`);
-                await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('bucket.obuilder.ownables.mainnet') }));
-            } else {
-                console.error('Error checking mainnet Ownables bucket existence:', err);
-                return; // Exit early if there's a non-not-found error
-            }
-        }
-        try {
-            await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('bucket.obuilder.ownables.testnet') }));
-            console.log(`Testnet Ownables Bucket already exists.`);
-        } catch (err) {
-            if (err.name === 'NotFound' || err.name === 'NoSuchBucket') {
-                console.log(`Testnet Ownables Bucket does not exist. Creating it now.`);
-                await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('bucket.obuilder.ownables.testnet') }));
-            } else {
-                console.error('Error checking testnet Ownables bucket existence:', err);
-                return; // Exit early if there's a non-not-found error
-            }
-        }
-		try {
-            await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('bucket.obuilder.logs') }));
-            console.log(`Logs Bucket already exists.`);
-        } catch (err) {
-            if (err.name === 'NotFound' || err.name === 'NoSuchBucket') {
-                console.log(`Logs Bucket does not exist. Creating it now.`);
-                await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('bucket.obuilder.logs') }));
-            } else {
-                console.error('Error checking Logs bucket existence:', err);
-                return; // Exit early if there's a non-not-found error
-            }
-        }
+	}
 
-    }
-	public async checkFileExists(ltoNetworkId: 'L'|'T', key) {
+	async onModuleInit() {
+		try {
+			await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('bucket.obuilder.queue.mainnet') }));
+			console.log(`Mainnet Queue Bucket already exists.`);
+		} catch (err) {
+			if (err.name === 'NotFound' || err.name === 'NoSuchBucket') {
+				console.log(`Mainnet Queue Bucket does not exist. Creating it now.`);
+				await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('bucket.obuilder.queue.mainnet') }));
+			} else {
+				console.error('Error checking mainnet Queue bucket existence:', err);
+				return; // Exit early if there's a non-not-found error
+			}
+		}
+		try {
+			await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('bucket.obuilder.queue.testnet') }));
+			console.log(`Testnet Queue Bucket already exists.`);
+		} catch (err) {
+			if (err.name === 'NotFound' || err.name === 'NoSuchBucket') {
+				console.log(`Testnet Queue Bucket does not exist. Creating it now.`);
+				await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('bucket.obuilder.queue.testnet') }));
+			} else {
+				console.error('Error checking testnet Queue bucket existence:', err);
+				return; // Exit early if there's a non-not-found error
+			}
+		}
+		try {
+			await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('bucket.obuilder.ownables.mainnet') }));
+			console.log(`Mainnet Ownables Bucket already exists.`);
+		} catch (err) {
+			if (err.name === 'NotFound' || err.name === 'NoSuchBucket') {
+				console.log(`Mainnet Ownables Bucket does not exist. Creating it now.`);
+				await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('bucket.obuilder.ownables.mainnet') }));
+			} else {
+				console.error('Error checking mainnet Ownables bucket existence:', err);
+				return; // Exit early if there's a non-not-found error
+			}
+		}
+		try {
+			await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('bucket.obuilder.ownables.testnet') }));
+			console.log(`Testnet Ownables Bucket already exists.`);
+		} catch (err) {
+			if (err.name === 'NotFound' || err.name === 'NoSuchBucket') {
+				console.log(`Testnet Ownables Bucket does not exist. Creating it now.`);
+				await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('bucket.obuilder.ownables.testnet') }));
+			} else {
+				console.error('Error checking testnet Ownables bucket existence:', err);
+				return; // Exit early if there's a non-not-found error
+			}
+		}
+		try {
+			await this.s3Client.send(new HeadBucketCommand({ Bucket: this.config.get('bucket.obuilder.logs') }));
+			console.log(`Logs Bucket already exists.`);
+		} catch (err) {
+			if (err.name === 'NotFound' || err.name === 'NoSuchBucket') {
+				console.log(`Logs Bucket does not exist. Creating it now.`);
+				await this.s3Client.send(new CreateBucketCommand({ Bucket: this.config.get('bucket.obuilder.logs') }));
+			} else {
+				console.error('Error checking Logs bucket existence:', err);
+				return; // Exit early if there's a non-not-found error
+			}
+		}
+
+	}
+	public async checkFileExists(ltoNetworkId: 'L' | 'T', key) {
 		try {
 			let params;
-			if(ltoNetworkId === 'L') {
+			if (ltoNetworkId === 'L') {
 				params = {
 					Bucket: this.config.get('bucket.obuilder.queue.mainnet'),
-				Key: key,
+					Key: key,
 				}
 			} else {
 				params = {
@@ -119,7 +119,7 @@ export class S3Service implements OnModuleInit {
 					Key: key,
 				};
 			}
-	
+
 			// Attempt to fetch the object's metadata
 			await this.s3Client.send(new HeadObjectCommand(params));
 			console.log(`File exists: ${key}`);
@@ -134,8 +134,27 @@ export class S3Service implements OnModuleInit {
 			throw error;
 		}
 	}
-	
-	public async storeZip(ltoNetworkId: 'L'|'T', cid: string, rid: string, sender: string, zipContent: Uint8Array) {
+	/**
+ * Retrieves a zip file from S3 bucket
+ * @param ltoNetworkId Network identifier ('L' for mainnet, 'T' for testnet)
+ * @param cid Content identifier
+ * @param requestId Request ID
+ * @param wallet Wallet address
+ * @returns The file content as Uint8Array or null if not found
+ */
+	public async getZip(ltoNetworkId: 'L' | 'T', cid: string, requestId: string, wallet: string): Promise<Uint8Array | null> {
+		const bucket = ltoNetworkId === 'L' ? this.s3BucketOwnables_L : this.s3BucketOwnables_T;
+		const key = `${cid}_${requestId}_${wallet}_.zip`;
+
+		try {
+			const data = await bucket.get(key);
+			return data;
+		} catch (error) {
+			return null;
+		}
+	}
+
+	public async storeZip(ltoNetworkId: 'L' | 'T', cid: string, rid: string, sender: string, zipContent: Uint8Array) {
 		try {
 			if (ltoNetworkId === 'L') {
 				await this.s3BucketOwnables_L.put(`${rid}_${cid}_${sender}_.zip`, zipContent);
@@ -146,14 +165,14 @@ export class S3Service implements OnModuleInit {
 			throw new Error(`Putting ${rid}_${cid}_${sender}_.zip into s3 Bucket failed for LTO network ${ltoNetworkId}. Error: ${err}`);
 		}
 	}
-	public async uploadPictureToS3(picture: Buffer): Promise<string> {	
+	public async uploadPictureToS3(picture: Buffer): Promise<string> {
 
 		const bucketName = this.config.get('bucket.obuilder.pinata.mainnet');
 		const objectKey1 = `image/${Date.now()}.webp`; // Unique file key in S3
-	
+
 		try {
 			// Upload picture to S3
-			const command1 = new  PutObjectCommand({
+			const command1 = new PutObjectCommand({
 				Bucket: bucketName,
 				Key: objectKey1,
 				Body: picture,
@@ -164,12 +183,12 @@ export class S3Service implements OnModuleInit {
 			const jsonData = {
 				nftImage: `https://${bucketName}.s3.eu-west-1.amazonaws.com/${objectKey1}`
 			}
-			
+
 			const objectKey2 = `json/${Date.now()}.json`;
 			const jsonString = JSON.stringify(jsonData);
 
-			 // Upload JSON string to S3
-			 const command2 = new PutObjectCommand({
+			// Upload JSON string to S3
+			const command2 = new PutObjectCommand({
 				Bucket: bucketName,
 				Key: objectKey2,
 				Body: jsonString,

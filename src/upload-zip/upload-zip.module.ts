@@ -4,22 +4,22 @@ import { FileManagementModule } from '../file-management/file-management.module'
 import { UploadZipController } from './upload-zip.controller';
 import { ConfigModule } from '../config/config.module'; // Ensure custom config module
 import { HttpModule, HttpService } from '@nestjs/axios';
-import { LtoModule } from 'src/lto/lto.module';
-import { NFTModule } from 'src/nft/nft.module';
-import { QueueService } from 'src/queue/queue.service';
-import { TelegramBotService } from 'src/telegram-bot/telegram-bot.service';
-import { LoggingService } from 'src/logging/logging.service';
-import { ConfigService } from '../config/config.service'; // Custom ConfigService
-import { TelegramBotModule } from 'src/telegram-bot/telegram-bot.module';
-import { LoggingModule } from 'src/logging/logging.module';
-import { LtoService } from 'src/lto/lto.service';
-import { IpfsModule } from 'src/ipfs/ipfs.module';
-import { S3Module } from 'src/s3/s3.module';
-import { S3Service } from 'src/s3/s3.service';
-import { CoinmarketcapModule } from 'src/coinmarketcap/coinmarketcap.module';
-import { CoinmarketcapService } from 'src/coinmarketcap/coinmarketcap.service';
-import { QueueModule } from 'src/queue/queue.module';
+import { LtoModule } from '../lto/lto.module';
+import { NFTModule } from '../nft/nft.module';
 
+import { ConfigService } from '../config/config.service'; // Custom ConfigService
+import { TelegramBotModule } from '../telegram-bot/telegram-bot.module';
+import { LoggingModule } from '../logging/logging.module';
+
+import { IpfsModule } from '../ipfs/ipfs.module';
+import { S3Module } from '../s3/s3.module';
+
+import { CoinmarketcapModule } from '../coinmarketcap/coinmarketcap.module';
+
+import { QueueModule } from '../queue/queue.module';
+import { EventChainModule } from '../event-chain/event-chain.module';
+import { RelayModule } from '../relay/relay.module';
+import { PinataModule } from '../pinata/pinata.module';
 @Module({
   imports: [
     HttpModule.registerAsync({
@@ -28,6 +28,9 @@ import { QueueModule } from 'src/queue/queue.module';
         maxRedirects: 5,
       }),
     }),
+	EventChainModule,
+	RelayModule,
+	PinataModule,
 	FileManagementModule,
     ConfigModule, 
     NFTModule,
@@ -40,7 +43,7 @@ import { QueueModule } from 'src/queue/queue.module';
     S3Module
   ],
   providers: [
-    UploadZipService, QueueService, TelegramBotService, S3Service, LoggingService, LtoService, CoinmarketcapService
+    UploadZipService
   ],
   controllers: [UploadZipController],
   exports: [

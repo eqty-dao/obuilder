@@ -1,15 +1,15 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { CoinmarketcapService } from './coinmarketcap.service';
-import { TelegramBotService } from 'src/telegram-bot/telegram-bot.service';
-import { ConfigModule } from 'src/config/config.module';
-import { QueueService } from 'src/queue/queue.service';
-import { S3Service } from 'src/s3/s3.service';
+import { ConfigModule } from '../config/config.module';
+import { TelegramBotModule } from 'src/telegram-bot/telegram-bot.module';
+import { LoggingModule } from 'src/logging/logging.module';
+import { S3Module } from 'src/s3/s3.module';
+import { QueueModule } from 'src/queue/queue.module';
 
-// import { TelegramBotModule } from 'src/telegram-bot/telegram-bot.module';
 
 @Module({
-	imports: [ConfigModule],
-  providers: [CoinmarketcapService, TelegramBotService, QueueService, S3Service],
+	imports: [ConfigModule,TelegramBotModule,LoggingModule,S3Module,forwardRef(() => QueueModule)],
+  providers: [CoinmarketcapService],
   exports: [CoinmarketcapService]
 })
 export class CoinmarketcapModule {}
