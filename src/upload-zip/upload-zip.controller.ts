@@ -1,22 +1,22 @@
-import { Controller, Get, Post, Body, UseInterceptors, UploadedFile, Res, Req, Query, HttpException, HttpStatus, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseInterceptors, UploadedFile, Res, Req, Query, HttpException, HttpStatus, Param, UseGuards } from '@nestjs/common';
 import { UploadZipService } from './upload-zip.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Express } from 'express';
 import { Request, Response } from 'express';
-import { Account, EventChain } from '@ltonetwork/lto';
+import { Account } from '@ltonetwork/lto';
 import { Signer } from '../common/http-signature/signer';
 import { AuthError, UserError, DataError } from '../interfaces/error';
-import { QueueEntry, OwnableStatus } from '../interfaces/QueueEntry';
+import { OwnableStatus } from '../interfaces/QueueEntry';
 import { } from 'multer';
 import { CoinmarketcapService } from '../coinmarketcap/coinmarketcap.service';
 import { QueueService } from '../queue/queue.service';
-// import { Transform } from 'class-transformer';
+
 import { InputUploadFileDto } from '../dtos/input-upload-file.dto';
-import path from 'path';
 
-
+import { ApiKeyGuard } from '../guards/api-key.guard';
 
 @Controller('api/v1')
+@UseGuards(ApiKeyGuard)
 export class UploadZipController {
 	constructor(private readonly uploadZipService: UploadZipService,
 		private readonly coinmarketcapService: CoinmarketcapService,

@@ -49,7 +49,7 @@ import { PinataModule } from './pinata/pinata.module';
     QueueModule,
     TelegramBotModule,
     LoggingModule,
-    S3Module,
+    S3Module
   ],
   controllers: [AppController],
   providers: [AppService]  

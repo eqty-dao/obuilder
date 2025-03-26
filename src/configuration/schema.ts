@@ -308,4 +308,10 @@ export default {
 	//     env: 'VERIFY_CHAIN_ID',
 	//   },
 	// },
+	api: {
+		secretKey: {
+			default: '',
+			env: 'API_SECRET_KEY',
+		},
+	},
 };

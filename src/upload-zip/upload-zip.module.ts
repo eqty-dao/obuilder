@@ -20,6 +20,7 @@ import { QueueModule } from '../queue/queue.module';
 import { EventChainModule } from '../event-chain/event-chain.module';
 import { RelayModule } from '../relay/relay.module';
 import { PinataModule } from '../pinata/pinata.module';
+import { ApiKeyGuard } from '../guards/api-key.guard';
 @Module({
   imports: [
     HttpModule.registerAsync({
@@ -43,7 +44,8 @@ import { PinataModule } from '../pinata/pinata.module';
     S3Module
   ],
   providers: [
-    UploadZipService
+    UploadZipService,
+	ApiKeyGuard
   ],
   controllers: [UploadZipController],
   exports: [

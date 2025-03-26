@@ -17,7 +17,7 @@ async function bootstrap() {
   app.enableCors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Signature-Input', 'Signature'],
+    allowedHeaders: ['Origin', 'X-Requested-With', 'X-API-Key', 'Content-Type', 'Accept', 'Authorization', 'Signature-Input', 'Signature'],
   });
 
   const config = await app.get<ConfigService>(ConfigService);
