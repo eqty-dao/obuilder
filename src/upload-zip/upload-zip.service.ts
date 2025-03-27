@@ -1181,7 +1181,30 @@ private async buildOwnable(
 	  const pkgFiles = await this.fileManagement.unzip(zipFile);
 	  const timeMillisecondsNow = Date.now().toString();
 	  pkgFiles.set('timestamp.txt', Buffer.from(timeMillisecondsNow, 'utf-8'));
-	  
+
+	  // Before creating the CID, modify package.json
+	  if (pkgFiles.has('package.json')) {
+		try {
+			// Get and parse package.json
+			const packageJsonBuffer = pkgFiles.get('package.json');
+			const packageJson = JSON.parse(packageJsonBuffer.toString());
+
+			// Update the name field
+			packageJson.name = jsonFile.PLACEHOLDER4_NAME;
+			
+			// Add a log to see the exact format
+            this.loggingService.log(requestId, `Updated package.json content: ${JSON.stringify(packageJson, null, 2)}`);
+
+			// Convert back to Buffer and update in pkgFiles
+			const updatedPackageJson = Buffer.from(JSON.stringify(packageJson, null, 2));
+			pkgFiles.set('package.json', updatedPackageJson);
+			
+			this.loggingService.log(requestId, `Updated package.json name to: ${jsonFile.PLACEHOLDER4_NAME}`);
+		} catch (err) {
+			this.loggingService.logError(requestId, `Failed to update package.json: ${err.message}`);
+			throw err;
+		}
+	}
 	  // Generate unique CID
 	  const cid = await this.fileManagement.getUniqueId(pkgFiles);
 	  this.loggingService.log(requestId, `Generated CID: ${cid}`);
