@@ -55,6 +55,16 @@ async function bootstrap() {
     .setDescription(packageInfo.description)
     .setVersion(packageInfo.version)
     .addTag('Building Ownables and NFTs made easy')
+	// Add API key security scheme
+    .addApiKey(
+		{ 
+		  type: 'apiKey',
+		  name: 'X-API-Key',
+		  in: 'header',
+		  description: 'API key for authentication'
+		},
+		'X-API-Key' // This is the key to be used in @ApiSecurity() decorator
+	  )
     .addBearerAuth()
     .build();
   
