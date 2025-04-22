@@ -1,5 +1,4 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 
 import { QueueEntry, OwnableStatus } from '../interfaces/QueueEntry';
 import { QueueError } from '../interfaces/error';
@@ -8,24 +7,10 @@ import { format } from 'date-fns';
 // import { ConfigService } from '../config/config.service';
 import { TelegramBotService } from '../telegram-bot/telegram-bot.service';
 import { S3Service } from '../s3/s3.service';
-import { LoggingService } from '../logging/logging.service';
 
-export enum QueueStatus {
-	PENDING = 'PENDING',
-	PROCESSING = 'PROCESSING',
-	COMPLETED = 'COMPLETED',
-	FAILED = 'FAILED',
-	DEAD_LETTER = 'DEAD_LETTER'
-}
 
 @Injectable()
 export class QueueService implements OnModuleInit {
-	private readonly logger = new Logger(QueueService.name);
-	private readonly queue: Map<string, QueueEntry> = new Map();
-	private readonly deadLetterQueue: Map<string, QueueEntry> = new Map();
-	private readonly maxRetries = 3;
-	private readonly processingInterval = 5000; // 5 seconds
-	private processingTimer: NodeJS.Timeout;
 
 	private queueMainnet = [];
 	private queueDataMainnet = [];
@@ -36,17 +21,16 @@ export class QueueService implements OnModuleInit {
 	private templateCostsMainnet: any = {};
 	private templateCostsTestnet: any = {};
 
+
 	constructor(
 		// private readonly config: ConfigService,
 		private readonly telegramService: TelegramBotService,
-		private readonly s3: S3Service,
-		private readonly configService: ConfigService,
-		private readonly loggingService: LoggingService
+		private readonly s3: S3Service
 	) {
 		this.isQueueingMainnet = true;
 		this.isQueueingTestnet = true;
-		this.startProcessing();
 	}
+
 
 	async onModuleInit() {
 		//await this.s3.load();
@@ -720,105 +704,6 @@ export class QueueService implements OnModuleInit {
 			return this.isQueueingMainnet;
 		} else {
 			return this.isQueueingTestnet;
-		}
-	}
-
-	private startProcessing() {
-		this.processingTimer = setInterval(async () => {
-			await this.processQueue();
-		}, this.processingInterval);
-	}
-
-	private async processQueue() {
-		for (const [id, entry] of this.queue.entries()) {
-			if (entry.status === QueueStatus.PENDING) {
-				try {
-					await this.processEntry(entry);
-				} catch (error) {
-					await this.handleProcessingError(entry, error);
-				}
-			}
-		}
-	}
-
-	private async processEntry(entry: QueueEntry) {
-		entry.status = QueueStatus.PROCESSING;
-		entry.updatedAt = new Date();
-		await this.persistQueue();
-
-		try {
-			// Process the entry (implement your processing logic here)
-			await this.processData(entry.data);
-			
-			entry.status = QueueStatus.COMPLETED;
-			entry.updatedAt = new Date();
-			await this.persistQueue();
-		} catch (error) {
-			throw error;
-		}
-	}
-
-	private async handleProcessingError(entry: QueueEntry, error: Error) {
-		entry.retryCount++;
-		entry.error = error.message;
-		entry.updatedAt = new Date();
-
-		if (entry.retryCount >= entry.maxRetries) {
-			entry.status = QueueStatus.DEAD_LETTER;
-			this.deadLetterQueue.set(entry.id, entry);
-			this.queue.delete(entry.id);
-			this.loggingService.logError(entry.id, `Entry moved to dead letter queue after ${entry.maxRetries} retries`);
-		} else {
-			entry.status = QueueStatus.PENDING;
-			this.loggingService.logError(entry.id, `Processing failed, retry ${entry.retryCount}/${entry.maxRetries}`);
-		}
-
-		await this.persistQueue();
-	}
-
-	private async persistQueue() {
-		try {
-			const queueData = Array.from(this.queue.values());
-			const deadLetterData = Array.from(this.deadLetterQueue.values());
-			
-			await this.s3.uploadJson('queue.json', queueData);
-			await this.s3.uploadJson('dead-letter-queue.json', deadLetterData);
-		} catch (error) {
-			this.logger.error('Failed to persist queue', error);
-		}
-	}
-
-	public async getQueueStatus(id: string): Promise<QueueEntry | null> {
-		return this.queue.get(id) || this.deadLetterQueue.get(id) || null;
-	}
-
-	public async retryDeadLetterEntry(id: string): Promise<boolean> {
-		const entry = this.deadLetterQueue.get(id);
-		if (!entry) {
-			return false;
-		}
-
-		entry.status = QueueStatus.PENDING;
-		entry.retryCount = 0;
-		entry.error = undefined;
-		entry.updatedAt = new Date();
-
-		this.queue.set(id, entry);
-		this.deadLetterQueue.delete(id);
-		await this.persistQueue();
-
-		return true;
-	}
-
-	public async clearQueue(): Promise<void> {
-		this.queue.clear();
-		this.deadLetterQueue.clear();
-		await this.persistQueue();
-	}
-
-	onModuleDestroy() {
-		if (this.processingTimer) {
-			clearInterval(this.processingTimer);
 		}
 	}
 }
