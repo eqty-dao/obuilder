@@ -11,8 +11,6 @@ import { TelegramBotModule } from './telegram-bot/telegram-bot.module';
 import { LtoModule } from './lto/lto.module';
 
 import { LoggingModule } from './logging/logging.module';
-import { HttpModule, HttpService } from '@nestjs/axios';
-import { ConfigService } from './config/config.service';
 
 import { NFTModule } from './nft/nft.module';
 
