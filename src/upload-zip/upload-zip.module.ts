@@ -20,7 +20,7 @@ import { QueueModule } from '../queue/queue.module';
 import { EventChainModule } from '../event-chain/event-chain.module';
 import { RelayModule } from '../relay/relay.module';
 import { PinataModule } from '../pinata/pinata.module';
-import { ApiKeyGuard } from '../guards/api-key.guard';
+
 @Module({
   imports: [
     HttpModule.registerAsync({
@@ -29,27 +29,22 @@ import { ApiKeyGuard } from '../guards/api-key.guard';
         maxRedirects: 5,
       }),
     }),
-	EventChainModule,
-	RelayModule,
-	PinataModule,
-	FileManagementModule,
-    ConfigModule, 
+    EventChainModule,
+    RelayModule,
+    PinataModule,
+    FileManagementModule,
+    ConfigModule,
     NFTModule,
     TelegramBotModule,
-	QueueModule,
-	CoinmarketcapModule,
+    QueueModule,
+    CoinmarketcapModule,
     LoggingModule,
     LtoModule,
     IpfsModule,
-    S3Module
+    S3Module,
   ],
-  providers: [
-    UploadZipService,
-	ApiKeyGuard
-  ],
+  providers: [UploadZipService],
   controllers: [UploadZipController],
-  exports: [
-    UploadZipService
-  ],
+  exports: [UploadZipService],
 })
 export class UploadZipModule {}

@@ -24,20 +24,12 @@ import { OwnableStatus } from '../interfaces/QueueEntry';
 import {} from 'multer';
 import { CoinmarketcapService } from '../coinmarketcap/coinmarketcap.service';
 import { QueueService } from '../queue/queue.service';
-import { ApiKeyGuard } from '../guards/api-key.guard';
-import {
-  ApiSecurity,
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 import { InputUploadFileDto } from '../dtos/input-upload-file.dto';
 
 @ApiTags('Upload')
-@ApiSecurity('X-API-Key')
 @Controller('api/v1')
-@UseGuards(ApiKeyGuard)
 export class UploadZipController {
   constructor(
     private readonly uploadZipService: UploadZipService,
