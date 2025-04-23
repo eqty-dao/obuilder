@@ -345,7 +345,6 @@ export class UploadZipController {
   }
 
   @Get('GetServerInfo')
-  @ApiSecurity('X-API-Key')
   async GetServerInfo() {
     try {
       const balanceARB_L = await this.uploadZipService.GetServerETHBalance(

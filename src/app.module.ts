@@ -27,30 +27,23 @@ import { PinataModule } from './pinata/pinata.module';
 
 @Module({
   imports: [
-	FileManagementModule,
-    // ConfigModule, // Use custom ConfigModule without forRoot()
-    // HttpModule.registerAsync({
-    //   useFactory: () => ({
-    //     timeout: 50000,
-    //     maxRedirects: 5,
-    //   }),
-    // }),
-  ConfigModule,
-	RelayModule,
-	EventChainModule,
-	PinataModule,
+    FileManagementModule,
+    ConfigModule,
+    RelayModule,
+    EventChainModule,
+    PinataModule,
     UploadZipModule,
-    LtoModule,    
+    LtoModule,
     IpfsModule,
     NFTModule,
     CoinmarketcapModule,
     QueueModule,
     TelegramBotModule,
     LoggingModule,
-    S3Module
+    S3Module,
   ],
   controllers: [AppController],
-  providers: [AppService]  
+  providers: [AppService],
 })
 export class AppModule {
   // configure(consumer: MiddlewareConsumer) {

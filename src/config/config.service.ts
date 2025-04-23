@@ -5,14 +5,15 @@ import { configurations, schema } from '../configuration';
 // Load environment variables from .env file
 dotenv.config();
 
-type SchemaOf<T extends convict.Schema<any>> = T extends convict.Schema<infer R> ? R : any;
+type SchemaOf<T extends convict.Schema<any>> =
+  T extends convict.Schema<infer R> ? R : any;
 type Schema = SchemaOf<typeof schema>;
 type Path = convict.Path<SchemaOf<typeof schema>>;
 type PathValue<K extends Path> = K extends null | undefined
   ? Schema
   : K extends convict.Path<Schema>
-  ? convict.PathValue<Schema, K>
-  : never;
+    ? convict.PathValue<Schema, K>
+    : never;
 
 convict.addFormat({
   name: 'typed-array',
