@@ -1,3 +1,4 @@
+import { IBinary } from "@ltonetwork/lto/interfaces";
 
 export interface OwnableInfo {
   owner: string;

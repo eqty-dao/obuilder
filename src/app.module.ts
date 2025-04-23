@@ -30,14 +30,14 @@ import { PinataModule } from './pinata/pinata.module';
 @Module({
   imports: [
 	FileManagementModule,
-    ConfigModule, // Use custom ConfigModule without forRoot()
-    HttpModule.registerAsync({
-      useFactory: () => ({
-        timeout: 50000,
-        maxRedirects: 5,
-      }),
-    }),
-    // ConfigModule.forRoot({ isGlobal: true }),
+    // ConfigModule, // Use custom ConfigModule without forRoot()
+    // HttpModule.registerAsync({
+    //   useFactory: () => ({
+    //     timeout: 50000,
+    //     maxRedirects: 5,
+    //   }),
+    // }),
+  ConfigModule,
 	RelayModule,
 	EventChainModule,
 	PinataModule,

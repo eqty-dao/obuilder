@@ -6,17 +6,18 @@ import { Request } from 'express';
 export class ApiKeyGuard implements CanActivate {
   constructor(private configService: ConfigService) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
     const apiKey = this.extractKeyFromRequest(request);
-    const validApiKey = this.configService.get('api.secretKey');
-
+    const validApiKey = await this.configService.get('api.secretKey');
+  
     if (!apiKey || apiKey !== validApiKey) {
       throw new UnauthorizedException('Invalid API key');
     }
-    
+  
     return true;
   }
+  
 
   private extractKeyFromRequest(request: Request): string | undefined {
     // Option 1: Extract from headers

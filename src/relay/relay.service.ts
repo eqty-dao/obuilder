@@ -5,6 +5,8 @@ import { ConfigService } from '../config/config.service';
 import { QueueService } from '../queue/queue.service';
 import { Relay, Message, Account } from '@ltonetwork/lto';
 import { OwnableStatus } from '../interfaces/QueueEntry';
+import { TypedPackage } from 'src/interfaces/TypedPackage';
+import { IMessageMeta } from '@ltonetwork/lto/interfaces';
 
 @Injectable()
 export class RelayService {
@@ -67,7 +69,7 @@ export class RelayService {
 	 * @param recipient Recipient address
 	 * @param requestId Request ID for logging and tracking
 	 */
-	public async sendFile(content: Uint8Array, sender: Account, recipient: string, requestId: string): Promise<string> {
+	public async sendFile(content: Uint8Array, sender: Account, recipient: string, requestId: string, fileMeta:IMessageMeta): Promise<string> {
 		try {
 			const relayURL = this.getRelayUrl();
 			const relay: Relay = new Relay(relayURL);
@@ -82,8 +84,7 @@ export class RelayService {
 			}
 
 
-			message = new Message(content).to(recipient).signWith(sender);
-			console.log("message", message);
+			message = new Message(content, "application/octet-stream", fileMeta).to(recipient).signWith(sender);
 			// Verify hash exists before sending
 			if (!message.hash || !message.hash.base58) {
 				this.loggingService.logError(requestId, 'Message hash not created properly');
@@ -126,7 +127,7 @@ export class RelayService {
 	 * @param recipient Recipient address
 	 * @param content File content to send
 	 */
-	public async sendOwnable(ltoNetworkId: 'L' | 'T', requestId: string, recipient: string, content?: Uint8Array): Promise<string> {
+	public async sendOwnable(ltoNetworkId: 'L' | 'T', requestId: string, recipient: string, content?: Uint8Array, metadata?: IMessageMeta): Promise<string> {
 		console.log("requestId", requestId);
 		console.log("ltoNetworkId", ltoNetworkId);
 		console.log("recipient", recipient);
@@ -165,7 +166,7 @@ export class RelayService {
 			this.loggingService.log(requestId, `Try sending file... RELAYURL:${relayURL} SENDER:${sender.address} RECIPIENT:${recipient} RID:${requestId}`);
 			if (recipient) {
 				this.loggingService.log(requestId, `Recipient: ${recipient} RID:${requestId}.`);
-				const hashBase58 = await this.sendFile(content, sender, recipient, requestId);
+				const hashBase58 = await this.sendFile(content, sender, recipient, requestId, metadata);
 
 				// Check if entry still exists before we try to update status
 				this.loggingService.log(requestId, `POST-SEND: Checking queue entry existence`);

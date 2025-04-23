@@ -5,10 +5,10 @@ import { PinataService } from '../pinata/pinata.service';
 import arrayToString from '../utils/arrayToString';
 import JSZip from 'jszip';
 
-import { Account, LTO, Event, EventChain, Message, Relay, getNetwork } from "@ltonetwork/lto";
+import { Account, LTO, Event, EventChain, Message, Relay, getNetwork, Binary } from "@ltonetwork/lto";
 
 // import chokidar from 'chokidar';
-import { NftInfo, OwnableInfo } from '../interfaces/OwnableInfo';
+import { NftInfo } from '../interfaces/OwnableInfo';
 import { TransactionIdData } from '../interfaces/TransactionIdData';
 import { TypedPackage } from "../interfaces/TypedPackage";
 import { IPFS } from '../interfaces/ipfs.interface';
@@ -32,6 +32,8 @@ import { CoinmarketcapService } from '../coinmarketcap/coinmarketcap.service';
 import { packageInfo } from '../utils/package-info';
 import { RelayService } from '../relay/relay.service';
 import * as path from 'path';
+import sharp from 'sharp';
+import { IMessageMeta } from '@ltonetwork/lto/interfaces';
 
 @Injectable()
 export class UploadZipService implements OnModuleInit, OnModuleDestroy {
@@ -42,6 +44,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	private intervalId: NodeJS.Timeout;
 	private nodeVersion = process.version;
 	private pinata: PinataSDK;
+	private ownableMeta: IMessageMeta;
 
 	constructor(
 		private readonly eventChainService: EventChainService,
@@ -219,9 +222,27 @@ public async broadcastTransaction(
 	public async isRelayServerUp(): Promise<string> {
 		return this.relayService.isRelayServerUp();
 	}
+
+	private async prepareMeta() {
+		const title = this.packageInfo
+	}
+
+	private async resizeToThumbnail(input: Buffer): Promise<Binary> {
+		const resized = await sharp(input)
+			.resize(50, 50)
+			.webp({ quality: 80 })
+			.toBuffer();
+	
+		if (resized.length > 256 * 1024) {
+			throw new Error("Thumbnail exceeds 256KB");
+		}
+
+		return Binary.from(resized);
+	}
 	
 	public async sendOwnable(ltoNetworkId: 'L' | 'T', rid: string, recipient: string, content?: Uint8Array) {
-		return this.relayService.sendOwnable(ltoNetworkId, rid, recipient, content);
+		const metadata = this.ownableMeta
+		return this.relayService.sendOwnable(ltoNetworkId, rid, recipient, content, metadata);
 	}
 
 	
@@ -1252,6 +1273,11 @@ private async buildOwnable(
 	  
 	  const zipContent = await new_zip.generateAsync({ type: "uint8array" });
 	  
+		
+		//Initialize the metadata component
+		this.ownableMeta.title = pkgOwnable.title || "Ownable";
+		this.ownableMeta.description = pkgOwnable.description || "";
+		this.ownableMeta.thumbnail = await this.resizeToThumbnail(thumbnail);
 	  
 	 
 	  // Store in S3
