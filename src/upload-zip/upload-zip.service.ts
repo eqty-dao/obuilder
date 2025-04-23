@@ -75,7 +75,13 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     private readonly loggingService: LoggingService,
     private readonly telegramService: TelegramBotService,
     @Inject('IPFS') private readonly ipfs: IPFS,
-  ) {}
+  ) {
+    this.ownableMeta = {
+      type: 'Ownable',
+      title: 'Ownable',
+      description: '',
+    };
+  }
 
   async onModuleInit() {
     await this.config.load();
