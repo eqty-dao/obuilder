@@ -4,7 +4,7 @@ import { FileManagementModule } from '../file-management/file-management.module'
 import { UploadZipController } from './upload-zip.controller';
 import { ConfigModule } from '../config/config.module'; // Ensure custom config module
 import { HttpModule, HttpService } from '@nestjs/axios';
-import { LtoModule } from '../lto/lto.module';
+import { EqtyModule } from '../eqty/eqty.module';
 import { NFTModule } from '../nft/nft.module';
 
 import { ConfigService } from '../config/config.service'; // Custom ConfigService
@@ -39,7 +39,7 @@ import { PinataModule } from '../pinata/pinata.module';
     QueueModule,
     CoinmarketcapModule,
     LoggingModule,
-    LtoModule,
+    EqtyModule,
     IpfsModule,
     S3Module,
   ],

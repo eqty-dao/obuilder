@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>oBuilder Test Interface</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .form-group {
+        margin-bottom: 20px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: #555;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+      }
+      textarea {
+        height: 100px;
+        resize: vertical;
+      }
+      .file-input {
+        border: 2px dashed #ddd;
+        padding: 20px;
+        text-align: center;
+        background-color: #fafafa;
+        cursor: pointer;
+      }
+      .file-input:hover {
+        background-color: #f0f0f0;
+      }
+      .file-input.dragover {
+        background-color: #e8f4fd;
+        border-color: #007bff;
+      }
+      button {
+        background-color: #007bff;
+        color: white;
+        padding: 12px 30px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+        width: 100%;
+        margin-top: 20px;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      button:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+      .status {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 5px;
+        display: none;
+      }
+      .status.success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+      .status.error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+      .status.info {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+      }
+      .template-info {
+        background-color: #e9ecef;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+      }
+      .template-info h3 {
+        margin-top: 0;
+        color: #495057;
+      }
+      .progress {
+        width: 100%;
+        height: 20px;
+        background-color: #e9ecef;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-top: 10px;
+      }
+      .progress-bar {
+        height: 100%;
+        background-color: #007bff;
+        width: 0%;
+        transition: width 0.3s ease;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🚀 oBuilder Test Interface</h1>
+
+      <div class="template-info">
+        <h3>Available Templates</h3>
+        <p><strong>Template 1:</strong> Basic ownable with simple metadata</p>
+        <p><strong>Template 2:</strong> Media ownable with HTML assets</p>
+        <p>
+          <strong>Template 3:</strong> Advanced ownable with custom features
+        </p>
+      </div>
+
+      <form id="uploadForm">
+        <div class="form-group">
+          <label for="templateId">Template ID:</label>
+          <select id="templateId" name="templateId" required>
+            <option value="">Select a template...</option>
+            <option value="1">Template 1 - Basic</option>
+            <option value="2">Template 2 - Media</option>
+            <option value="3">Template 3 - Advanced</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="networkId">Network:</label>
+          <select id="networkId" name="networkId" required>
+            <option value="">Select network...</option>
+            <option value="L">Mainnet (L)</option>
+            <option value="T">Testnet (T)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="name">Ownable Name:</label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            placeholder="Enter ownable name"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="description">Description:</label>
+          <textarea
+            id="description"
+            name="description"
+            placeholder="Enter ownable description"
+            required
+          ></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="image">Image File:</label>
+          <div class="file-input" id="imageDropZone">
+            <p>📁 Click to select image or drag & drop</p>
+            <p><small>Supported formats: JPG, PNG, GIF, WebP</small></p>
+            <input
+              type="file"
+              id="image"
+              name="image"
+              accept="image/*"
+              style="display: none"
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="attributes">Attributes (JSON):</label>
+          <textarea
+            id="attributes"
+            name="attributes"
+            placeholder='{"rarity": "common", "category": "digital art"}'
+          ></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="mediaType">Media Type:</label>
+          <select id="mediaType" name="mediaType">
+            <option value="image/gif">Image/GIF</option>
+            <option value="image/png">Image/PNG</option>
+            <option value="image/jpeg">Image/JPEG</option>
+            <option value="image/webp">Image/WebP</option>
+            <option value="audio/mpeg">Audio/MP3</option>
+            <option value="video/mp4">Video/MP4</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="mediaSource">Media Source URL (optional):</label>
+          <input
+            type="url"
+            id="mediaSource"
+            name="mediaSource"
+            placeholder="https://example.com/media.mp3"
+          />
+        </div>
+
+        <button type="submit" id="submitBtn">🚀 Upload & Build Ownable</button>
+      </form>
+
+      <div class="progress" id="progressContainer" style="display: none">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+
+      <div class="status" id="status"></div>
+    </div>
+
+    <script>
+      const API_BASE_URL = 'http://localhost:3000/api/v1';
+
+      // File drop zone functionality
+      const dropZone = document.getElementById('imageDropZone');
+      const fileInput = document.getElementById('image');
+
+      dropZone.addEventListener('click', () => fileInput.click());
+      dropZone.addEventListener('dragover', handleDragOver);
+      dropZone.addEventListener('dragleave', handleDragLeave);
+      dropZone.addEventListener('drop', handleDrop);
+
+      function handleDragOver(e) {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      }
+
+      function handleDragLeave(e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+      }
+
+      function handleDrop(e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          fileInput.files = files;
+          updateFileDisplay(files[0]);
+        }
+      }
+
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          updateFileDisplay(e.target.files[0]);
+        }
+      });
+
+      function updateFileDisplay(file) {
+        dropZone.innerHTML = `
+                <p>✅ Selected: ${file.name}</p>
+                <p><small>Size: ${(file.size / 1024 / 1024).toFixed(2)} MB</small></p>
+                <p><small>Type: ${file.type}</small></p>
+            `;
+      }
+
+      // Form submission
+      document
+        .getElementById('uploadForm')
+        .addEventListener('submit', async (e) => {
+          e.preventDefault();
+
+          const formData = new FormData();
+          const templateId = document.getElementById('templateId').value;
+          const networkId = document.getElementById('networkId').value;
+          const name = document.getElementById('name').value;
+          const description = document.getElementById('description').value;
+          const attributes = document.getElementById('attributes').value;
+          const mediaType = document.getElementById('mediaType').value;
+          const mediaSource = document.getElementById('mediaSource').value;
+          const imageFile = document.getElementById('image').files[0];
+
+          if (
+            !templateId ||
+            !networkId ||
+            !name ||
+            !description ||
+            !imageFile
+          ) {
+            showStatus('Please fill in all required fields', 'error');
+            return;
+          }
+
+          // Validate attributes JSON
+          if (attributes) {
+            try {
+              JSON.parse(attributes);
+            } catch (e) {
+              showStatus('Invalid JSON in attributes field', 'error');
+              return;
+            }
+          }
+
+          try {
+            showStatus('Creating ownable package...', 'info');
+            showProgress(10);
+
+            // Create ownable data JSON
+            const ownableData = {
+              templateId: parseInt(templateId),
+              type:
+                templateId === '1'
+                  ? 'basic'
+                  : templateId === '2'
+                    ? 'media'
+                    : 'advanced',
+              metadata: {
+                title: name,
+                description: description,
+                attributes: attributes ? JSON.parse(attributes) : {},
+              },
+              media:
+                templateId !== '1'
+                  ? {
+                      mediaType: mediaType,
+                      mediaSource: mediaSource || '',
+                      coverUrl: '',
+                      backdropUrl: '',
+                    }
+                  : undefined,
+              generatedAt: new Date().toISOString(),
+            };
+
+            showProgress(30);
+
+            // Create zip file
+            const zip = await createZipFile(ownableData, imageFile);
+            showProgress(60);
+
+            // Upload to oBuilder
+            await uploadToBuilder(zip, templateId, networkId);
+            showProgress(100);
+          } catch (error) {
+            console.error('Upload error:', error);
+            showStatus(`Upload failed: ${error.message}`, 'error');
+          }
+        });
+
+      async function createZipFile(ownableData, imageFile) {
+        // Create a simple zip structure
+        const zip = new JSZip();
+
+        // Add ownable data
+        zip.file('ownableData.json', JSON.stringify(ownableData, null, 2));
+
+        // Add image
+        if (imageFile) {
+          zip.file('image.' + imageFile.name.split('.').pop(), imageFile);
+        }
+
+        // Add chain.json (placeholder)
+        const chainData = {
+          networkId: document.getElementById('networkId').value,
+          timestamp: Date.now(),
+          version: '1.0.0',
+        };
+        zip.file('chain.json', JSON.stringify(chainData, null, 2));
+
+        return await zip.generateAsync({ type: 'blob' });
+      }
+
+      async function uploadToBuilder(zipBlob, templateId, networkId) {
+        const formData = new FormData();
+        formData.append('file', zipBlob, 'ownable-package.zip');
+        formData.append('templateId', templateId);
+        formData.append('name', document.getElementById('name').value);
+
+        showStatus('Uploading to oBuilder...', 'info');
+
+        const response = await fetch(
+          `${API_BASE_URL}/upload?ltoNetworkId=${networkId}`,
+          {
+            method: 'POST',
+            body: formData,
+          },
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const result = await response.json();
+        showStatus(
+          `✅ Success! Ownable queued for building. Request ID: ${result.requestId || 'N/A'}`,
+          'success',
+        );
+      }
+
+      function showStatus(message, type) {
+        const status = document.getElementById('status');
+        status.textContent = message;
+        status.className = `status ${type}`;
+        status.style.display = 'block';
+      }
+
+      function showProgress(percent) {
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+
+        progressContainer.style.display = 'block';
+        progressBar.style.width = percent + '%';
+      }
+
+      // Load JSZip library
+      const script = document.createElement('script');
+      script.src =
+        'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      document.head.appendChild(script);
+    </script>
+  </body>
+</html>

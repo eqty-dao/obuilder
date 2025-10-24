@@ -1,14 +1,12 @@
 import { Module } from '@nestjs/common';
-import { QueueService } from './queue.service';
-import { ConfigModule } from '../config/config.module';
-import { TelegramBotModule } from '../telegram-bot/telegram-bot.module';
-import { S3Module } from '../s3/s3.module';
-
+import { RedisQueueService } from './redis-queue.service';
+import { RedisModule } from '../redis/redis.module';
 import { LoggingModule } from '../logging/logging.module';
-@Module({
-  imports: [ConfigModule, TelegramBotModule, S3Module, LoggingModule],
+import { TelegramBotModule } from '../telegram-bot/telegram-bot.module';
 
-  providers: [QueueService],
-  exports: [QueueService],
+@Module({
+  imports: [RedisModule, LoggingModule, TelegramBotModule],
+  providers: [RedisQueueService],
+  exports: [RedisQueueService],
 })
 export class QueueModule {}

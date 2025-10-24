@@ -17,13 +17,12 @@ import { UploadZipService } from './upload-zip.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Express } from 'express';
 import { Request, Response } from 'express';
-import { Account } from '@ltonetwork/lto';
 import { Signer } from '../common/http-signature/signer';
 import { AuthError, UserError, DataError } from '../interfaces/error';
 import { OwnableStatus } from '../interfaces/QueueEntry';
 import {} from 'multer';
 import { CoinmarketcapService } from '../coinmarketcap/coinmarketcap.service';
-import { QueueService } from '../queue/queue.service';
+import { RedisQueueService } from '../queue/redis-queue.service';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 import { InputUploadFileDto } from '../dtos/input-upload-file.dto';
@@ -34,7 +33,7 @@ export class UploadZipController {
   constructor(
     private readonly uploadZipService: UploadZipService,
     private readonly coinmarketcapService: CoinmarketcapService,
-    private readonly queueService: QueueService,
+    private readonly queueService: RedisQueueService,
   ) {}
 
   @ApiOperation({
@@ -54,7 +53,7 @@ export class UploadZipController {
     @Res() res: Response,
     @Query('ltoNetworkId') ltoNetworkId: 'L' | 'T',
     //   @Query('templateId') queryTemplateId?: string,
-    @Signer() signer?: Account,
+    @Signer() signer?: any,
   ): Promise<Response> {
     let buffer: Buffer = null;
     console.log('file', file);
@@ -277,20 +276,22 @@ export class UploadZipController {
       console.log('After CoinMarketCap update');
 
       // Get direct values from queue service for comparison
-      const queueMainnet = this.queueService.getTemplateCostsIncludingPrevious(
-        'L',
-        'arbitrum',
-        templateId.toString(),
-      );
-      const queueTestnet = this.queueService.getTemplateCostsIncludingPrevious(
-        'T',
-        'arbitrum',
-        templateId.toString(),
-      );
+      const queueMainnet =
+        await this.queueService.getTemplateCostsIncludingPrevious(
+          'L',
+          'arbitrum',
+          templateId.toString(),
+        );
+      const queueTestnet =
+        await this.queueService.getTemplateCostsIncludingPrevious(
+          'T',
+          'arbitrum',
+          templateId.toString(),
+        );
 
       console.log('Direct from queue service:', {
-        mainnet: queueMainnet[0],
-        testnet: queueTestnet[0],
+        mainnet: queueMainnet.current,
+        testnet: queueTestnet.current,
       });
 
       // Get values via normal service call

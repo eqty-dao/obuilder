@@ -1,28 +1,41 @@
-import { Injectable } from '@nestjs/common';
-import { LoggingService } from '../logging/logging.service';
-import { LtoService } from '../lto/lto.service';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { LoggingService } from '../logging/redis-logging.service';
+import { EqtyService } from '../eqty/eqty.service';
 import { ConfigService } from '../config/config.service';
-import { QueueService } from '../queue/queue.service';
-import { Relay, Message, Account } from '@ltonetwork/lto';
+import { RedisQueueService } from '../queue/redis-queue.service';
 import { OwnableStatus } from '../interfaces/QueueEntry';
 import { TypedPackage } from 'src/interfaces/TypedPackage';
-import { IMessageMeta } from '@ltonetwork/lto/interfaces';
+import { ethers } from 'ethers';
+
+// Dynamic imports for ES modules
+let Message: any;
 
 @Injectable()
-export class RelayService {
+export class RelayService implements OnModuleInit {
   constructor(
     private readonly loggingService: LoggingService,
-    private readonly ltoService: LtoService,
+    private readonly eqtyService: EqtyService,
     private readonly config: ConfigService,
-    private readonly queueService: QueueService,
+    private readonly queueService: RedisQueueService,
   ) {}
+
+  async onModuleInit() {
+    // Dynamic import of eqty-core ES module
+    try {
+      const eqtyCore = await import('eqty-core');
+      Message = eqtyCore.Message;
+    } catch (error) {
+      console.error('Failed to import eqty-core in RelayService:', error);
+      throw error;
+    }
+  }
 
   /**
    * Gets the configured relay URL
    * @returns The relay URL from configuration
    */
   public getRelayUrl(): string {
-    return this.config.get('lto.relay') || this.config.get('lto.local_relay');
+    return this.config.get('eqty.relay') || this.config.get('eqty.local_relay');
   }
 
   /**
@@ -63,260 +76,315 @@ export class RelayService {
   }
 
   /**
-   * Sends file content through relay
+   * Sends file content through relay using eqty-core
    * @param content File content to send
-   * @param sender Sender account
+   * @param sender Sender wallet address
    * @param recipient Recipient address
    * @param requestId Request ID for logging and tracking
    */
   public async sendFile(
     content: Uint8Array,
-    sender: Account,
+    sender: string,
     recipient: string,
     requestId: string,
-    fileMeta: IMessageMeta,
+    fileMeta?: any,
   ): Promise<string> {
     try {
       const relayURL = this.getRelayUrl();
-      const relay: Relay = new Relay(relayURL);
-      let message: Message;
 
-      const ltoNetwork = this.getLtoNetwork(recipient);
       this.loggingService.log(
         requestId,
-        `Sending File with sender:${sender.address} and recipient:${recipient}`,
+        `Sending File with sender:${sender} and recipient:${recipient}`,
       );
 
       if (!sender || !recipient) {
         this.loggingService.logError(
           requestId,
-          `Provide the signer and recipient. signer: ${sender?.address}  recipient:${recipient}`,
+          `Provide the signer and recipient. signer: ${sender}  recipient:${recipient}`,
         );
         throw new Error(`Provide the signer and recipient`);
       }
 
-      message = new Message(content, 'application/octet-stream', fileMeta)
-        .to(recipient)
-        .signWith(sender);
+      // Create message using eqty-core
+      const message = new Message(
+        content,
+        'application/octet-stream',
+        fileMeta,
+      ).to(recipient);
+
+      // Sign the message with the sender's wallet
+      const signer = ethers.Wallet.fromPhrase(
+        this.config.get('eth.account.mnemonic.mainnet'), // Use mainnet for now
+      );
+
+      const eqtySigner = {
+        getAddress: async () => signer.address,
+        signTypedData: async (domain: any, types: any, value: any) => {
+          return await signer.signTypedData(domain, types, value);
+        },
+      };
+
+      await message.signWith(eqtySigner);
+
       // Verify hash exists before sending
-      if (!message.hash || !message.hash.base58) {
+      if (!message.hash || !message.hash.hex) {
         this.loggingService.logError(
           requestId,
           'Message hash not created properly',
         );
         throw new Error('Message hash not available');
       }
+
+      this.loggingService.log(requestId, `Message hash: ${message.hash.hex}`);
+
       this.loggingService.log(
         requestId,
-        `Message hash: ${message.hash.base58}`,
+        `Message: sender:${message.sender} recipient:${message.recipient} timestamp:${message.timestamp} mediaType:${message.mediaType}`,
       );
-      this.loggingService.log(
-        requestId,
-        `Message: type${message.type} sender:${JSON.stringify(message.sender)} recipient:${message.recipient} timestamp:${message.timestamp} mediaType:${message.mediaType}`,
-      );
+
       try {
-        // Store the hash before sending
-        const hashBase58 = message.hash.base58;
-        console.log('hashBase58', hashBase58);
-        console.log('requestId', requestId);
+        // Send message to relay server
+        const response = await fetch(`${relayURL}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'EQTY-Message-Type': 'file',
+            'EQTY-Message-Sender': sender,
+            'EQTY-Message-Recipient': recipient,
+            'EQTY-Message-Signature': message.signature?.hex || '',
+            'EQTY-Message-Timestamp': message.timestamp?.toString() || '',
+            'EQTY-Message-Hash': message.hash.hex,
+          },
+          body: JSON.stringify({
+            data: Array.from(content),
+            mediaType: 'application/octet-stream',
+            meta: fileMeta,
+            sender: sender,
+            recipient: recipient,
+            signature: message.signature?.hex || '',
+            timestamp: message.timestamp,
+            hash: message.hash.hex,
+          }),
+        });
 
-        await relay.send(message);
-        this.loggingService.log(
-          requestId,
-          `Ownable successfully sent to Relay. Setting Queue status to sent.`,
-        );
-
-        if (ltoNetwork === 'L') {
-          await this.queueService.setQueueEntryStatus(
-            'L',
-            requestId,
-            OwnableStatus.Sent,
-            hashBase58,
-          );
-        } else {
-          await this.queueService.setQueueEntryStatus(
-            'T',
-            requestId,
-            OwnableStatus.Sent,
-            hashBase58,
-          );
-        }
-
-        return hashBase58;
-      } catch (err) {
-        this.loggingService.logError(requestId, `Error relay.send: ${err}`);
-        throw err;
-      }
-    } catch (error) {
-      this.loggingService.logError(
-        requestId,
-        `Send file error: ${error.message}`,
-      );
-      throw error;
-    }
-  }
-  private wait = (n: number) =>
-    new Promise((resolve) => setTimeout(resolve, n));
-
-  /**
-   * Sends an ownable file to a recipient
-   * @param ltoNetworkId L for mainnet, T for testnet
-   * @param requestId Request ID for logging and tracking
-   * @param recipient Recipient address
-   * @param content File content to send
-   */
-  public async sendOwnable(
-    ltoNetworkId: 'L' | 'T',
-    requestId: string,
-    recipient: string,
-    content?: Uint8Array,
-    metadata?: IMessageMeta,
-  ): Promise<string> {
-    console.log('requestId', requestId);
-    console.log('ltoNetworkId', ltoNetworkId);
-    console.log('recipient', recipient);
-
-    const relayURL = this.getRelayUrl();
-    let sender: Account;
-    this.wait(5000);
-    // Add entry check and logging
-    this.loggingService.log(
-      requestId,
-      `PRE-SEND: Checking queue entry existence`,
-    );
-    // console.log("5");
-    // this.queueService.showQueue();
-    const [entry, index] = this.queueService.getQueueEntryByRequestId(
-      ltoNetworkId,
-      requestId,
-    );
-    // console.log("6");
-    // this.queueService.showQueue();
-    this.loggingService.log(
-      requestId,
-      `PRE-SEND: Entry exists: ${!!entry}, index: ${index}`,
-    );
-
-    const ltoNetworkIdRecipient = this.getLtoNetwork(recipient);
-    this.loggingService.log(
-      requestId,
-      `Sending Ownablefile... RELAY:${relayURL} RECIPIENT:${recipient} RID:${requestId} NETWORKID: ${ltoNetworkId}.`,
-    );
-
-    if (ltoNetworkId !== ltoNetworkIdRecipient) {
-      this.loggingService.logError(
-        requestId,
-        `Lto NetworkIds of currently produced Ownable ${ltoNetworkId} and recipient ${ltoNetworkIdRecipient} do not match`,
-      );
-      throw new Error(
-        `Lto NetworkIds of currently produced Ownable ${ltoNetworkId} and recipient ${ltoNetworkIdRecipient} do not match`,
-      );
-    }
-
-    if (ltoNetworkId == 'L') {
-      sender = this.ltoService.ltoAccountMainnet;
-    } else if (ltoNetworkId == 'T') {
-      sender = this.ltoService.ltoAccountTestnet;
-    } else {
-      this.loggingService.logError(
-        requestId,
-        `Unknown ltoNetworkID ${ltoNetworkId}`,
-      );
-      throw new Error(`Unknown ltoNetworkID ${ltoNetworkId}`);
-    }
-
-    try {
-      this.loggingService.log(
-        requestId,
-        `Try sending file... RELAYURL:${relayURL} SENDER:${sender.address} RECIPIENT:${recipient} RID:${requestId}`,
-      );
-      if (recipient) {
-        this.loggingService.log(
-          requestId,
-          `Recipient: ${recipient} RID:${requestId}.`,
-        );
-        const hashBase58 = await this.sendFile(
-          content,
-          sender,
-          recipient,
-          requestId,
-          metadata,
-        );
-
-        // Check if entry still exists before we try to update status
-        this.loggingService.log(
-          requestId,
-          `POST-SEND: Checking queue entry existence`,
-        );
-        const [postEntry, postIndex] =
-          this.queueService.getQueueEntryByRequestId(ltoNetworkId, requestId);
-        this.loggingService.log(
-          requestId,
-          `POST-SEND: Entry exists: ${!!postEntry}, index: ${postIndex}`,
-        );
-
-        // If entry is missing but file was sent, create a new one with Sent status
-        if (!postEntry || postIndex === -1) {
+        if (!response.ok) {
+          const errorText = await response.text();
           this.loggingService.logError(
             requestId,
-            `Queue entry missing after successful send. Creating new entry with Sent status.`,
+            `Failed to send message to relay: ${errorText}`,
           );
-
-          // We could recreate an entry here or let the caller handle this
-          const queue =
-            ltoNetworkId === 'L'
-              ? this.queueService.queueMainnet
-              : this.queueService.queueTestnet;
-
-          // Create a minimal entry if needed
-          if (!entry) {
-            const newEntry = {
-              rid: requestId,
-              ltoNetworkId: ltoNetworkId,
-              ltoWallet: recipient,
-              timestampProcessing: Math.floor(Date.now() / 1000),
-              ownableStatus: OwnableStatus.Sent,
-              hash: hashBase58,
-            };
-
-            queue.push(newEntry);
-            await this.queueService.updateQueueInS3Bucket(ltoNetworkId);
-            this.loggingService.log(
-              requestId,
-              `Created new entry with Sent status`,
-            );
-          }
+          throw new Error(`Failed to send message to relay: ${errorText}`);
         }
 
-        return hashBase58;
-      } else {
+        const result = await response.json();
+        this.loggingService.log(
+          requestId,
+          `Message successfully sent to relay: ${JSON.stringify(result)}`,
+        );
+
+        return result.messageId || result.id || 'message-sent';
+      } catch (relayError) {
         this.loggingService.logError(
           requestId,
-          `Failed to send Ownable RELAY:${relayURL} SENDER:${sender.address} RECIPIENT:${recipient} RID:${requestId}.`,
+          `Relay communication error: ${relayError}`,
         );
-        throw new Error('No recipient provided');
+        throw relayError;
       }
-    } catch (error) {
-      this.loggingService.logError(
-        requestId,
-        `Error sending message: ${error}`,
-      );
-      throw new Error(`Error sending message: ${error}`);
+    } catch (err) {
+      this.loggingService.logError(requestId, `Sending file failed: ${err}`);
+      throw err;
     }
   }
 
   /**
-   * Gets the LTO network for an address
-   * @param address LTO address
-   * @returns 'L' for mainnet, 'T' for testnet
+   * Sends a typed package through relay
+   * @param typedPackage The typed package to send
+   * @param sender Sender wallet address
+   * @param recipient Recipient address
+   * @param requestId Request ID for logging and tracking
    */
-  private getLtoNetwork(address: string): 'L' | 'T' {
-    const isValidMainnet = this.ltoService.ltoMainnet.isValidAddress(address);
-    const isValidTestnet = this.ltoService.ltoTestnet.isValidAddress(address);
+  public async sendTypedPackage(
+    typedPackage: TypedPackage,
+    sender: string,
+    recipient: string,
+    requestId: string,
+  ): Promise<string> {
+    try {
+      const relayURL = this.getRelayUrl();
 
-    if (isValidMainnet) return 'L';
-    if (isValidTestnet) return 'T';
+      this.loggingService.log(
+        requestId,
+        `Sending Typed Package with sender:${sender} and recipient:${recipient}`,
+      );
 
-    throw new Error(`Invalid LTO address: ${address}`);
+      if (!sender || !recipient) {
+        this.loggingService.logError(
+          requestId,
+          `Provide the signer and recipient. signer: ${sender}  recipient:${recipient}`,
+        );
+        throw new Error(`Provide the signer and recipient`);
+      }
+
+      // Convert typed package to Uint8Array
+      const packageData = new TextEncoder().encode(
+        JSON.stringify(typedPackage),
+      );
+
+      // Create message using eqty-core
+      const message = new Message(packageData, 'application/json').to(
+        recipient,
+      );
+
+      // Sign the message with the sender's wallet
+      const signer = ethers.Wallet.fromPhrase(
+        this.config.get('eth.account.mnemonic.mainnet'), // Use mainnet for now
+      );
+
+      const eqtySigner = {
+        getAddress: async () => signer.address,
+        signTypedData: async (domain: any, types: any, value: any) => {
+          return await signer.signTypedData(domain, types, value);
+        },
+      };
+
+      await message.signWith(eqtySigner);
+
+      // Verify hash exists before sending
+      if (!message.hash || !message.hash.hex) {
+        this.loggingService.logError(
+          requestId,
+          'Message hash not created properly',
+        );
+        throw new Error('Message hash not available');
+      }
+
+      this.loggingService.log(requestId, `Message hash: ${message.hash.hex}`);
+
+      try {
+        // Send message to relay server
+        const response = await fetch(`${relayURL}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'EQTY-Message-Type': 'typed-package',
+            'EQTY-Message-Sender': sender,
+            'EQTY-Message-Recipient': recipient,
+            'EQTY-Message-Signature': message.signature?.hex || '',
+            'EQTY-Message-Timestamp': message.timestamp?.toString() || '',
+            'EQTY-Message-Hash': message.hash.hex,
+          },
+          body: JSON.stringify({
+            data: Array.from(packageData),
+            mediaType: 'application/json',
+            meta: { type: 'typed-package' },
+            sender: sender,
+            recipient: recipient,
+            signature: message.signature?.hex || '',
+            timestamp: message.timestamp,
+            hash: message.hash.hex,
+            typedPackage: typedPackage,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          this.loggingService.logError(
+            requestId,
+            `Failed to send typed package to relay: ${errorText}`,
+          );
+          throw new Error(
+            `Failed to send typed package to relay: ${errorText}`,
+          );
+        }
+
+        const result = await response.json();
+        this.loggingService.log(
+          requestId,
+          `Typed package successfully sent to relay: ${JSON.stringify(result)}`,
+        );
+
+        return result.messageId || result.id || 'typed-package-sent';
+      } catch (relayError) {
+        this.loggingService.logError(
+          requestId,
+          `Relay communication error: ${relayError}`,
+        );
+        throw relayError;
+      }
+    } catch (err) {
+      this.loggingService.logError(
+        requestId,
+        `Sending typed package failed: ${err}`,
+      );
+      throw err;
+    }
+  }
+
+  /**
+   * Determines the network based on recipient address
+   * For EQTY, we'll use Base network (mainnet/testnet)
+   */
+  private getEqtyNetwork(recipient: string): 'L' | 'T' {
+    // For now, default to mainnet ('L')
+    // In the future, this could be determined by the recipient address format
+    // or by checking which network the address belongs to
+    return 'L';
+  }
+
+  /**
+   * Sends a notification to the relay server about a completed ownable
+   * @param recipient Recipient address
+   * @param tokenURI Token URI of the minted NFT
+   * @param txHash Transaction hash
+   * @param requestId Request ID for logging
+   */
+  public async notifyRelay(
+    recipient: string,
+    tokenURI: string,
+    txHash: string,
+    requestId: string,
+  ): Promise<void> {
+    try {
+      const relayURL = this.getRelayUrl();
+
+      this.loggingService.log(
+        requestId,
+        `Notifying relay about completed ownable for recipient:${recipient}`,
+      );
+
+      const notificationData = {
+        recipient,
+        tokenURI,
+        txHash,
+        timestamp: Date.now(),
+        type: 'ownable-completed',
+      };
+
+      const response = await fetch(`${relayURL}/notifications`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'EQTY-Notification-Type': 'ownable-completed',
+        },
+        body: JSON.stringify(notificationData),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        this.loggingService.logError(
+          requestId,
+          `Failed to notify relay: ${errorText}`,
+        );
+        throw new Error(`Failed to notify relay: ${errorText}`);
+      }
+
+      this.loggingService.log(
+        requestId,
+        `Successfully notified relay about completed ownable`,
+      );
+    } catch (err) {
+      this.loggingService.logError(requestId, `Failed to notify relay: ${err}`);
+      throw err;
+    }
   }
 }

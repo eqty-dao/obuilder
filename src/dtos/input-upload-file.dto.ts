@@ -3,7 +3,7 @@ import { Transform } from 'class-transformer';
 
 export class InputUploadFileDto {
   // Add any existing fields your API already accepts here
-  
+
   @IsOptional()
   @IsNumber()
   @Transform(({ value }) => Number(value))
@@ -12,15 +12,19 @@ export class InputUploadFileDto {
   @IsOptional()
   @IsString()
   name?: string;
-  
+
+  @IsOptional()
+  @IsString()
+  sender?: string;
+
   @IsOptional()
   @IsString()
   id?: string;
-  
+
   @IsOptional()
   @IsNumber()
-  nummer?: number;  
-  
+  nummer?: number;
+
   // Add the signed transaction field
   @IsOptional()
   signedTransaction?: any;

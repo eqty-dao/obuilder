@@ -1,0 +1,22 @@
+{
+  "name": "obuilder-test-script",
+  "version": "1.0.0",
+  "description": "Test script for oBuilder API",
+  "main": "test-api.js",
+  "scripts": {
+    "test": "node test-api.js",
+    "test:template1": "TEMPLATE_ID=1 node test-api.js",
+    "test:template2": "TEMPLATE_ID=2 node test-api.js",
+    "test:template3": "TEMPLATE_ID=3 node test-api.js",
+    "test:mainnet": "NETWORK_ID=L node test-api.js",
+    "test:testnet": "NETWORK_ID=T node test-api.js"
+  },
+  "dependencies": {
+    "form-data": "^4.0.0",
+    "node-fetch": "^2.7.0",
+    "jszip": "^3.10.1"
+  },
+  "keywords": ["obuilder", "test", "api"],
+  "author": "oBuilder Team",
+  "license": "MIT"
+}

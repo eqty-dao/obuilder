@@ -8,7 +8,7 @@ import { ConfigModule } from './config/config.module'; // Use custom ConfigModul
 
 import { TelegramBotModule } from './telegram-bot/telegram-bot.module';
 
-import { LtoModule } from './lto/lto.module';
+import { EqtyModule } from './eqty/eqty.module';
 
 import { LoggingModule } from './logging/logging.module';
 
@@ -24,23 +24,27 @@ import { FileManagementModule } from './file-management/file-management.module';
 import { EventChainModule } from './event-chain/event-chain.module';
 import { RelayModule } from './relay/relay.module';
 import { PinataModule } from './pinata/pinata.module';
+import { RedisModule } from './redis/redis.module';
+import { RedisMonitoringModule } from './redis/redis-monitoring.module';
 
 @Module({
   imports: [
+    RedisModule, // Redis must be imported first as it's global
     FileManagementModule,
     ConfigModule,
+    LoggingModule, // LoggingModule must be imported before modules that depend on it
     RelayModule,
     EventChainModule,
     PinataModule,
     UploadZipModule,
-    LtoModule,
+    EqtyModule,
     IpfsModule,
     NFTModule,
     CoinmarketcapModule,
     QueueModule,
     TelegramBotModule,
-    LoggingModule,
     S3Module,
+    RedisMonitoringModule, // Add monitoring module after all dependencies are loaded
   ],
   controllers: [AppController],
   providers: [AppService],
