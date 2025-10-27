@@ -289,16 +289,22 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       // Get the expected server wallet address
       const expectedServerAddress = this.getLTOAccountAddress(networkId);
 
-      // Get the expected payment amount
+      // Get the expected payment amount (structure: templateCosts[networkId][chain].ETH)
       const templateCosts = await this.nft.getTemplateCosts(templateId);
-      const expectedAmount = templateCosts[chain]?.ETH || '0.001';
+      const expectedAmount = templateCosts[networkId]?.[chain]?.ETH || '0.001';
+
+      console.log(
+        `[${requestId}] Template costs:`,
+        JSON.stringify(templateCosts, null, 2),
+      );
+      console.log(`[${requestId}] Expected amount: ${expectedAmount} ETH`);
 
       // Convert expected amount to Wei for comparison
       const expectedAmountWei = ethers.parseEther(expectedAmount);
 
-      // Get provider for the network
+      // Get provider for the network (Base, not Arbitrum)
       const provider = new ethers.AlchemyProvider(
-        networkId === 'L' ? 'arbitrum' : 'arbitrum-sepolia',
+        networkId === 'L' ? 'base' : 'base-sepolia',
         this.config.get('eth.account.arbitrum_alchemy_api_key'),
       );
 
@@ -321,10 +327,16 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         );
       }
 
-      // Validate amount
-      if (tx.value !== expectedAmountWei) {
+      // Validate amount - allow ±10% tolerance for price fluctuations
+      const amountDiff =
+        tx.value > expectedAmountWei
+          ? tx.value - expectedAmountWei
+          : expectedAmountWei - tx.value;
+      const tolerance = Number(expectedAmountWei) / 10; // 10% tolerance
+
+      if (amountDiff > tolerance) {
         throw new Error(
-          `Invalid amount. Expected: ${expectedAmountWei}, Got: ${tx.value}`,
+          `Invalid amount. Expected: ~${ethers.formatEther(expectedAmountWei)} ETH (±10%), Got: ${ethers.formatEther(tx.value)} ETH`,
         );
       }
 
@@ -758,11 +770,12 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     if (jsonFile.OWNABLE_LTO_TRANSACTION_ID) {
       try {
         await this.wait(10000);
+        const chain = signedTransaction ? 'base' : jsonFile.NFT_BLOCKCHAIN;
         transactionIdData = await this.checkLtoTransactionId(
           networkId,
           jsonFile.OWNABLE_LTO_TRANSACTION_ID,
           templateId,
-          jsonFile.NFT_BLOCKCHAIN,
+          chain,
           requestId,
           false,
         );
@@ -772,7 +785,10 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         );
 
         // Verify signer
-        if (signerAccountAddress !== transactionIdData.sender) {
+        if (
+          signerAccountAddress.toLowerCase() !==
+          transactionIdData.sender.toLowerCase()
+        ) {
           throw new UserError(
             `Error: Signer of Ownable request ${signerAccountAddress} did not sign transactionID ${jsonFile.OWNABLE_LTO_TRANSACTION_ID}. Signer of TXID:${transactionIdData.sender}`,
           );
@@ -1236,7 +1252,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
             networkId,
             jsonFile.OWNABLE_LTO_TRANSACTION_ID,
             templateId,
-            jsonFile.NFT_BLOCKCHAIN,
+            'base',
             requestId,
             reenqueued,
           );
@@ -1377,9 +1393,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
             transactionIdData = await this.checkLtoTransactionId(
               networkId,
-              txResult.id,
+              txResult.hash,
               templateId,
-              jsonFile.NFT_BLOCKCHAIN,
+              'base',
               requestId,
               false,
             );
@@ -1410,10 +1426,10 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
           console.log('store1: index', index);
 
           if (entry && index !== -1) {
-            entry.paymentTransactionId = txResult.id;
+            entry.paymentTransactionId = txResult.hash;
             // If transaction wasn't in the original JSON, update that too
             if (!jsonFile.OWNABLE_LTO_TRANSACTION_ID) {
-              entry.txId = txResult.id;
+              entry.txId = txResult.hash;
             }
 
             if (networkId === 'L') {

@@ -313,15 +313,15 @@ export class NFTService {
       // Add a small delay to ensure values propagate
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Get the updated costs after forced update
+      // Get the updated costs after forced update for Base blockchain
       const main = await this.queueService.getTemplateCostsIncludingPrevious(
         'L',
-        'arbitrum',
+        'base',
         templateId.toString(),
       );
       const test = await this.queueService.getTemplateCostsIncludingPrevious(
         'T',
-        'arbitrum',
+        'base',
         templateId.toString(),
       );
 
@@ -332,7 +332,7 @@ export class NFTService {
 
       return {
         L: {
-          arbitrum: {
+          base: {
             ETH: main.current.usd || '0.001',
             last: main.current.last || '0',
             prev: main.current.prev || '0',
@@ -340,7 +340,7 @@ export class NFTService {
           },
         },
         T: {
-          arbitrum: {
+          base: {
             ETH: test.current.usd || '0.001',
             last: test.current.last || '0',
             prev: test.current.prev || '0',
@@ -350,13 +350,12 @@ export class NFTService {
       };
     } catch (error) {
       console.error('Error getting template costs:', error);
-      // Return default values if there's an error
       return {
         L: {
-          arbitrum: '20000000',
+          base: '20000000',
         },
         T: {
-          arbitrum: '20000000',
+          base: '20000000',
         },
       };
     }

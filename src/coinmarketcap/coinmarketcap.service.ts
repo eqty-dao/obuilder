@@ -76,7 +76,7 @@ export class CoinmarketcapService implements OnModuleInit {
             'X-CMC_PRO_API_KEY': this.config.get('coinmarketcap'),
           },
           params: {
-            symbol: 'LTO,ARB', // Fetch data for LTO and ARB
+            symbol: 'LTO,ARB,ETH', // Fetch data for LTO, ARB, and ETH
             convert: 'USD', // Convert prices to USD
           },
         });
@@ -107,6 +107,9 @@ export class CoinmarketcapService implements OnModuleInit {
         this.latestPriceLTOUSD = parseFloat(
           data.LTO.quote.USD.price.toFixed(8),
         );
+        const latestPriceETHUSD = parseFloat(
+          data.ETH.quote.USD.price.toFixed(2),
+        );
 
         let newPrice_L = 20000000;
         let newPrice_T = 20000000;
@@ -119,6 +122,26 @@ export class CoinmarketcapService implements OnModuleInit {
           );
         }
 
+        // Calculate ETH amounts for Base blockchain
+        let ethAmountUsd_L = 0;
+        let ethAmountUsd_T = 0;
+        if (latestPriceETHUSD > 0) {
+          // Convert USD to ETH: $1 USD / ETH price in USD = ETH amount
+          // Round to 9 decimal places to avoid precision issues with ethers.js
+          ethAmountUsd_L = parseFloat(
+            (this.templateCostsUSD_L / latestPriceETHUSD).toFixed(9),
+          );
+          ethAmountUsd_T = parseFloat(
+            (this.templateCostsUSD_T / latestPriceETHUSD).toFixed(9),
+          );
+
+          console.log(
+            `Base blockchain pricing: ETH = $${latestPriceETHUSD.toFixed(2)}`,
+            `Cost = $${this.templateCostsUSD_L}`,
+            `ETH amount = ${ethAmountUsd_L} ETH`,
+          );
+        }
+
         console.log(
           'Updated LTO prices - Mainnet:',
           newPrice_L,
@@ -126,7 +149,6 @@ export class CoinmarketcapService implements OnModuleInit {
           newPrice_T,
         );
 
-        // Pass validated whole numbers to setTemplateCosts
         await this.queue.setTemplateCosts(
           'L',
           'arbitrum',
@@ -174,6 +196,56 @@ export class CoinmarketcapService implements OnModuleInit {
           newPrice_T,
           prevPrice_T,
           this.templateCostsUSD_T,
+        );
+
+        // Update Base blockchain costs with ETH amounts
+        await this.queue.setTemplateCosts(
+          'L',
+          'base',
+          '1',
+          newPrice_L, // dummy value for LTO calculation
+          prevPrice_L, // dummy value
+          ethAmountUsd_L, // Store ETH amount
+        );
+        await this.queue.setTemplateCosts(
+          'T',
+          'base',
+          '1',
+          newPrice_T, // dummy value
+          prevPrice_T, // dummy value
+          ethAmountUsd_T, // Store ETH amount
+        );
+        await this.queue.setTemplateCosts(
+          'L',
+          'base',
+          '2',
+          newPrice_L,
+          prevPrice_L,
+          ethAmountUsd_L,
+        );
+        await this.queue.setTemplateCosts(
+          'T',
+          'base',
+          '2',
+          newPrice_T,
+          prevPrice_T,
+          ethAmountUsd_T,
+        );
+        await this.queue.setTemplateCosts(
+          'L',
+          'base',
+          '3',
+          newPrice_L,
+          prevPrice_L,
+          ethAmountUsd_L,
+        );
+        await this.queue.setTemplateCosts(
+          'T',
+          'base',
+          '3',
+          newPrice_T,
+          prevPrice_T,
+          ethAmountUsd_T,
         );
 
         // Return the updated values for reference

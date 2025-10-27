@@ -275,17 +275,17 @@ export class UploadZipController {
 
       console.log('After CoinMarketCap update');
 
-      // Get direct values from queue service for comparison
+      // Get direct values from queue service for comparison (Base blockchain)
       const queueMainnet =
         await this.queueService.getTemplateCostsIncludingPrevious(
           'L',
-          'arbitrum',
+          'base',
           templateId.toString(),
         );
       const queueTestnet =
         await this.queueService.getTemplateCostsIncludingPrevious(
           'T',
-          'arbitrum',
+          'base',
           templateId.toString(),
         );
 
@@ -299,15 +299,8 @@ export class UploadZipController {
 
       console.log('Service result:', result);
 
-      // Explicitly construct and return values from queue service
-      return {
-        L: {
-          arbitrum: queueMainnet[0],
-        },
-        T: {
-          arbitrum: queueTestnet[0],
-        },
-      };
+      // Return the correct result from the service
+      return result;
     } catch (err) {
       console.error('Template cost error:', err);
       return { error: `${err}` };
