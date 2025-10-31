@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ethers } from 'ethers';
 import { EthersService } from '../ethers/ethers.service';
 import { NftInfo } from '../interfaces/OwnableInfo';
 import { ConfigService } from '../config/config.service';
@@ -246,6 +247,9 @@ export class NFTService {
       throw `Unsupported Blockchain: ${jsonFile.NFT_BLOCKCHAIN}`;
     }
 
+    // Normalize contract address to ensure it's valid and checksummed
+    nftContractAddress = ethers.getAddress(nftContractAddress.trim());
+
     this.loggingService.log(
       requestId,
       `minting NFT on ${nftNetwork} via NFT contract at: ${nftContractAddress}`,
@@ -261,6 +265,10 @@ export class NFTService {
         'eth.account.obridge_wallet_address.testnet',
       );
     }
+
+    // Normalize receiver address to ensure it's valid and checksummed
+    // This prevents ENS resolution on networks that don't support it (like Arbitrum Sepolia)
+    nftReceiverAddress = ethers.getAddress(nftReceiverAddress.trim());
 
     const nftTokenURI = jsonFile.NFT_TOKEN_URI;
 

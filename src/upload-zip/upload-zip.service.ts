@@ -821,7 +821,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       throw new Error(`Missing transaction ID and signed transaction`);
     }
 
-    // Add to queue
+    // Add to queue (ZIP data will be stored to S3 by enqueue method)
     let entry: QueueEntry;
     try {
       const queueEntry: QueueEntry = {
@@ -833,9 +833,15 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         transactionId: jsonFile.OWNABLE_LTO_TRANSACTION_ID || '',
         timestamp: new Date(),
         nftInfo: nftInfo,
+        // Set data reference for compatibility
+        data: `${requestId}_data`,
+        rid: requestId,
+        ltoWallet: transactionIdData.sender,
+        txId: jsonFile.OWNABLE_LTO_TRANSACTION_ID || '',
       };
 
-      await this.queueService.enqueue(networkId, queueEntry);
+      // Pass the ZIP data to enqueue (it will also store to S3 as backup)
+      await this.queueService.enqueue(networkId, queueEntry, uint8ArrayData);
       entry = queueEntry;
     } catch (error) {
       this.loggingService.logError(
@@ -861,29 +867,31 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       queryProcessingEntry.length > 0
     ) {
       const firstEntry = queryProcessingEntry[0];
-      if (firstEntry.rid && firstEntry.rid !== '') {
+      // Use requestId (new) or rid (old) for compatibility
+      const entryRequestId = firstEntry.requestId || firstEntry.rid;
+      if (entryRequestId && entryRequestId !== '') {
         this.loggingService.log(
-          firstEntry.rid,
+          entryRequestId,
           `First Entry: ` + JSON.stringify(firstEntry),
         );
       }
 
       const timestampNow = Math.floor(Date.now() / 1000);
       if (
-        firstEntry.rid &&
-        firstEntry.rid !== '' &&
+        entryRequestId &&
+        entryRequestId !== '' &&
         !this.queueService.canProcessNewEntry() &&
         firstEntry.timestampProcessing > 0 &&
         timestampNow - queryProcessingEntry[0].timestampProcessing >= 300
       ) {
         this.loggingService.log(
-          firstEntry.rid,
+          entryRequestId,
           `Something went wrong with processing Queue Entry. Failed to produce Ownable ` +
             JSON.stringify(queryProcessingEntry[0]),
         );
         await this.queueService.ownableFailed(
           networkId,
-          queryProcessingEntry[0].rid,
+          entryRequestId,
           'More than 300 seconds inactive in Processing Queue',
         );
       }
@@ -893,7 +901,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     // this.checkForFailedEntries('L');
     // this.checkForFailedEntries('T');
 
-    const isEmpty = this.queueService.isQueueEmpty();
+    const isEmpty = await this.queueService.isQueueEmpty();
+    console.log(`checkQueueStatus: isQueueEmpty() = ${isEmpty}`);
+
     if (!isEmpty) {
       console.log(
         'checkQueueStatus: Checking Queue Status: queue not empty...',
@@ -901,8 +911,13 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       try {
         const relayURL = this.relayService.getRelayUrl();
         const isUp: boolean = await this.relayService.isRelayUp(relayURL);
+        console.log(`checkQueueStatus: Relay isUp = ${isUp}`);
+
         if (isUp) {
-          if (this.queueService.canProcessNewEntry()) {
+          const canProcess = await this.queueService.canProcessNewEntry();
+          console.log(`checkQueueStatus: canProcessNewEntry() = ${canProcess}`);
+
+          if (canProcess) {
             console.log('checkQueueStatus: canProcessNewEntry: true');
             await this.wait(10000);
             let networkId,
@@ -975,27 +990,33 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
                   await this.queueService.getQueueEntriesByStatus(
                     OwnableStatus.Processing,
                   );
-                // Check if there are any entries before accessing .rid
+                // Check if there are any entries before accessing requestId/rid
                 if (queryProcessingEntry1 && queryProcessingEntry1.length > 0) {
+                  // Use requestId (new) or rid (old) for compatibility
+                  const entryRequestId =
+                    queryProcessingEntry1[0].requestId ||
+                    queryProcessingEntry1[0].rid ||
+                    requestId ||
+                    'unknown';
                   this.loggingService.log(
-                    queryProcessingEntry1[0].rid,
+                    entryRequestId,
                     `Ownable creation failed on lto network ${networkId}: ${err}`,
                   );
                   try {
                     await this.queueService.ownableFailed(
                       networkId,
-                      queryProcessingEntry1[0].rid,
+                      entryRequestId,
                       `${err}`,
                     );
                   } catch (e) {
                     this.loggingService.log(
-                      queryProcessingEntry1[0].rid,
+                      entryRequestId,
                       `Setting Ownable Failed failed on lto network ${networkId}: ${e}`,
                     );
                     throw e;
                   }
                 } else {
-                  // Log with a generic message or use requestId if available
+                  // Log with requestId if available, otherwise use unknown
                   const logId = requestId || 'unknown';
                   this.loggingService.log(
                     logId,
@@ -1082,21 +1103,38 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     }
     // const timeElapsed = this.queueBusyTimer * 10; // queueBusytimer is increased each 10 seconds by one
 
+    const entryRequestId =
+      currentlyProcessedQueueEntry[0].requestId ||
+      currentlyProcessedQueueEntry[0].rid ||
+      'unknown';
     return {
       creatingOwnable: isOwnableBeingBuild,
-      requestId: currentlyProcessedQueueEntry[0].rid.toString(),
-      ltoWallet: currentlyProcessedQueueEntry[0].ltoWallet.toString(),
-      hash: currentlyProcessedQueueEntry[0].hash.toString(),
-      txId: currentlyProcessedQueueEntry[0].txId.toString(),
+      requestId: entryRequestId.toString(),
+      ltoWallet: (
+        currentlyProcessedQueueEntry[0].ltoWallet ||
+        currentlyProcessedQueueEntry[0].sender ||
+        ''
+      ).toString(),
+      hash: (currentlyProcessedQueueEntry[0].hash || '').toString(),
+      txId: (
+        currentlyProcessedQueueEntry[0].txId ||
+        currentlyProcessedQueueEntry[0].transactionId ||
+        ''
+      ).toString(),
       ownableStatus: currentlyProcessedQueueEntry[0].ownableStatus,
-      templateId: currentlyProcessedQueueEntry[0].templateId.toString(),
-      timestampInQueue:
-        currentlyProcessedQueueEntry[0].timestampInQueue.toString(),
-      timestampProcessing:
-        currentlyProcessedQueueEntry[0].timestampProcessing.toString(),
-      timestampSent: currentlyProcessedQueueEntry[0].timestampSent.toString(),
-      timestampFailed:
-        currentlyProcessedQueueEntry[0].timestampFailed.toString(),
+      templateId: (currentlyProcessedQueueEntry[0].templateId || '').toString(),
+      timestampInQueue: (
+        currentlyProcessedQueueEntry[0].timestampInQueue || 0
+      ).toString(),
+      timestampProcessing: (
+        currentlyProcessedQueueEntry[0].timestampProcessing || 0
+      ).toString(),
+      timestampSent: (
+        currentlyProcessedQueueEntry[0].timestampSent || 0
+      ).toString(),
+      timestampFailed: (
+        currentlyProcessedQueueEntry[0].timestampFailed || 0
+      ).toString(),
     };
   }
   private wait = (n: number) =>

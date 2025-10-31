@@ -4,6 +4,7 @@ import { LoggingService } from '../logging/redis-logging.service';
 import { TelegramBotService } from '../telegram-bot/telegram-bot.service';
 import { QueueEntry, OwnableStatus } from '../interfaces/QueueEntry';
 import { NftInfo } from '../interfaces/OwnableInfo';
+import { S3Service } from '../s3/s3.service';
 import { format } from 'date-fns';
 
 @Injectable()
@@ -17,6 +18,7 @@ export class RedisQueueService implements OnModuleInit {
     private readonly redis: RedisService,
     private readonly loggingService: LoggingService,
     private readonly telegramService: TelegramBotService,
+    private readonly s3: S3Service,
   ) {}
 
   async onModuleInit() {
@@ -31,40 +33,104 @@ export class RedisQueueService implements OnModuleInit {
   }
 
   // Queue Operations
-  async enqueue(networkId: 'L' | 'T', entry: QueueEntry): Promise<void> {
+  async enqueue(
+    networkId: 'L' | 'T',
+    entry: QueueEntry,
+    data?: Uint8Array,
+  ): Promise<void> {
+    const requestId = entry.rid || entry.requestId;
     try {
       const queueName = this.getQueueName(networkId);
-      const statusKey = this.getStatusKey(networkId, entry.rid);
+      const statusKey = this.getStatusKey(networkId, requestId);
 
       // Set initial status
       entry.ownableStatus = OwnableStatus.InQueue;
       entry.timestampInQueue = Math.floor(Date.now() / 1000);
 
+      // Store ZIP data in S3 (maintaining old system compatibility)
+      if (data) {
+        try {
+          if (networkId === 'L') {
+            await this.s3.s3BucketQueue_L.put(`${requestId}_data`, data);
+          } else {
+            await this.s3.s3BucketQueue_T.put(`${requestId}_data`, data);
+          }
+          this.loggingService.log(
+            requestId,
+            `ZIP data stored to S3 queue bucket as ${requestId}_data`,
+          );
+        } catch (err) {
+          this.logger.error(
+            `Failed to store ZIP data to S3 for ${requestId}: ${err}`,
+          );
+          throw new Error(
+            `Putting ${requestId}_data into s3 Bucket failed for LTO network ${networkId}. Error: ${err}`,
+          );
+        }
+      }
+
+      // Set data reference in entry (for compatibility with old system)
+      entry.data = `${requestId}_data`;
+      entry.rid = requestId;
+      entry.ltoWallet = entry.sender;
+      entry.txId = entry.transactionId;
+
       // Store in queue
       await this.redis.enqueue(queueName, entry);
 
-      // Store status separately for quick access
-      await this.redis.set(statusKey, {
-        status: entry.ownableStatus,
-        timestamp: entry.timestampInQueue,
-        templateId: entry.templateId,
-      });
+      // Store queue entry data as hash for later retrieval
+      const queueKey = `${this.QUEUE_PREFIX}:${networkId}:${requestId}`;
+      await this.redis.hset(queueKey, 'requestId', entry.requestId);
+      await this.redis.hset(queueKey, 'networkId', entry.networkId);
+      await this.redis.hset(queueKey, 'status', entry.status);
+      await this.redis.hset(queueKey, 'templateId', entry.templateId);
+      await this.redis.hset(queueKey, 'sender', entry.sender);
+      await this.redis.hset(queueKey, 'transactionId', entry.transactionId);
+      await this.redis.hset(
+        queueKey,
+        'timestamp',
+        entry.timestamp.toISOString(),
+      );
+      if (entry.nftInfo) {
+        await this.redis.hset(
+          queueKey,
+          'nftInfo',
+          JSON.stringify(entry.nftInfo),
+        );
+      }
+      await this.redis.hset(queueKey, 'data', entry.data || '');
+      await this.redis.hset(queueKey, 'rid', entry.rid || '');
+      await this.redis.hset(queueKey, 'ltoWallet', entry.ltoWallet || '');
+      await this.redis.hset(queueKey, 'txId', entry.txId || '');
+
+      // Store status separately for quick access (using hash for consistency)
+      await this.redis.hset(statusKey, 'status', entry.ownableStatus);
+      await this.redis.hset(statusKey, 'timestamp', entry.timestampInQueue);
+      await this.redis.hset(statusKey, 'templateId', entry.templateId);
+      await this.redis.hset(
+        statusKey,
+        'timestampInQueue',
+        entry.timestampInQueue,
+      );
 
       // Publish queue update
       await this.redis.publish('queue:updates', {
         networkId,
         action: 'enqueued',
-        rid: entry.rid,
+        rid: requestId,
         status: entry.ownableStatus,
         timestamp: entry.timestampInQueue,
       });
 
       await this.loggingService.log(
-        entry.rid,
+        requestId,
         `Request enqueued on ${networkId} network`,
       );
     } catch (error) {
-      this.logger.error(`Failed to enqueue request ${entry.rid}:`, error);
+      this.logger.error(
+        `Failed to enqueue request ${requestId || entry.rid || entry.requestId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -108,6 +174,16 @@ export class RedisQueueService implements OnModuleInit {
     try {
       const statusKey = this.getStatusKey(networkId, requestId);
       const timestamp = Math.floor(Date.now() / 1000);
+
+      // Update status (ensure key exists as hash, delete if it's a string)
+      const exists = await this.redis.exists(statusKey);
+      if (exists) {
+        const type = await this.redis.getClient().type(statusKey);
+        if (type === 'string') {
+          // Delete the old string key and recreate as hash
+          await this.redis.del(statusKey);
+        }
+      }
 
       // Update status
       await this.redis.hset(statusKey, 'status', status);
@@ -154,7 +230,17 @@ export class RedisQueueService implements OnModuleInit {
   async getStatus(networkId: 'L' | 'T', requestId: string): Promise<any> {
     try {
       const statusKey = this.getStatusKey(networkId, requestId);
-      return await this.redis.hgetall(statusKey);
+      const status = await this.redis.hgetall(statusKey);
+      // Parse JSON values if needed
+      const parsed: any = {};
+      for (const [key, value] of Object.entries(status)) {
+        try {
+          parsed[key] = JSON.parse(value as string);
+        } catch {
+          parsed[key] = value;
+        }
+      }
+      return parsed;
     } catch (error) {
       this.logger.error(`Failed to get status for ${requestId}:`, error);
       return null;
@@ -188,10 +274,14 @@ export class RedisQueueService implements OnModuleInit {
     try {
       if (networkId) {
         const length = await this.getQueueLength(networkId);
+        this.logger.log(`Queue length for ${networkId}: ${length}`);
         return length === 0;
       } else {
         const mainnetLength = await this.getQueueLength('L');
         const testnetLength = await this.getQueueLength('T');
+        this.logger.log(
+          `Queue lengths - Mainnet: ${mainnetLength}, Testnet: ${testnetLength}`,
+        );
         return mainnetLength === 0 && testnetLength === 0;
       }
     } catch (error) {
@@ -252,12 +342,16 @@ export class RedisQueueService implements OnModuleInit {
     try {
       const costsKey = `${this.TEMPLATE_COSTS_PREFIX}:${networkId}:${evmNetwork}`;
 
-      await this.redis.hset(costsKey, templateId, JSON.stringify({
-        last: lastValue.toString(),
-        prev: prevValue.toString(),
-        usd: usdValue.toString(),
-        timestamp: Math.floor(Date.now() / 1000),
-      }));
+      await this.redis.hset(
+        costsKey,
+        templateId,
+        JSON.stringify({
+          last: lastValue.toString(),
+          prev: prevValue.toString(),
+          usd: usdValue.toString(),
+          timestamp: Math.floor(Date.now() / 1000),
+        }),
+      );
 
       await this.loggingService.log(
         'system',
@@ -292,12 +386,16 @@ export class RedisQueueService implements OnModuleInit {
       const costs = await this.redis.hgetall(costsKey);
 
       // Get specific template costs
-      const templateCosts = costs[templateId] ? JSON.parse(costs[templateId]) : {};
+      const templateCosts = costs[templateId]
+        ? JSON.parse(costs[templateId])
+        : {};
 
       // Add previous costs if they exist
       const previousCostsKey = `${this.TEMPLATE_COSTS_PREFIX}:${networkId}:${evmNetwork}:previous`;
       const previousCosts = await this.redis.hgetall(previousCostsKey);
-      const templatePreviousCosts = previousCosts[templateId] ? JSON.parse(previousCosts[templateId]) : {};
+      const templatePreviousCosts = previousCosts[templateId]
+        ? JSON.parse(previousCosts[templateId])
+        : {};
 
       return {
         templateId: templateId,
@@ -321,27 +419,78 @@ export class RedisQueueService implements OnModuleInit {
       const entries: QueueEntry[] = [];
 
       for (const key of keys) {
-        const statusData = await this.redis.hgetall(key);
-        if (statusData.status === status) {
-          const networkId = key.split(':')[1] as 'L' | 'T';
-          const requestId = key.split(':')[2];
+        try {
+          // Check if key exists and is a hash, skip if not
+          const exists = await this.redis.exists(key);
+          if (!exists) continue;
 
-          // Get queue entry data
-          const queueKey = `${this.QUEUE_PREFIX}:${networkId}:${requestId}`;
-          const queueData = await this.redis.hgetall(queueKey);
-
-          if (queueData.requestId) {
-            entries.push({
-              requestId: queueData.requestId,
-              networkId: networkId,
-              status: statusData.status as OwnableStatus,
-              templateId: queueData.templateId || '',
-              sender: queueData.sender || '',
-              transactionId: queueData.transactionId || '',
-              timestamp: new Date(queueData.timestamp || Date.now()),
-              nftInfo: queueData.nftInfo ? JSON.parse(queueData.nftInfo) : null,
-            });
+          const type = await this.redis.getClient().type(key);
+          if (type !== 'hash') {
+            // Skip if it's not a hash (might be old string data)
+            continue;
           }
+
+          const statusData = await this.redis.hgetall(key);
+
+          // Parse status value (it might be JSON encoded)
+          let statusValue = statusData.status;
+          try {
+            statusValue = JSON.parse(statusValue as string);
+          } catch {
+            // If not JSON, use as is
+          }
+
+          if (statusValue === status || statusData.status === status) {
+            const networkId = key.split(':')[1] as 'L' | 'T';
+            const requestId = key.split(':')[2];
+
+            // Get queue entry data
+            const queueKey = `${this.QUEUE_PREFIX}:${networkId}:${requestId}`;
+
+            // Check if queue key exists and is a hash
+            const queueExists = await this.redis.exists(queueKey);
+            if (!queueExists) {
+              // Queue entry might not exist if it was already processed
+              continue;
+            }
+
+            const queueType = await this.redis.getClient().type(queueKey);
+            if (queueType !== 'hash') {
+              // Skip if not a hash
+              continue;
+            }
+
+            const queueData = await this.redis.hgetall(queueKey);
+
+            if (queueData.requestId) {
+              // Parse JSON values
+              let nftInfo = null;
+              if (queueData.nftInfo) {
+                try {
+                  nftInfo = JSON.parse(queueData.nftInfo as string);
+                } catch {
+                  // Ignore parse errors
+                }
+              }
+
+              entries.push({
+                requestId: queueData.requestId as string,
+                networkId: networkId,
+                status: statusValue as OwnableStatus,
+                templateId: (queueData.templateId || '') as string,
+                sender: (queueData.sender || '') as string,
+                transactionId: (queueData.transactionId || '') as string,
+                timestamp: new Date(
+                  (queueData.timestamp as string) || Date.now(),
+                ),
+                nftInfo: nftInfo,
+              });
+            }
+          }
+        } catch (err) {
+          // Skip this key if there's an error
+          this.logger.warn(`Error processing status key ${key}: ${err}`);
+          continue;
         }
       }
 
@@ -441,18 +590,41 @@ export class RedisQueueService implements OnModuleInit {
   ): Promise<[QueueEntry, number]> {
     try {
       const queueKey = `${this.QUEUE_PREFIX}:${networkId}:${requestId}`;
+
+      // Check if key exists and is a hash
+      const exists = await this.redis.exists(queueKey);
+      if (!exists) {
+        return [null, -1];
+      }
+
+      const type = await this.redis.getClient().type(queueKey);
+      if (type !== 'hash') {
+        // Not a hash, can't retrieve as hash
+        return [null, -1];
+      }
+
       const queueData = await this.redis.hgetall(queueKey);
 
       if (queueData.requestId) {
+        // Parse JSON values
+        let nftInfo = null;
+        if (queueData.nftInfo) {
+          try {
+            nftInfo = JSON.parse(queueData.nftInfo as string);
+          } catch {
+            // Ignore parse errors
+          }
+        }
+
         const entry: QueueEntry = {
-          requestId: queueData.requestId,
+          requestId: queueData.requestId as string,
           networkId: networkId,
-          status: queueData.status as OwnableStatus,
-          templateId: queueData.templateId || '',
-          sender: queueData.sender || '',
-          transactionId: queueData.transactionId || '',
-          timestamp: new Date(queueData.timestamp || Date.now()),
-          nftInfo: queueData.nftInfo ? JSON.parse(queueData.nftInfo) : null,
+          status: queueData.status as any as OwnableStatus,
+          templateId: (queueData.templateId || '') as string,
+          sender: (queueData.sender || '') as string,
+          transactionId: (queueData.transactionId || '') as string,
+          timestamp: new Date((queueData.timestamp as string) || Date.now()),
+          nftInfo: nftInfo,
         };
 
         // For Redis implementation, we don't have array indices, so return 0
@@ -497,18 +669,55 @@ export class RedisQueueService implements OnModuleInit {
         if (entry) {
           await this.updateStatus(
             networkId,
-            entry.rid,
+            entry.rid || entry.requestId,
             OwnableStatus.Processing,
           );
 
+          // Fetch ZIP data from S3 (maintaining old system)
+          let data: Uint8Array;
+          const requestId = entry.rid || entry.requestId;
+
+          if (entry.data && entry.data.includes('_data')) {
+            // Data stored in S3 as `${requestId}_data`
+            try {
+              if (networkId === 'L') {
+                data = await this.s3.s3BucketQueue_L.get(entry.data);
+              } else {
+                data = await this.s3.s3BucketQueue_T.get(entry.data);
+              }
+              this.loggingService.log(
+                requestId,
+                `ZIP data retrieved from S3 queue bucket: ${entry.data}`,
+              );
+            } catch (err) {
+              this.logger.error(
+                `Failed to retrieve ZIP data from S3 for ${requestId}: ${err}`,
+              );
+              throw new Error(
+                `Failed to retrieve ${entry.data} from s3 Bucket for LTO network ${networkId}. Error: ${err}`,
+              );
+            }
+          } else if (entry.data) {
+            // Fallback: try to decode as base64 (for backward compatibility)
+            try {
+              data = Buffer.from(entry.data, 'base64');
+            } catch (err) {
+              throw new Error(
+                `Invalid data format for ${requestId}. Expected S3 reference or base64.`,
+              );
+            }
+          } else {
+            throw new Error(`No data reference found for ${requestId}`);
+          }
+
           return [
             networkId,
-            entry.rid,
-            Buffer.from(entry.data, 'base64'),
-            entry.ltoWallet,
-            entry.reenqueued,
-            entry.reenqueued_NFTURI,
-            entry.nftInfo,
+            requestId,
+            data,
+            entry.ltoWallet || entry.sender,
+            entry.reenqueued || false,
+            entry.reenqueued_NFTURI || '',
+            entry.nftInfo || null,
           ];
         }
       }

@@ -80,13 +80,8 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, options);
   SwaggerModule.setup('api', app, document);
 
-  const localTesting = config.get('bucket.localTesting');
-
-  if (localTesting) {
-    await app.listen(3001);
-  } else {
-    await app.listen(3000);
-  }
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
 
   console.log(`Application is running on: ${await app.getUrl()}`);
 }
