@@ -266,12 +266,15 @@ export class NFTService {
       );
     }
 
-    // Normalize receiver address to ensure it's valid and checksummed
-    // This prevents ENS resolution on networks that don't support it (like Arbitrum Sepolia)
     nftReceiverAddress = ethers.getAddress(nftReceiverAddress.trim());
 
     const nftTokenURI = jsonFile.NFT_TOKEN_URI;
 
+    console.log(
+      `[NFT Create] Request: ${requestId}, Network: ${nftNetwork}, Contract: ${nftContractAddress}`,
+    );
+    console.log(`[NFT Create] Receiver: ${nftReceiverAddress}`);
+    console.log(`[NFT Create] Token URI: ${nftTokenURI}`);
     this.loggingService.log(requestId, `nftOwner ${nftReceiverAddress}`);
     this.loggingService.log(requestId, `nftTokenURI ${nftTokenURI}`);
     this.loggingService.log(

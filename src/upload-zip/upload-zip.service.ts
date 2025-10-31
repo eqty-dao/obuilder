@@ -626,25 +626,20 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     let signerAccountAddress: string;
     try {
       signerAccountAddress = await this.getSignerOfRequest(req, networkId);
-      console.log('signerAccountAddress', signerAccountAddress);
-      console.log('Signer account address:', signerAccountAddress);
+      console.log(
+        `[Upload] Network: ${networkId}, Sender: ${signerAccountAddress}`,
+      );
     } catch (err) {
       throw err;
     }
 
     const relayURL = this.relayService.getRelayUrl();
     const isUp: boolean = await this.relayService.isRelayUp(relayURL);
-    if (isUp) {
-      console.log(`oRelay Server ${relayURL} is up and running!`);
-    } else {
+    if (!isUp) {
       throw new Error(`Error: oRelay Server ${relayURL} is down`);
     }
 
-    // if (!this.queueService.isQueueingAllowed(networkId)) {
-    //   throw new Error('Queueing of new Requests currently disabled!');
-    // }
-
-    console.log('unzipping user input file into memory...');
+    console.log(`[Upload] Unzipping package data...`);
     const requestIdFiles = await this.fileManagement.unzip(uint8ArrayData);
 
     const timeMillisecondsNow = Date.now().toString();
@@ -653,9 +648,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       Buffer.from(timeMillisecondsNow, 'utf-8'),
     );
 
-    console.log('getting request ID of input requestIdFiles...');
     const requestId: string =
       await this.fileManagement.getUniqueId(requestIdFiles);
+    console.log(`[Upload] Request ID: ${requestId}`);
     this.loggingService.log(
       requestId,
       `New Logging Service added for unique request ID: ${requestId}`,
@@ -719,9 +714,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         `Using external templateId: ${templateId}`,
       );
     } else {
-      console.log('jsonFile', jsonFile);
       templateId = this.fileManagement.getTemplateIdNumber(jsonFile, requestId);
-      console.log('templateId', templateId);
+      console.log(`[Upload] Template ID: ${templateId}`);
       if (isNaN(templateId)) {
         this.loggingService.logError(requestId, `Template ID is not a number`);
         throw new Error(`Template ID is not a number`);
@@ -867,7 +861,6 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       queryProcessingEntry.length > 0
     ) {
       const firstEntry = queryProcessingEntry[0];
-      // Use requestId (new) or rid (old) for compatibility
       const entryRequestId = firstEntry.requestId || firstEntry.rid;
       if (entryRequestId && entryRequestId !== '') {
         this.loggingService.log(
@@ -902,23 +895,16 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     // this.checkForFailedEntries('T');
 
     const isEmpty = await this.queueService.isQueueEmpty();
-    console.log(`checkQueueStatus: isQueueEmpty() = ${isEmpty}`);
 
     if (!isEmpty) {
-      console.log(
-        'checkQueueStatus: Checking Queue Status: queue not empty...',
-      );
       try {
         const relayURL = this.relayService.getRelayUrl();
         const isUp: boolean = await this.relayService.isRelayUp(relayURL);
-        console.log(`checkQueueStatus: Relay isUp = ${isUp}`);
 
         if (isUp) {
           const canProcess = await this.queueService.canProcessNewEntry();
-          console.log(`checkQueueStatus: canProcessNewEntry() = ${canProcess}`);
 
           if (canProcess) {
-            console.log('checkQueueStatus: canProcessNewEntry: true');
             await this.wait(10000);
             let networkId,
               requestId,
@@ -937,16 +923,6 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
                 reenqueued_NFTURI,
                 reenqueued_NFTINFO,
               ] = await this.queueService.processNextQueueEntry();
-              console.log(
-                'checkQueueStatus: processNextQueueEntry: ',
-                networkId,
-                requestId,
-                data,
-                sender,
-                reenqueued,
-                reenqueued_NFTURI,
-                reenqueued_NFTINFO,
-              );
             } catch (err) {
               this.loggingService.logError(
                 requestId,
@@ -956,14 +932,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
             if (requestId != null && data != null) {
               console.log(
-                'checkQueueStatus: store: ',
-                networkId,
-                requestId,
-                data,
-                sender,
-                reenqueued,
-                reenqueued_NFTURI,
-                reenqueued_NFTINFO,
+                `[Queue Process] Processing request: ${requestId}, Network: ${networkId}, Sender: ${sender}`,
               );
               try {
                 await this.store(
@@ -975,24 +944,13 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
                   reenqueued_NFTURI,
                   reenqueued_NFTINFO,
                 );
-                console.log(
-                  'checkQueueStatus: store: ',
-                  networkId,
-                  requestId,
-                  data,
-                  sender,
-                  reenqueued,
-                  reenqueued_NFTURI,
-                  reenqueued_NFTINFO,
-                );
+                console.log(`[Queue Process] Completed request: ${requestId}`);
               } catch (err) {
                 const queryProcessingEntry1: QueueEntry[] =
                   await this.queueService.getQueueEntriesByStatus(
                     OwnableStatus.Processing,
                   );
-                // Check if there are any entries before accessing requestId/rid
                 if (queryProcessingEntry1 && queryProcessingEntry1.length > 0) {
-                  // Use requestId (new) or rid (old) for compatibility
                   const entryRequestId =
                     queryProcessingEntry1[0].requestId ||
                     queryProcessingEntry1[0].rid ||
@@ -1016,7 +974,6 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
                     throw e;
                   }
                 } else {
-                  // Log with requestId if available, otherwise use unknown
                   const logId = requestId || 'unknown';
                   this.loggingService.log(
                     logId,
@@ -1366,6 +1323,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
       try {
         // Step 2: Create the Ownable
+        console.log(
+          `[Build] Starting Ownable build - Request: ${requestId}, Template: ${queueEntry.templateId}, Sender: ${sender}`,
+        );
         this.loggingService.log(
           requestId,
           `Creating Ownable for request ID ${requestId}...`,
@@ -1381,6 +1341,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
           requestIdFiles,
           parseInt(queueEntry.templateId),
         );
+        console.log(`[Build] Ownable built - CID: ${ownableData.cid}`);
 
         // Step 3: Process payment transaction just before sending
         if (this.signedTransactions && this.signedTransactions.has(requestId)) {
@@ -1501,6 +1462,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
           OwnableStatus.Ready,
         );
         // Step 4: Send the Ownable
+        console.log(
+          `[Transfer] Sending Ownable - Request: ${requestId}, Network: ${networkId}, To: ${sender}`,
+        );
         this.loggingService.log(requestId, `Sending Ownable...`);
         const hash = await this.sendOwnable(
           networkId,
@@ -1518,6 +1482,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
           );
         }
 
+        console.log(
+          `[Transfer] Ownable sent - Request: ${requestId}, Hash: ${hash}`,
+        );
         this.loggingService.log(
           requestId,
           `Ownable sent successfully with hash: ${hash}`,

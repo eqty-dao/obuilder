@@ -179,7 +179,6 @@ export class EthersService implements OnModuleInit {
       nft.network,
       nft.address,
     );
-    // Normalize address to checksummed format to avoid ENS resolution
     const normalizedAddress = ethers.getAddress(bridgeAddress);
     return await nftContract.isBridge(normalizedAddress);
   }
@@ -194,7 +193,6 @@ export class EthersService implements OnModuleInit {
       nft.network,
       nft.address,
     );
-    // Normalize address to checksummed format to avoid ENS resolution
     const normalizedAddress = ethers.getAddress(bridgeAddress);
     return await nftContract.getBridgeBaseURI(normalizedAddress);
   }
@@ -230,41 +228,29 @@ export class EthersService implements OnModuleInit {
       nft.address,
     );
 
-    // Get the signer to check addresses
     const signer = this.getSigner(ltoNetworkId, nft.network);
 
     try {
-      // Get the expected oBuilder address from the contract
       const expectedOBuilder = await nftContract.oBuilder();
       const signerAddress = signer.address;
 
-      console.log(`[mintNFT] Signer address: ${signerAddress}`);
-      console.log(`[mintNFT] Expected oBuilder: ${expectedOBuilder}`);
       console.log(
-        `[mintNFT] Signer matches oBuilder: ${signerAddress.toLowerCase() === expectedOBuilder.toLowerCase()}`,
+        `[NFT Mint] Network: ${nft.network}, Contract: ${nft.address}`,
       );
-      console.log(`[mintNFT] Receiver address: ${nftReceiverAddress}`);
+      console.log(`[NFT Mint] Signer: ${signerAddress}`);
+      console.log(`[NFT Mint] Expected oBuilder: ${expectedOBuilder}`);
+      console.log(`[NFT Mint] Receiver: ${nftReceiverAddress}`);
 
-      // Check if receiver is a bridge
-      try {
-        const isBridge = await nftContract.isBridge(nftReceiverAddress);
-        console.log(`[mintNFT] Receiver is bridge: ${isBridge}`);
-      } catch (bridgeCheckErr) {
-        console.log(
-          `[mintNFT] Could not check if receiver is bridge: ${bridgeCheckErr}`,
-        );
-      }
-
-      // Normalize address to checksummed format to avoid ENS resolution
-      // This ensures it's treated as a hex address, not an ENS name
       const normalizedAddress = ethers.getAddress(nftReceiverAddress);
 
+      console.log(`[NFT Mint] Initiating mint transaction...`);
       const response = await nftContract.mint(normalizedAddress, nftTokenURI);
+      console.log(`[NFT Mint] Transaction hash: ${response.hash}`);
       await response.wait();
       const nftcount = await nftContract.getNftCount();
+      console.log(`[NFT Mint] Success - Total NFTs: ${nftcount.toString()}`);
       return Number(nftcount.toString());
     } catch (err) {
-      // Check for insufficient funds error
       if (
         err.code === 'INSUFFICIENT_FUNDS' ||
         err.info?.error?.message?.includes('insufficient funds')
@@ -273,39 +259,21 @@ export class EthersService implements OnModuleInit {
         const needed = err.info?.error?.message?.match(/want (\d+)/)?.[1];
         const balanceETH = balance ? ethers.formatEther(balance) : 'unknown';
         const neededETH = needed ? ethers.formatEther(needed) : 'unknown';
-        console.error(
-          `[mintNFT] Insufficient funds - Balance: ${balanceETH} ETH, Needed: ${neededETH} ETH`,
-        );
         throw new DataError(
           `Insufficient funds to mint NFT. Wallet balance: ${balanceETH} ETH, Required: ${neededETH} ETH. Please fund the wallet ${signer.address} on ${nft.network}.`,
         );
       }
 
-      // Decode error if possible
       if (err.data) {
         try {
           const parsedError = nftContract.interface.parseError(err.data);
           if (parsedError) {
             if (parsedError.name === 'OnlyOBuilderAllowed') {
               const [msgSender, obuilder] = parsedError.args;
-              console.error(
-                `[mintNFT] OnlyOBuilderAllowed error - msgSender: ${msgSender}, expected oBuilder: ${obuilder}`,
-              );
             } else if (parsedError.name === 'MintingOnlyToBridge') {
-              console.error(
-                `[mintNFT] MintingOnlyToBridge error - NFTs can only be minted to bridge addresses`,
-              );
-            } else {
-              console.error(
-                `[mintNFT] Contract error: ${parsedError.name}`,
-                parsedError.args,
-              );
             }
           }
-        } catch (decodeErr) {
-          // Ignore decode errors, just log the raw error
-          console.error(`[mintNFT] Error details: ${err.message || err}`);
-        }
+        } catch (decodeErr) {}
       }
       throw new DataError(err);
     }
@@ -383,7 +351,6 @@ export class EthersService implements OnModuleInit {
       evmNetwork,
       smartContractAddress,
     );
-    // Normalize address to checksummed format to avoid ENS resolution
     const normalizedAddress = ethers.getAddress(walletAddress);
     return await nftContract.getListOfNftIdsPerAddress(normalizedAddress);
   }
@@ -402,7 +369,6 @@ export class EthersService implements OnModuleInit {
     let signer: ethers.HDNodeWallet;
     signer = this.getSigner(ltoNetworkId, nft.network);
     try {
-      // Normalize address to checksummed format to avoid ENS resolution
       const normalizedAddress = ethers.getAddress(nftReceiverAddress);
 
       const response = await nftContract.transferFrom(

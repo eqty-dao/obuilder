@@ -47,7 +47,6 @@ export class RedisQueueService implements OnModuleInit {
       entry.ownableStatus = OwnableStatus.InQueue;
       entry.timestampInQueue = Math.floor(Date.now() / 1000);
 
-      // Store ZIP data in S3 (maintaining old system compatibility)
       if (data) {
         try {
           if (networkId === 'L') {
@@ -69,16 +68,13 @@ export class RedisQueueService implements OnModuleInit {
         }
       }
 
-      // Set data reference in entry (for compatibility with old system)
       entry.data = `${requestId}_data`;
       entry.rid = requestId;
       entry.ltoWallet = entry.sender;
       entry.txId = entry.transactionId;
 
-      // Store in queue
       await this.redis.enqueue(queueName, entry);
 
-      // Store queue entry data as hash for later retrieval
       const queueKey = `${this.QUEUE_PREFIX}:${networkId}:${requestId}`;
       await this.redis.hset(queueKey, 'requestId', entry.requestId);
       await this.redis.hset(queueKey, 'networkId', entry.networkId);
@@ -103,7 +99,6 @@ export class RedisQueueService implements OnModuleInit {
       await this.redis.hset(queueKey, 'ltoWallet', entry.ltoWallet || '');
       await this.redis.hset(queueKey, 'txId', entry.txId || '');
 
-      // Store status separately for quick access (using hash for consistency)
       await this.redis.hset(statusKey, 'status', entry.ownableStatus);
       await this.redis.hset(statusKey, 'timestamp', entry.timestampInQueue);
       await this.redis.hset(statusKey, 'templateId', entry.templateId);
@@ -175,27 +170,22 @@ export class RedisQueueService implements OnModuleInit {
       const statusKey = this.getStatusKey(networkId, requestId);
       const timestamp = Math.floor(Date.now() / 1000);
 
-      // Update status (ensure key exists as hash, delete if it's a string)
       const exists = await this.redis.exists(statusKey);
       if (exists) {
         const type = await this.redis.getClient().type(statusKey);
         if (type === 'string') {
-          // Delete the old string key and recreate as hash
           await this.redis.del(statusKey);
         }
       }
 
-      // Update status
       await this.redis.hset(statusKey, 'status', status);
       await this.redis.hset(statusKey, 'timestamp', timestamp);
 
-      // Set specific timestamp based on status
       const timestampField = this.getTimestampField(status);
       if (timestampField) {
         await this.redis.hset(statusKey, timestampField, timestamp);
       }
 
-      // Update hash if provided
       if (hash) {
         await this.redis.hset(statusKey, 'hash', hash);
       }
