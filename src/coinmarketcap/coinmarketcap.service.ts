@@ -67,21 +67,62 @@ export class CoinmarketcapService implements OnModuleInit {
       this.latestApiCall = timeNow;
       console.log('Updating template costs from CoinMarketCap');
 
+      const apiKey = this.config.get('coinmarketcap');
+      if (!apiKey || apiKey.trim() === '') {
+        console.warn(
+          'CoinMarketCap API key not configured. Skipping price update.',
+        );
+        return;
+      }
+
       const url =
         'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest';
 
       try {
         const response = await axios.get(url, {
           headers: {
-            'X-CMC_PRO_API_KEY': this.config.get('coinmarketcap'),
+            'X-CMC_PRO_API_KEY': apiKey,
           },
           params: {
-            symbol: 'LTO,ARB,ETH', // Fetch data for LTO, ARB, and ETH
-            convert: 'USD', // Convert prices to USD
+            symbol: 'ARB,ETH',
+            convert: 'USD',
           },
         });
 
+        // Check response structure
+        if (!response.data) {
+          throw new Error('Invalid API response: no data field');
+        }
+
         const data = response.data.data;
+
+        // Log available symbols for debugging
+        if (data) {
+          const availableSymbols = Object.keys(data);
+          console.log('Available symbols in API response:', availableSymbols);
+        }
+
+        // Validate required API response structure (ARB and ETH are required)
+        if (!data || !data.ARB || !data.ARB.quote || !data.ARB.quote.USD) {
+          throw new Error(
+            'Invalid API response: ARB data not found or malformed',
+          );
+        }
+        if (!data.ETH || !data.ETH.quote || !data.ETH.quote.USD) {
+          throw new Error(
+            'Invalid API response: ETH data not found or malformed',
+          );
+        }
+
+        // LTO is optional - use previous value or default if not available
+        let ltoPrice = this.latestPriceLTOUSD || 0;
+        if (data.LTO && data.LTO.quote && data.LTO.quote.USD) {
+          ltoPrice = parseFloat(data.LTO.quote.USD.price.toFixed(8));
+        } else {
+          console.warn(
+            'LTO price not available in API response. Using previous value or default.',
+          );
+        }
 
         let prevPrice_L = 0;
         let prevPrice_T = 0;
@@ -104,13 +145,12 @@ export class CoinmarketcapService implements OnModuleInit {
         this.latestPriceARBUSD = parseFloat(
           data.ARB.quote.USD.price.toFixed(8),
         );
-        this.latestPriceLTOUSD = parseFloat(
-          data.LTO.quote.USD.price.toFixed(8),
-        );
+        this.latestPriceLTOUSD = ltoPrice; // Use LTO price if available, otherwise keep previous
         const latestPriceETHUSD = parseFloat(
           data.ETH.quote.USD.price.toFixed(2),
         );
 
+        // Calculate template prices - use default if LTO price is not available
         let newPrice_L = 20000000;
         let newPrice_T = 20000000;
         if (this.latestPriceLTOUSD > 0) {
@@ -143,10 +183,11 @@ export class CoinmarketcapService implements OnModuleInit {
         }
 
         console.log(
-          'Updated LTO prices - Mainnet:',
+          'Updated template prices - Mainnet:',
           newPrice_L,
           'Testnet:',
           newPrice_T,
+          `(LTO price: ${this.latestPriceLTOUSD > 0 ? this.latestPriceLTOUSD : 'not available, using default'})`,
         );
 
         await this.queue.setTemplateCosts(
@@ -252,11 +293,45 @@ export class CoinmarketcapService implements OnModuleInit {
         return;
       } catch (error) {
         console.error('CoinMarketCap API error:', error);
-        this.telegramService.sendMessageToTelegramBot(
-          'L',
-          `Error fetching data from CoinMarketCap: ${error.message}`,
-        );
-        throw error; // Rethrow to properly handle in calling code
+        const errorMessage =
+          error.response?.data?.status?.error_message ||
+          error.message ||
+          'Unknown error';
+        console.error('Error details:', {
+          message: errorMessage,
+          status: error.response?.status,
+          data: error.response?.data,
+        });
+
+        // Only send Telegram notification if we have a valid error message
+        if (errorMessage && errorMessage !== 'Unknown error') {
+          try {
+            await this.telegramService.sendMessageToTelegramBot(
+              'L',
+              `Error fetching data from CoinMarketCap: ${errorMessage}`,
+            );
+          } catch (telegramError) {
+            console.error(
+              'Failed to send Telegram notification:',
+              telegramError,
+            );
+          }
+        }
+
+        // Don't throw error on module init - use fallback values instead
+        if (this.latestApiCall === 0) {
+          console.warn(
+            'CoinMarketCap API failed on initialization. Using default/fallback values.',
+          );
+          // Set default values to prevent crashes
+          this.latestPriceARBUSD = 0;
+          this.latestPriceLTOUSD = 0;
+          this.previousPriceARBUSD = 0;
+          this.previousPriceLTOUSD = 0;
+          return; // Don't throw, allow app to continue
+        } else {
+          throw error; // Rethrow for forced updates
+        }
       }
     } else {
       console.log(

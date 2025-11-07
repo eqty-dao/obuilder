@@ -118,80 +118,76 @@ export class NFTService {
    * @returns Object with chain information
    */
   public async getAvailableNftChains(): Promise<any> {
-    const nftInfoARB_L: NftInfo = {
-      network: 'arbitrum',
+    const nftInfoBASE_L: NftInfo = {
+      network: 'base',
       id: 0,
-      address: this.config.get('eth.contracts.arbitrum.mainnet'),
+      address: this.config.get('eth.contracts.base.mainnet'),
     };
 
-    const nftInfoARB_T: NftInfo = {
-      network: 'arbitrum',
+    const nftInfoBASE_T: NftInfo = {
+      network: 'base',
       id: 0,
-      address: this.config.get('eth.contracts.arbitrum.testnet'),
+      address: this.config.get('eth.contracts.base.testnet'),
     };
 
-    const nftCountARB_L = await this.getNFTcount('L', nftInfoARB_L);
-    const nftCountARB_T = await this.getNFTcount('T', nftInfoARB_T);
+    const nftCountBASE_L = await this.getNFTcount('L', nftInfoBASE_L);
+    const nftCountBASE_T = await this.getNFTcount('T', nftInfoBASE_T);
 
     const availableChains = {
-      arbitrum: {
+      base: {
         mainnet: {
-          name: 'arbitrum',
-          logo: 'https://obuilderassets.s3.eu-west-1.amazonaws.com/arbitrum-arb-logo.png',
-          smartContractAddress: this.config.get(
-            'eth.contracts.arbitrum.mainnet',
-          ),
-          totalAmountNFTs: nftCountARB_L.toString(),
+          name: 'base',
+          logo: 'https://obuilderassets.s3.eu-west-1.amazonaws.com/base-logo.png',
+          smartContractAddress: this.config.get('eth.contracts.base.mainnet'),
+          totalAmountNFTs: nftCountBASE_L.toString(),
           templateCost: {
             1: (
               await this.queueService.getTemplateCostsIncludingPrevious(
                 'L',
-                'arbitrum',
+                'base',
                 '1',
               )
             ).current,
             2: (
               await this.queueService.getTemplateCostsIncludingPrevious(
                 'L',
-                'arbitrum',
+                'base',
                 '2',
               )
             ).current,
             3: (
               await this.queueService.getTemplateCostsIncludingPrevious(
                 'L',
-                'arbitrum',
+                'base',
                 '3',
               )
             ).current,
           },
         },
         testnet: {
-          name: 'arbitrum',
-          logo: 'https://obuilderassets.s3.eu-west-1.amazonaws.com/arbitrum-arb-logo.png',
-          smartContractAddress: this.config.get(
-            'eth.contracts.arbitrum.testnet',
-          ),
-          totalAmountNFTs: nftCountARB_T.toString(),
+          name: 'base',
+          logo: 'https://obuilderassets.s3.eu-west-1.amazonaws.com/base-logo.png',
+          smartContractAddress: this.config.get('eth.contracts.base.testnet'),
+          totalAmountNFTs: nftCountBASE_T.toString(),
           templateCost: {
             1: (
               await this.queueService.getTemplateCostsIncludingPrevious(
                 'T',
-                'arbitrum',
+                'base',
                 '1',
               )
             ).current,
             2: (
               await this.queueService.getTemplateCostsIncludingPrevious(
                 'T',
-                'arbitrum',
+                'base',
                 '2',
               )
             ).current,
             3: (
               await this.queueService.getTemplateCostsIncludingPrevious(
                 'T',
-                'arbitrum',
+                'base',
                 '3',
               )
             ).current,

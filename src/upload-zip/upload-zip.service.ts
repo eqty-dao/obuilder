@@ -480,15 +480,15 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     const nftData = await this.nft.getAvailableNftChains();
 
     // Add template info to the response
-    if (nftData && nftData.arbitrum) {
+    if (nftData && nftData.base) {
       // Add available templates to mainnet
-      if (nftData.arbitrum.mainnet) {
-        nftData.arbitrum.mainnet.availableTemplates = availableTemplateIds;
+      if (nftData.base.mainnet) {
+        nftData.base.mainnet.availableTemplates = availableTemplateIds;
       }
 
       // Add available templates to testnet
-      if (nftData.arbitrum.testnet) {
-        nftData.arbitrum.testnet.availableTemplates = availableTemplateIds;
+      if (nftData.base.testnet) {
+        nftData.base.testnet.availableTemplates = availableTemplateIds;
       }
     }
 
@@ -674,7 +674,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
     // Validate NFT blockchain settings
     if (jsonFile.CREATE_NFT === 'true') {
-      if (!(jsonFile.NFT_BLOCKCHAIN === 'arbitrum')) {
+      if (!(jsonFile.NFT_BLOCKCHAIN === 'base')) {
         this.loggingService.logError(
           requestId,
           `Error: Unsupported network: ${jsonFile.NFT_BLOCKCHAIN}`,
@@ -1187,7 +1187,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
       // Validate blockchain settings
       if (jsonFile.CREATE_NFT === 'true') {
-        if (!(jsonFile.NFT_BLOCKCHAIN === 'arbitrum')) {
+        if (!(jsonFile.NFT_BLOCKCHAIN === 'base')) {
           this.loggingService.logError(
             requestId,
             `Unsupported network: ${jsonFile.NFT_BLOCKCHAIN}`,
@@ -1524,17 +1524,109 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     let cpCmdFrom = `${this.pathToTemplates}/template${templateId}`;
     let cpCmdTo = `ownables/${jsonFile.PLACEHOLDER1_NAME}`;
 
+    // Declare thumbnail and thumbnailBuffer at function scope so they're accessible throughout
+    let thumbnail: Buffer | undefined;
+    let thumbnailBuffer: Buffer | undefined;
+
     try {
       await this.fileManagement.copyDirectory(cpCmdFrom, cpCmdTo, requestId);
 
       // Copy image files
       const image = requestIdFiles.get(`${jsonFile.PLACEHOLDER2_IMG}`);
+      if (!image) {
+        this.loggingService.logError(
+          requestId,
+          `Image file not found: ${jsonFile.PLACEHOLDER2_IMG}`,
+        );
+        throw new Error(
+          `Image file not found in upload: ${jsonFile.PLACEHOLDER2_IMG}`,
+        );
+      }
       let filePath = `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.PLACEHOLDER2_IMG}`;
       await this.fileManagement.writeFile(filePath, image, requestId);
 
-      const thumbnail = requestIdFiles.get(`${jsonFile.OWNABLE_THUMBNAIL}`);
-      filePath = `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/${jsonFile.OWNABLE_THUMBNAIL}`;
-      await this.fileManagement.writeFile(filePath, thumbnail, requestId);
+      // Thumbnail naming convention: must be 'thumbnail.webp' in the final package
+      // Check if thumbnail.webp exists in uploaded files first
+      thumbnail = requestIdFiles.get('thumbnail.webp');
+
+      // If not found, check if OWNABLE_THUMBNAIL specifies a different file
+      if (!thumbnail && jsonFile.OWNABLE_THUMBNAIL) {
+        thumbnail = requestIdFiles.get(`${jsonFile.OWNABLE_THUMBNAIL}`);
+        if (thumbnail) {
+          this.loggingService.log(
+            requestId,
+            `Found thumbnail file: ${jsonFile.OWNABLE_THUMBNAIL}, will convert to thumbnail.webp`,
+          );
+        }
+      }
+
+      // If thumbnail still not found, create it from main image
+      if (!thumbnail) {
+        this.loggingService.log(
+          requestId,
+          `Thumbnail not provided, creating thumbnail.webp from main image`,
+        );
+        // Create thumbnail from main image (will be saved as thumbnail.webp below)
+        thumbnail = image;
+      }
+
+      // Always write thumbnail as 'thumbnail.webp' (required naming convention)
+      // Create resized webp version from the thumbnail/image
+      try {
+        // Always resize to 50x50 and convert to webp (as per spec)
+        thumbnailBuffer = await sharp(thumbnail)
+          .resize(50, 50)
+          .webp({ quality: 80 })
+          .toBuffer();
+
+        if (thumbnailBuffer.length > 256 * 1024) {
+          this.loggingService.logError(
+            requestId,
+            `Thumbnail exceeds 256KB (${thumbnailBuffer.length} bytes), trying lower quality`,
+          );
+          // Try with lower quality
+          thumbnailBuffer = await sharp(thumbnail)
+            .resize(50, 50)
+            .webp({ quality: 60 })
+            .toBuffer();
+
+          if (thumbnailBuffer.length > 256 * 1024) {
+            this.loggingService.logError(
+              requestId,
+              `Thumbnail still exceeds 256KB after quality reduction, using smaller size`,
+            );
+            // Try smaller size
+            thumbnailBuffer = await sharp(thumbnail)
+              .resize(40, 40)
+              .webp({ quality: 60 })
+              .toBuffer();
+          }
+        }
+      } catch (err) {
+        this.loggingService.logError(
+          requestId,
+          `Failed to create thumbnail.webp: ${err.message}, using original image`,
+        );
+        thumbnailBuffer = thumbnail;
+      }
+
+      if (!thumbnailBuffer) {
+        this.loggingService.logError(
+          requestId,
+          `thumbnailBuffer is undefined, falling back to image`,
+        );
+        thumbnailBuffer = image;
+      }
+
+      filePath = `ownables/${jsonFile.PLACEHOLDER1_NAME}/assets/thumbnail.webp`;
+      await this.fileManagement.writeFile(filePath, thumbnailBuffer, requestId);
+      this.loggingService.log(
+        requestId,
+        `Thumbnail written as thumbnail.webp (${thumbnailBuffer.length} bytes)`,
+      );
+
+      // Update thumbnail variable for metadata use
+      thumbnail = thumbnailBuffer;
 
       // Set default author if missing
       if (typeof jsonFile.PLACEHOLDER1_AUTHORS === 'undefined')
@@ -1763,7 +1855,20 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       //Initialize the metadata component
       this.ownableMeta.title = pkgOwnable.title || 'Ownable';
       this.ownableMeta.description = pkgOwnable.description || '';
-      this.ownableMeta.thumbnail = await this.resizeToThumbnail(thumbnail);
+      // Use the already-resized thumbnail.webp for metadata (convert to Binary for eqty-core)
+      if (thumbnailBuffer) {
+        this.ownableMeta.thumbnail = Binary.from(thumbnailBuffer);
+        this.loggingService.log(
+          requestId,
+          `Metadata thumbnail set from thumbnail.webp (${thumbnailBuffer.length} bytes)`,
+        );
+      } else {
+        this.loggingService.logError(
+          requestId,
+          'No thumbnail available for metadata thumbnail',
+        );
+        this.ownableMeta.thumbnail = null;
+      }
 
       // Store in S3
       await this.s3.storeZip(networkId, cid, requestId, sender, zipContent);
