@@ -303,20 +303,20 @@ export class CoinmarketcapService implements OnModuleInit {
           data: error.response?.data,
         });
 
-        // Only send Telegram notification if we have a valid error message
-        if (errorMessage && errorMessage !== 'Unknown error') {
-          try {
-            await this.telegramService.sendMessageToTelegramBot(
-              'L',
-              `Error fetching data from CoinMarketCap: ${errorMessage}`,
-            );
-          } catch (telegramError) {
-            console.error(
-              'Failed to send Telegram notification:',
-              telegramError,
-            );
-          }
-        }
+        // Removed: CoinMarketCap error notifications (too frequent, errors are logged)
+        // if (errorMessage && errorMessage !== 'Unknown error') {
+        //   try {
+        //     await this.telegramService.sendMessageToTelegramBot(
+        //       'L',
+        //       `Error fetching data from CoinMarketCap: ${errorMessage}`,
+        //     );
+        //   } catch (telegramError) {
+        //     console.error(
+        //       'Failed to send Telegram notification:',
+        //       telegramError,
+        //     );
+        //   }
+        // }
 
         // Don't throw error on module init - use fallback values instead
         if (this.latestApiCall === 0) {

@@ -252,28 +252,29 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     recipient: string,
     content?: Uint8Array,
   ) {
+    if (!content) {
+      throw new Error('ZIP content is required to send ownable');
+    }
+
     const metadata = this.ownableMeta;
-    // Create a TypedPackage from the parameters
-    const typedPackage: TypedPackage = {
-      title: 'Ownable Package',
-      name: 'ownable',
-      description: 'Generated ownable package',
-      cid: '',
-      versions: [],
-      keywords: [],
-      isDynamic: false,
-      hasMetadata: true,
-      hasWidgetState: false,
-      isConsumable: false,
-      isConsumer: false,
-      isTransferable: true,
+
+    // Prepare file metadata for the message (including title, description, and thumbnail)
+    const fileMeta = {
+      title: metadata?.title || 'Ownable Package',
+      description: metadata?.description || 'Generated ownable package',
+      type: 'ownable',
+      cid: metadata?.cid || '',
+      thumbnail: metadata?.thumbnail || null, // Binary object or null
     };
 
-    return this.relayService.sendTypedPackage(
-      typedPackage,
+    // Send the actual ZIP file content using sendFile
+    return this.relayService.sendFile(
+      content,
       rid, // sender
       recipient,
       rid, // requestId
+      fileMeta,
+      networkId, // networkId for anchoring
     );
   }
 
@@ -340,16 +341,19 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         );
       }
 
-      // Validate timing (within last minute)
+      // Validate timing (within last minute for new transactions, but allow older transactions for re-enqueued requests)
       const block = await provider.getBlock(tx.blockNumber!);
       const transactionTime = block.timestamp;
       const currentTime = Math.floor(Date.now() / 1000);
       const timeDiff = currentTime - transactionTime;
 
-      if (timeDiff > 60) {
-        // More than 1 minute ago
+      // For re-enqueued requests, allow older transactions (they were already validated and confirmed)
+      // For new requests, enforce 60-second window to prevent stale transactions
+      const maxAge = reenqueued ? 86400 * 7 : 60; // 7 days for re-enqueued, 60 seconds for new
+
+      if (timeDiff > maxAge) {
         throw new Error(
-          `Transaction too old. Time difference: ${timeDiff} seconds`,
+          `Transaction too old. Time difference: ${timeDiff} seconds (max allowed: ${maxAge} seconds${reenqueued ? ' for re-enqueued request' : ''})`,
         );
       }
 
@@ -499,10 +503,85 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     pkg: TypedPackage,
     nftInfo: NftInfo,
     receiver: string,
+    networkId: 'L' | 'T',
+    requestId: string,
   ): Promise<string> {
-    // For now, return a placeholder string since we need to create the EventChain first
-    // This will need to be implemented properly with eqty-core
-    return `eventchain_${receiver}_${Date.now()}`;
+    try {
+      this.loggingService.log(
+        requestId,
+        `Creating event chain for receiver: ${receiver} on network: ${networkId}`,
+      );
+
+      // Create event chain using eqty-core
+      const eventChain = this.eqtyService.createEventChain(networkId, receiver);
+
+      // Create initial event data matching ownables-sdk format exactly
+      // Schema only allows: network_id, ownable_id, package, nft (optional), ownable_type (optional)
+      // nft.id must be a string (Uint128), not a number
+      const chainId = networkId === 'L' ? 8453 : 84532;
+      const eventData: any = {
+        '@context': 'instantiate_msg.json',
+        ownable_id: eventChain.id,
+        package: pkg.cid,
+        network_id: chainId,
+        keywords: pkg.keywords ?? [], // ownables-sdk includes this, even though not in schema
+      };
+
+      // Add NFT if available (nft.id must be a string for Uint128)
+      if (nftInfo && nftInfo.id !== undefined) {
+        eventData.nft = {
+          network: nftInfo.network,
+          address: nftInfo.address,
+          id: nftInfo.id.toString(), // Convert to string for Uint128 type
+        };
+      }
+
+      // Create and add the initial instantiate event to the chain
+      const instantiateEvent = new Event(eventData, 'application/json');
+      instantiateEvent.addTo(eventChain);
+
+      // Sign the instantiate event with server wallet (server becomes initial owner)
+      await this.eqtyService.signEventWithServerWallet(
+        instantiateEvent,
+        networkId,
+      );
+
+      this.loggingService.log(
+        requestId,
+        `Instantiate event created and signed. Owner: server wallet`,
+      );
+
+      // Create transfer event to transfer ownership from server to receiver
+      const transferEventData = {
+        '@context': 'execute_msg.json',
+        transfer: {
+          to: receiver,
+        },
+      };
+
+      const transferEvent = new Event(transferEventData, 'application/json');
+      transferEvent.addTo(eventChain);
+
+      // Sign the transfer event with server wallet (server transfers to receiver)
+      await this.eqtyService.signEventWithServerWallet(
+        transferEvent,
+        networkId,
+      );
+
+      this.loggingService.log(
+        requestId,
+        `Transfer event created and signed. Transferred to: ${receiver}`,
+      );
+
+      // Return the JSON string representation
+      return JSON.stringify(eventChain.toJSON());
+    } catch (error) {
+      this.loggingService.logError(
+        requestId,
+        `Failed to create event chain: ${error}`,
+      );
+      throw error;
+    }
   }
 
   public getServerLtoWalletAddresses(): [string, string] {
@@ -1229,7 +1308,10 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       //   requestIdFiles.set('ownableData.json', updatedJsonBuffer);
       // }
 
-      // Validate transaction ID if already present in JSON (pre-existing transaction)
+      // Transaction validation:
+      // - If OWNABLE_LTO_TRANSACTION_ID exists, it was already validated in queueRequest() at upload time
+      // - Only validate again if reenqueued (transaction might have changed or needs re-validation)
+      // - If signedTransaction exists, it will be broadcast and validated later
       let transactionIdData: TransactionIdData;
       let usedExistingTransaction = false;
 
@@ -1237,31 +1319,43 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         jsonFile.OWNABLE_LTO_TRANSACTION_ID &&
         !this.signedTransactions.has(requestId)
       ) {
-        this.loggingService.log(
-          requestId,
-          `Validating existing transaction ID: ${jsonFile.OWNABLE_LTO_TRANSACTION_ID}`,
-        );
-
-        try {
-          transactionIdData = await this.checkLtoTransactionId(
-            networkId,
-            jsonFile.OWNABLE_LTO_TRANSACTION_ID,
-            templateId,
-            'base',
-            requestId,
-            reenqueued,
-          );
-          usedExistingTransaction = true;
+        // Only re-validate if this is a reenqueued request (transaction might have changed)
+        if (reenqueued) {
           this.loggingService.log(
             requestId,
-            `Existing transaction validated: ${JSON.stringify(transactionIdData)}`,
+            `Re-validating existing transaction ID (reenqueued): ${jsonFile.OWNABLE_LTO_TRANSACTION_ID}`,
           );
-        } catch (err) {
-          this.loggingService.logError(
+
+          try {
+            transactionIdData = await this.checkLtoTransactionId(
+              networkId,
+              jsonFile.OWNABLE_LTO_TRANSACTION_ID,
+              templateId,
+              'base',
+              requestId,
+              reenqueued,
+            );
+            usedExistingTransaction = true;
+            this.loggingService.log(
+              requestId,
+              `Existing transaction re-validated: ${JSON.stringify(transactionIdData)}`,
+            );
+          } catch (err) {
+            this.loggingService.logError(
+              requestId,
+              `Error re-validating existing transaction: ${err}`,
+            );
+            throw err;
+          }
+        } else {
+          // Transaction was already validated at upload time, no need to validate again
+          this.loggingService.log(
             requestId,
-            `Error validating existing transaction: ${err}`,
+            `Transaction ${jsonFile.OWNABLE_LTO_TRANSACTION_ID} was already validated at upload time, skipping redundant validation`,
           );
-          throw err;
+          usedExistingTransaction = true;
+          // We don't have transactionIdData here, but it's not needed since it was validated earlier
+          // The transaction ID in the queue entry should be sufficient
         }
       }
 
@@ -1331,6 +1425,26 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
           `Creating Ownable for request ID ${requestId}...`,
         );
 
+        // Send Telegram notification: Build started
+        try {
+          const buildStartMessage =
+            `🔨 Build Started\n\n` +
+            `Request ID: ${requestId}\n` +
+            `Network: ${networkId}\n` +
+            `Template: ${queueEntry.templateId}\n` +
+            `Recipient: ${sender}\n` +
+            `Time: ${new Date().toISOString()}`;
+          await this.telegramService.sendMessageToTelegramBot(
+            networkId,
+            buildStartMessage,
+          );
+        } catch (telegramError) {
+          this.loggingService.logError(
+            requestId,
+            `Failed to send build start notification: ${telegramError}`,
+          );
+        }
+
         // Build the Ownable first but don't send it yet
         const ownableData = await this.buildOwnable(
           networkId,
@@ -1342,6 +1456,27 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
           parseInt(queueEntry.templateId),
         );
         console.log(`[Build] Ownable built - CID: ${ownableData.cid}`);
+
+        // Send Telegram notification: Successfully built
+        try {
+          const buildSuccessMessage =
+            `✅ Successfully Built\n\n` +
+            `Request ID: ${requestId}\n` +
+            `Network: ${networkId}\n` +
+            `CID: ${ownableData.cid}\n` +
+            `Recipient: ${sender}\n` +
+            `Template: ${queueEntry.templateId}\n` +
+            `Time: ${new Date().toISOString()}`;
+          await this.telegramService.sendMessageToTelegramBot(
+            networkId,
+            buildSuccessMessage,
+          );
+        } catch (telegramError) {
+          this.loggingService.logError(
+            requestId,
+            `Failed to send build success notification: ${telegramError}`,
+          );
+        }
 
         // Step 3: Process payment transaction just before sending
         if (this.signedTransactions && this.signedTransactions.has(requestId)) {
@@ -1473,12 +1608,13 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
           ownableData.zipContent,
         );
 
-        // Update status in S3
+        // Update status in S3 (pass hash for Telegram notification)
         if (ownableData.cid) {
           await this.queueService.setQueueEntryStatus(
             networkId,
             requestId,
             OwnableStatus.Sent,
+            hash,
           );
         }
 
@@ -1826,6 +1962,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         pkgOwnable,
         nftInfo,
         sender,
+        networkId,
+        requestId,
       );
       const chainBuffer = Buffer.from(chainString, 'utf8');
       pkgFiles.set('chain.json', chainBuffer);
@@ -1844,8 +1982,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       const new_zip = new JSZip();
       await new_zip.loadAsync(zipFile_buffer);
 
+      // Read chain.json from the stored files (it was stored as chain.json, not ${cid}.json)
       const eventChainJsonFile = await this.fileManagement.readFile(
-        `${this.pathToCids}/${cid}/${cid}.json`,
+        `${this.pathToCids}/${cid}/${cid}/chain.json`,
       );
       new_zip.file('chain.json', eventChainJsonFile);
       new_zip.file('timestamp.txt', Buffer.from(timeMillisecondsNow, 'utf-8'));

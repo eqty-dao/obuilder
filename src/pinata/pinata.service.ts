@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '../config/config.service';
 import { LoggingService } from '../logging/redis-logging.service';
-import { Blob } from 'buffer';
 import { PinataSDK } from 'pinata';
 
 @Injectable()
@@ -32,7 +31,7 @@ export class PinataService {
     description: string,
     requestId?: string,
   ): Promise<string> {
-    let blobPicture: Blob;
+    let blobPicture: any;
     const pinataMetadata = JSON.stringify({
       name: 'PictureNFT',
     });
@@ -41,15 +40,60 @@ export class PinataService {
     });
     const JWT = this.config.get('pinata.jwt');
 
-    // First, pin the image
-    blobPicture = new Blob([picture]);
-    const formDataPicture = new FormData();
+    // Validate picture buffer
+    if (!picture || picture.length === 0) {
+      const errorMsg = 'Picture buffer is empty or invalid';
+      if (requestId) {
+        this.loggingService.logError(requestId, errorMsg);
+      }
+      throw new Error(errorMsg);
+    }
+
+    if (requestId) {
+      this.loggingService.log(
+        requestId,
+        `Picture buffer size: ${picture.length} bytes`,
+      );
+    }
+
+    blobPicture = new (globalThis.Blob || Blob)([
+      new Uint8Array(picture),
+    ]) as any;
+    const formDataPicture = new (globalThis.FormData || FormData)() as any;
+
+    let imageType = 'image/webp';
+    if (
+      picture[0] === 0x89 &&
+      picture[1] === 0x50 &&
+      picture[2] === 0x4e &&
+      picture[3] === 0x47
+    ) {
+      imageType = 'image/png';
+    } else if (
+      picture[0] === 0xff &&
+      picture[1] === 0xd8 &&
+      picture[2] === 0xff
+    ) {
+      imageType = 'image/jpeg';
+    } else if (
+      picture[0] === 0x47 &&
+      picture[1] === 0x49 &&
+      picture[2] === 0x46
+    ) {
+      imageType = 'image/gif';
+    }
 
     if (this.nodeVersion.startsWith('v18.')) {
-      formDataPicture.append('file', blobPicture);
+      formDataPicture.append('file', blobPicture as any);
     } else if (this.nodeVersion.startsWith('v20.')) {
-      const fileBlob = new File([blobPicture], 'OwnableNftPicture', {
-        type: 'image/webp',
+      const fileBlob = new File([blobPicture as any], 'OwnableNftPicture', {
+        type: imageType,
+      });
+      formDataPicture.append('file', fileBlob);
+    } else {
+      // Fallback for other Node versions
+      const fileBlob = new File([blobPicture as any], 'OwnableNftPicture', {
+        type: imageType,
       });
       formDataPicture.append('file', fileBlob);
     }
@@ -63,24 +107,68 @@ export class PinataService {
 
     let requestPicture: any;
     try {
-      requestPicture = await fetch(
-        'https://api.pinata.cloud/pinning/pinFileToIPFS',
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${JWT}`,
+      // Check if JWT is configured
+      if (!JWT || JWT.trim() === '') {
+        const errorMsg = 'Pinata JWT token is not configured';
+        if (requestId) {
+          this.loggingService.logError(requestId, errorMsg);
+        }
+        throw new Error(errorMsg);
+      }
+
+      if (requestId) {
+        this.loggingService.log(
+          requestId,
+          `Making fetch request to Pinata API (JWT configured: ${JWT ? 'yes' : 'no'})`,
+        );
+      }
+
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
+      try {
+        requestPicture = await fetch(
+          'https://api.pinata.cloud/pinning/pinFileToIPFS',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${JWT}`,
+            },
+            body: formDataPicture,
+            signal: controller.signal,
           },
-          body: formDataPicture,
-        },
-      );
+        );
+      } finally {
+        clearTimeout(timeoutId);
+      }
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      const errorDetails = {
+        message: errorMessage,
+        code: (err as any)?.code,
+        cause: (err as any)?.cause,
+      };
+
       if (requestId) {
         this.loggingService.logError(
           requestId,
-          `Failed to upload image to Pinata: ${err}`,
+          `Failed to upload image to Pinata: ${JSON.stringify(errorDetails)}`,
         );
+      } else {
+        console.error('Failed to upload image to Pinata:', errorDetails);
       }
       throw err;
+    }
+
+    // Check if the response is OK
+    if (!requestPicture.ok) {
+      const errorText = await requestPicture.text();
+      const errorMsg = `Pinata API returned error status ${requestPicture.status}: ${errorText}`;
+      if (requestId) {
+        this.loggingService.logError(requestId, errorMsg);
+      }
+      throw new Error(errorMsg);
     }
 
     let responsePicture: any;
@@ -105,7 +193,7 @@ export class PinataService {
     const pinata_gateway_url = this.config.get('pinata.gateway');
 
     // Now create and pin the metadata JSON
-    let blobJson: Blob;
+    let blobJson: any;
     const jsonMetadata = {
       name: name,
       description: description,
@@ -115,13 +203,13 @@ export class PinataService {
 
     var buf = Buffer.from(JSON.stringify(jsonMetadata));
 
-    blobJson = new Blob([buf]);
-    const formDataJson = new FormData();
+    blobJson = new (globalThis.Blob || Blob)([buf]) as any;
+    const formDataJson = new (globalThis.FormData || FormData)() as any;
 
     if (this.nodeVersion.startsWith('v18.')) {
-      formDataJson.append('file', blobJson);
+      formDataJson.append('file', blobJson as any);
     } else if (this.nodeVersion.startsWith('v20.')) {
-      const fileBlob = new File([blobJson], 'OwnableNftJson', {
+      const fileBlob = new File([blobJson as any], 'OwnableNftJson', {
         type: 'application/json',
       });
       formDataJson.append('file', fileBlob);
@@ -200,13 +288,16 @@ export class PinataService {
       const pinataOptions = JSON.stringify({ cidVersion: 1 });
 
       // Create blob and form data
-      const blob = new Blob([content]);
-      const formData = new FormData();
+      // Convert Buffer to Uint8Array for compatibility
+      const blob = new (globalThis.Blob || Blob)([
+        new Uint8Array(content),
+      ]) as any;
+      const formData = new (globalThis.FormData || FormData)() as any;
 
       if (this.nodeVersion.startsWith('v18.')) {
-        formData.append('file', blob);
+        formData.append('file', blob as any);
       } else if (this.nodeVersion.startsWith('v20.')) {
-        const fileBlob = new File([blob], filename);
+        const fileBlob = new File([blob as any], filename);
         formData.append('file', fileBlob);
       }
 

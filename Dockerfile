@@ -83,8 +83,12 @@ RUN /root/.cargo/bin/rustup target add wasm32-unknown-unknown
 COPY --from=build /usr/src/dist ./dist
 COPY --from=build /usr/src/node_modules ./node_modules
 COPY --from=build /usr/src/package*.json ./
-COPY --from=build /usr/src/ownables ./ownables
-COPY --from=build /usr/src/storage ./storage
+
+# Create storage directories (will be mounted as volumes in docker-compose)
+RUN mkdir -p ./storage/ownable-cids ./storage/ownable-templates ./ownables
+
+# Copy templates (these are needed at build time, but storage will be mounted)
+COPY --from=build /usr/src/storage/ownable-templates ./storage/ownable-templates
 
 # Expose port and define command to run the application
 EXPOSE 3000

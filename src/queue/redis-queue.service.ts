@@ -540,6 +540,7 @@ export class RedisQueueService implements OnModuleInit {
     networkId: 'L' | 'T',
     requestId: string,
     status: OwnableStatus,
+    hash?: string,
   ): Promise<void> {
     try {
       const statusKey = this.getStatusKey(networkId, requestId);
@@ -559,6 +560,14 @@ export class RedisQueueService implements OnModuleInit {
           break;
         case OwnableStatus.Sent:
           await this.redis.hset(statusKey, 'timestampSent', timestamp);
+          // Store hash if provided
+          if (hash) {
+            await this.redis.hset(statusKey, 'hash', hash);
+          }
+          // Send Telegram notification for Sent status
+          if (hash) {
+            await this.handleSentStatus(networkId, requestId, hash);
+          }
           break;
         case OwnableStatus.Failed:
           await this.redis.hset(statusKey, 'timestampFailed', timestamp);
@@ -789,16 +798,43 @@ export class RedisQueueService implements OnModuleInit {
     networkId: 'L' | 'T',
     requestId: string,
   ): Promise<void> {
+    // try {
+    //   const message =
+    //     `✅ Ownable ready for delivery\n\n` +
+    //     `Request ID: ${requestId}\n` +
+    //     `Network: ${networkId}\n` +
+    //     `Time: ${format(new Date(), 'yyyy-MM-dd HH:mm:ss')}`;
+    //
+    //   await this.telegramService.sendMessageToTelegramBot(networkId, message);
+    // } catch (error) {
+    //   this.logger.error('Failed to send ready notification:', error);
+    // }
+  }
+
+  private async handleSentStatus(
+    networkId: 'L' | 'T',
+    requestId: string,
+    hash: string,
+  ): Promise<void> {
     try {
+      // Get queue entry details for the message
+      const [entry] = await this.getQueueEntryByRequestId(networkId, requestId);
+      const txId = entry?.txId || 'N/A';
+      const ltoWallet = entry?.ltoWallet || 'N/A';
+      const formattedDate = format(new Date(), 'yyyy-MM-dd HH:mm');
+
       const message =
-        `✅ Ownable ready for delivery\n\n` +
+        `✅ Ownable Sent\n\n` +
         `Request ID: ${requestId}\n` +
         `Network: ${networkId}\n` +
-        `Time: ${format(new Date(), 'yyyy-MM-dd HH:mm:ss')}`;
+        `Hash: ${hash}\n` +
+        `TX ID: ${txId}\n` +
+        `Wallet: ${ltoWallet}\n` +
+        `Time: ${formattedDate}`;
 
       await this.telegramService.sendMessageToTelegramBot(networkId, message);
     } catch (error) {
-      this.logger.error('Failed to send ready notification:', error);
+      this.logger.error('Failed to send sent notification:', error);
     }
   }
 

@@ -197,10 +197,11 @@ export class QueueService implements OnModuleInit {
     }
 
     // await this.updateTemplateCostsInS3Bucket(ltoNetwork_id);
-    await this.telegramService.sendMessageToTelegramBot(
-      ltoNetwork_id,
-      `Updated template ${templateId} price ${ltoNetwork_id} (${evmNetwork}): from ${prevValue} to ${lastValue} LTO (${usdValue} USD)`,
-    );
+    // Removed: Template price update notifications (too frequent)
+    // await this.telegramService.sendMessageToTelegramBot(
+    //   ltoNetwork_id,
+    //   `Updated template ${templateId} price ${ltoNetwork_id} (${evmNetwork}): from ${prevValue} to ${lastValue} LTO (${usdValue} USD)`,
+    // );
   }
   public getTemplateCosts(
     ltoNetwork_id: 'L' | 'T',
@@ -522,14 +523,15 @@ export class QueueService implements OnModuleInit {
       }
       const timestamp = Math.floor(Date.now());
       const formattedDate = format(timestamp, 'yyyy-MM-dd HH:mm');
-      try {
-        await this.telegramService.sendMessageToTelegramBot(
-          ltoNetwork_id,
-          `QUEUE-InQueue(${ltoNetwork_id}): (${formattedDate})\nrequestId: ${requestId}\ntxID: ${txId}\nltoWallet: ${ltoWallet}`,
-        );
-      } catch (err) {
-        throw new Error(`Telegram Service Error.  ${err}`);
-      }
+      // Removed: InQueue notifications (too frequent, not critical)
+      // try {
+      //   await this.telegramService.sendMessageToTelegramBot(
+      //     ltoNetwork_id,
+      //     `QUEUE-InQueue(${ltoNetwork_id}): (${formattedDate})\nrequestId: ${requestId}\ntxID: ${txId}\nltoWallet: ${ltoWallet}`,
+      //   );
+      // } catch (err) {
+      //   throw new Error(`Telegram Service Error.  ${err}`);
+      // }
       if (ltoNetwork_id === 'L') {
         this._queueMainnet.push(newQueueEntry);
         this._queueDataMainnet.push(data);
@@ -810,14 +812,15 @@ export class QueueService implements OnModuleInit {
           );
           botMessage = `QUEUE-Ready(${ltoNetwork_id}): (${formattedDate})\nrequestId: ${this.queueTestnet[index].rid}\ntxID: ${this.queueTestnet[index].txId}\nltoWallet: ${this.queueTestnet[index].ltoWallet}`;
         }
-        try {
-          await this.telegramService.sendMessageToTelegramBot(
-            ltoNetwork_id,
-            botMessage,
-          );
-        } catch (err) {
-          throw new Error(`Telegram Service Error.  ${err}`);
-        }
+        // Removed: Ready notifications (too frequent, Sent notification is sufficient)
+        // try {
+        //   await this.telegramService.sendMessageToTelegramBot(
+        //     ltoNetwork_id,
+        //     botMessage,
+        //   );
+        // } catch (err) {
+        //   throw new Error(`Telegram Service Error.  ${err}`);
+        // }
       } else if (status == OwnableStatus.Sent && typeof hash !== 'undefined') {
         let botMessage: string;
         let formattedDate: string;
@@ -909,10 +912,11 @@ export class QueueService implements OnModuleInit {
         this._queueMainnet[indexL].timestampProcessing * 1000,
         'yyyy-MM-dd HH:mm',
       );
-      await this.telegramService.sendMessageToTelegramBot(
-        this.queueMainnet[indexL].ltoNetworkId,
-        `QUEUE-Processing(L): (${formattedDate})\nrequestId: ${this.queueMainnet[indexL].rid}\ntxID: ${this.queueMainnet[indexL].txId}\nltoWallet: ${this.queueMainnet[indexL].ltoWallet}`,
-      );
+      // Removed: Processing notifications (too frequent, not critical)
+      // await this.telegramService.sendMessageToTelegramBot(
+      //   this.queueMainnet[indexL].ltoNetworkId,
+      //   `QUEUE-Processing(L): (${formattedDate})\nrequestId: ${this.queueMainnet[indexL].rid}\ntxID: ${this.queueMainnet[indexL].txId}\nltoWallet: ${this.queueMainnet[indexL].ltoWallet}`,
+      // );
       await this.updateQueueInS3Bucket(this.queueMainnet[indexL].ltoNetworkId);
       return [
         'L',
@@ -937,10 +941,11 @@ export class QueueService implements OnModuleInit {
           this._queueTestnet[indexT].timestampProcessing * 1000,
           'yyyy-MM-dd HH:mm',
         );
-        await this.telegramService.sendMessageToTelegramBot(
-          this.queueTestnet[indexT].ltoNetworkId,
-          `QUEUE-Processing(T): (${formattedDate})\nrequestId: ${this.queueTestnet[indexT].rid}\ntxID: ${this.queueTestnet[indexT].txId}\nltoWallet: ${this.queueTestnet[indexT].ltoWallet}`,
-        );
+        // Removed: Processing notifications (too frequent, not critical)
+        // await this.telegramService.sendMessageToTelegramBot(
+        //   this.queueTestnet[indexT].ltoNetworkId,
+        //   `QUEUE-Processing(T): (${formattedDate})\nrequestId: ${this.queueTestnet[indexT].rid}\ntxID: ${this.queueTestnet[indexT].txId}\nltoWallet: ${this.queueTestnet[indexT].ltoWallet}`,
+        // );
         await this.updateQueueInS3Bucket(
           this.queueTestnet[indexT].ltoNetworkId,
         );

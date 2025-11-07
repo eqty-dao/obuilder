@@ -32,7 +32,10 @@ async function bootstrap() {
   const config = await app.get<ConfigService>(ConfigService);
   await config.load();
 
-  app.use(bodyParser.json({}), bodyParser.urlencoded({ extended: false }));
+  app.use(
+    bodyParser.json({ limit: '128mb' }),
+    bodyParser.urlencoded({ extended: false, limit: '128mb' }),
+  );
 
   app.enableShutdownHooks();
 

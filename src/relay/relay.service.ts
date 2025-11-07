@@ -3,15 +3,18 @@ import { LoggingService } from '../logging/redis-logging.service';
 import { EqtyService } from '../eqty/eqty.service';
 import { ConfigService } from '../config/config.service';
 import { RedisQueueService } from '../queue/redis-queue.service';
-import { OwnableStatus } from '../interfaces/QueueEntry';
 import { TypedPackage } from 'src/interfaces/TypedPackage';
 import { ethers } from 'ethers';
 
 // Dynamic imports for ES modules
 let Message: any;
+let Relay: any;
+let Binary: any;
 
 @Injectable()
 export class RelayService implements OnModuleInit {
+  private relay: any;
+
   constructor(
     private readonly loggingService: LoggingService,
     private readonly eqtyService: EqtyService,
@@ -24,6 +27,12 @@ export class RelayService implements OnModuleInit {
     try {
       const eqtyCore = await import('eqty-core');
       Message = eqtyCore.Message;
+      Relay = eqtyCore.Relay;
+      Binary = eqtyCore.Binary;
+
+      // Initialize Relay instance
+      const relayURL = this.getRelayUrl();
+      this.relay = new Relay(relayURL);
     } catch (error) {
       console.error('Failed to import eqty-core in RelayService:', error);
       throw error;
@@ -35,7 +44,26 @@ export class RelayService implements OnModuleInit {
    * @returns The relay URL from configuration
    */
   public getRelayUrl(): string {
-    return this.config.get('eqty.relay') || this.config.get('eqty.local_relay');
+    const relay = this.config.get('eqty.relay');
+    const localRelay = this.config.get('eqty.local_relay');
+    const envRelay = process.env.RELAY_SERVER;
+
+    // Log for debugging
+    console.log('[RelayService] Config values:', {
+      'eqty.relay': relay,
+      'eqty.local_relay': localRelay,
+      'RELAY_SERVER env': envRelay,
+    });
+
+    const url = relay || localRelay || envRelay || '';
+
+    if (url) {
+      console.log('[RelayService] Using relay URL:', url);
+    } else {
+      console.warn('[RelayService] No relay URL configured!');
+    }
+
+    return url;
   }
 
   /**
@@ -77,10 +105,12 @@ export class RelayService implements OnModuleInit {
 
   /**
    * Sends file content through relay using eqty-core
-   * @param content File content to send
-   * @param sender Sender wallet address
-   * @param recipient Recipient address
-   * @param requestId Request ID for logging and tracking
+   * @param content
+   * @param sender
+   * @param recipient
+   * @param requestId
+   * @param fileMeta
+   * @param networkId
    */
   public async sendFile(
     content: Uint8Array,
@@ -88,34 +118,29 @@ export class RelayService implements OnModuleInit {
     recipient: string,
     requestId: string,
     fileMeta?: any,
+    networkId?: 'L' | 'T',
   ): Promise<string> {
     try {
-      const relayURL = this.getRelayUrl();
-
       this.loggingService.log(
         requestId,
         `Sending File with sender:${sender} and recipient:${recipient}`,
       );
 
-      if (!sender || !recipient) {
+      if (!recipient) {
         this.loggingService.logError(
           requestId,
-          `Provide the signer and recipient. signer: ${sender}  recipient:${recipient}`,
+          `Recipient is required. recipient: ${recipient}`,
         );
-        throw new Error(`Provide the signer and recipient`);
+        throw new Error(`Recipient is required`);
       }
 
-      // Create message using eqty-core
-      const message = new Message(
-        content,
-        'application/octet-stream',
-        fileMeta,
-      ).to(recipient);
+      // Get the signer from config (server wallet)
+      const mnemonic = this.config.get('eth.account.mnemonic.mainnet');
+      if (!mnemonic) {
+        throw new Error('Server wallet mnemonic not configured');
+      }
 
-      // Sign the message with the sender's wallet
-      const signer = ethers.Wallet.fromPhrase(
-        this.config.get('eth.account.mnemonic.mainnet'), // Use mainnet for now
-      );
+      const signer = ethers.Wallet.fromPhrase(mnemonic);
 
       const eqtySigner = {
         getAddress: async () => signer.address,
@@ -124,9 +149,44 @@ export class RelayService implements OnModuleInit {
         },
       };
 
+      const messageContent = Binary.from(content);
+
+      const meta: any = {
+        type: fileMeta?.type || 'ownable',
+        title: fileMeta?.title || '',
+        description: fileMeta?.description || '',
+      };
+
+      if (fileMeta?.thumbnail) {
+        if (
+          fileMeta.thumbnail.base64 &&
+          typeof fileMeta.thumbnail.base64 === 'string'
+        ) {
+          meta.thumbnail = fileMeta.thumbnail.base64;
+        } else if (typeof fileMeta.thumbnail === 'string') {
+          // Already a base64 string
+          meta.thumbnail = fileMeta.thumbnail;
+        } else if (
+          fileMeta.thumbnail instanceof Uint8Array ||
+          Buffer.isBuffer(fileMeta.thumbnail)
+        ) {
+          meta.thumbnail = Buffer.from(fileMeta.thumbnail).toString('base64');
+        }
+      }
+
+      const message = new Message(
+        messageContent,
+        'application/octet-stream',
+        meta,
+      ).to(recipient);
+
       await message.signWith(eqtySigner);
 
-      // Verify hash exists before sending
+      if (!message.isSigned()) {
+        throw new Error('Message signing failed');
+      }
+
+      // Verify hash exists
       if (!message.hash || !message.hash.hex) {
         this.loggingService.logError(
           requestId,
@@ -135,61 +195,68 @@ export class RelayService implements OnModuleInit {
         throw new Error('Message hash not available');
       }
 
+      const senderAddress = await eqtySigner.getAddress();
+      this.loggingService.log(
+        requestId,
+        `Message: sender:${senderAddress} recipient:${message.recipient} timestamp:${message.timestamp} mediaType:${message.mediaType}`,
+      );
       this.loggingService.log(requestId, `Message hash: ${message.hash.hex}`);
+
+      // Anchor the message hash before sending (if networkId is provided)
+      if (networkId) {
+        try {
+          const txHash = await this.eqtyService.anchorMessageHash(
+            message.hash,
+            networkId,
+          );
+          this.loggingService.log(
+            requestId,
+            `Message hash anchored to Base ${networkId} network with tx: ${txHash} (signed by server wallet: ${senderAddress})`,
+          );
+        } catch (error) {
+          this.loggingService.logError(
+            requestId,
+            `Failed to anchor message before sending: ${error}`,
+          );
+          // Continue sending even if anchoring fails
+        }
+      }
+
+      // Send message to POST /messages endpoint (same as eqty-core Relay.send())
+      // Relay server expects { message: message.toJSON() } format
+      const relayURL = this.getRelayUrl();
+      if (!relayURL) {
+        throw new Error(
+          'Relay URL not configured. Set RELAY_SERVER environment variable.',
+        );
+      }
+
+      const messageJson = message.toJSON();
+      const relayMessage = { message: messageJson };
+
+      const response = await fetch(`${relayURL}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(relayMessage),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        this.loggingService.logError(
+          requestId,
+          `Failed to send message to relay: ${response.status} - ${errorText}`,
+        );
+        throw new Error(`Relay error: ${response.status} - ${errorText}`);
+      }
 
       this.loggingService.log(
         requestId,
-        `Message: sender:${message.sender} recipient:${message.recipient} timestamp:${message.timestamp} mediaType:${message.mediaType}`,
+        `Message successfully sent to relay. Hash: ${message.hash.base58 || message.hash.hex}`,
       );
 
-      try {
-        // Send message to relay server
-        const response = await fetch(`${relayURL}/messages`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'EQTY-Message-Type': 'file',
-            'EQTY-Message-Sender': sender,
-            'EQTY-Message-Recipient': recipient,
-            'EQTY-Message-Signature': message.signature?.hex || '',
-            'EQTY-Message-Timestamp': message.timestamp?.toString() || '',
-            'EQTY-Message-Hash': message.hash.hex,
-          },
-          body: JSON.stringify({
-            data: Array.from(content),
-            mediaType: 'application/octet-stream',
-            meta: fileMeta,
-            sender: sender,
-            recipient: recipient,
-            signature: message.signature?.hex || '',
-            timestamp: message.timestamp,
-            hash: message.hash.hex,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          this.loggingService.logError(
-            requestId,
-            `Failed to send message to relay: ${errorText}`,
-          );
-          throw new Error(`Failed to send message to relay: ${errorText}`);
-        }
-
-        const result = await response.json();
-        this.loggingService.log(
-          requestId,
-          `Message successfully sent to relay: ${JSON.stringify(result)}`,
-        );
-
-        return result.messageId || result.id || 'message-sent';
-      } catch (relayError) {
-        this.loggingService.logError(
-          requestId,
-          `Relay communication error: ${relayError}`,
-        );
-        throw relayError;
-      }
+      return message.hash.base58 || message.hash.hex;
     } catch (err) {
       this.loggingService.logError(requestId, `Sending file failed: ${err}`);
       throw err;
@@ -198,8 +265,9 @@ export class RelayService implements OnModuleInit {
 
   /**
    * Sends a typed package through relay
-   * @param typedPackage The typed package to send
-   * @param sender Sender wallet address
+   * Note: This method is deprecated. Use sendFile with the actual ZIP content instead.
+   * @param typedPackage The typed package metadata (not used, kept for compatibility)
+   * @param sender Sender wallet address (not used for signing, but for logging)
    * @param recipient Recipient address
    * @param requestId Request ID for logging and tracking
    */
@@ -209,115 +277,15 @@ export class RelayService implements OnModuleInit {
     recipient: string,
     requestId: string,
   ): Promise<string> {
-    try {
-      const relayURL = this.getRelayUrl();
-
-      this.loggingService.log(
-        requestId,
-        `Sending Typed Package with sender:${sender} and recipient:${recipient}`,
-      );
-
-      if (!sender || !recipient) {
-        this.loggingService.logError(
-          requestId,
-          `Provide the signer and recipient. signer: ${sender}  recipient:${recipient}`,
-        );
-        throw new Error(`Provide the signer and recipient`);
-      }
-
-      // Convert typed package to Uint8Array
-      const packageData = new TextEncoder().encode(
-        JSON.stringify(typedPackage),
-      );
-
-      // Create message using eqty-core
-      const message = new Message(packageData, 'application/json').to(
-        recipient,
-      );
-
-      // Sign the message with the sender's wallet
-      const signer = ethers.Wallet.fromPhrase(
-        this.config.get('eth.account.mnemonic.mainnet'), // Use mainnet for now
-      );
-
-      const eqtySigner = {
-        getAddress: async () => signer.address,
-        signTypedData: async (domain: any, types: any, value: any) => {
-          return await signer.signTypedData(domain, types, value);
-        },
-      };
-
-      await message.signWith(eqtySigner);
-
-      // Verify hash exists before sending
-      if (!message.hash || !message.hash.hex) {
-        this.loggingService.logError(
-          requestId,
-          'Message hash not created properly',
-        );
-        throw new Error('Message hash not available');
-      }
-
-      this.loggingService.log(requestId, `Message hash: ${message.hash.hex}`);
-
-      try {
-        // Send message to relay server
-        const response = await fetch(`${relayURL}/messages`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'EQTY-Message-Type': 'typed-package',
-            'EQTY-Message-Sender': sender,
-            'EQTY-Message-Recipient': recipient,
-            'EQTY-Message-Signature': message.signature?.hex || '',
-            'EQTY-Message-Timestamp': message.timestamp?.toString() || '',
-            'EQTY-Message-Hash': message.hash.hex,
-          },
-          body: JSON.stringify({
-            data: Array.from(packageData),
-            mediaType: 'application/json',
-            meta: { type: 'typed-package' },
-            sender: sender,
-            recipient: recipient,
-            signature: message.signature?.hex || '',
-            timestamp: message.timestamp,
-            hash: message.hash.hex,
-            typedPackage: typedPackage,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          this.loggingService.logError(
-            requestId,
-            `Failed to send typed package to relay: ${errorText}`,
-          );
-          throw new Error(
-            `Failed to send typed package to relay: ${errorText}`,
-          );
-        }
-
-        const result = await response.json();
-        this.loggingService.log(
-          requestId,
-          `Typed package successfully sent to relay: ${JSON.stringify(result)}`,
-        );
-
-        return result.messageId || result.id || 'typed-package-sent';
-      } catch (relayError) {
-        this.loggingService.logError(
-          requestId,
-          `Relay communication error: ${relayError}`,
-        );
-        throw relayError;
-      }
-    } catch (err) {
-      this.loggingService.logError(
-        requestId,
-        `Sending typed package failed: ${err}`,
-      );
-      throw err;
-    }
+    // This method is kept for backward compatibility but should not be used
+    // The actual ZIP file should be sent using sendFile instead
+    this.loggingService.log(
+      requestId,
+      `Warning: sendTypedPackage is deprecated. Use sendFile with actual ZIP content instead.`,
+    );
+    throw new Error(
+      'sendTypedPackage is deprecated. Use sendFile with the actual ZIP file content instead.',
+    );
   }
 
   /**

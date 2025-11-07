@@ -154,6 +154,43 @@ export class EqtyService implements OnModuleInit {
   }
 
   /**
+   * Anchors a message hash to Base blockchain using eqty-core
+   */
+  public async anchorMessageHash(
+    messageHash: any, // Binary object from eqty-core Message
+    networkId: 'L' | 'T',
+  ): Promise<string> {
+    const chainId = networkId === 'L' ? 8453 : 84532; // Base mainnet : Base testnet
+    const contractAddress = AnchorClient.contractAddress(chainId);
+
+    // Get the appropriate provider and signer
+    const provider = new ethers.AlchemyProvider(
+      { name: networkId === 'L' ? 'base' : 'base-sepolia', chainId },
+      this.config.get('eth.account.arbitrum_alchemy_api_key'),
+    );
+    const signer =
+      networkId === 'L' ? this.eqtyAccountMainnet : this.eqtyAccountTestnet;
+    const connectedSigner = signer.connect(provider);
+
+    // Create contract instance
+    const contract = new ethers.Contract(
+      contractAddress,
+      AnchorClient.ABI,
+      connectedSigner,
+    );
+
+    // Create anchor client
+    const anchorClient = new AnchorClient(contract as any);
+
+    // Anchor the message hash (single Binary value)
+    const tx = await anchorClient.anchor(messageHash);
+
+    return typeof tx === 'object' && tx && 'hash' in tx
+      ? (tx as any).hash
+      : tx.toString();
+  }
+
+  /**
    * Gets the server wallet address for the specified network
    */
   public getEqtyAccountAddress(networkId: 'L' | 'T'): string {
@@ -240,8 +277,47 @@ export class EqtyService implements OnModuleInit {
         `Broadcasting transaction to Base ${networkId} network`,
       );
 
+      // Handle different transaction formats
+      let rawTransaction: string;
+
+      if (typeof signedTransaction === 'string') {
+        // If it's already a hex string, use it directly
+        if (signedTransaction.startsWith('0x')) {
+          rawTransaction = signedTransaction;
+        } else {
+          // If it's a JSON string, parse it first
+          try {
+            const txObj = JSON.parse(signedTransaction);
+            this.loggingService.logError(
+              rid,
+              `Received JSON transaction object instead of signed raw transaction. Expected hex string starting with '0x'. Got: ${signedTransaction.substring(0, 100)}...`,
+            );
+            throw new Error(
+              'Invalid transaction format: Expected signed raw transaction hex string, but received JSON object. The frontend must send the signed raw transaction (serialized and signed), not the transaction object.',
+            );
+          } catch (parseErr) {
+            throw new Error(
+              `Invalid transaction format: ${signedTransaction.substring(0, 100)}`,
+            );
+          }
+        }
+      } else if (typeof signedTransaction === 'object') {
+        // If it's a JSON object, this is wrong - we need the signed raw transaction
+        this.loggingService.logError(
+          rid,
+          `Received transaction object instead of signed raw transaction: ${JSON.stringify(signedTransaction)}`,
+        );
+        throw new Error(
+          'Invalid transaction format: Expected signed raw transaction hex string, but received transaction object. The frontend must send the signed raw transaction (serialized and signed), not the transaction object.',
+        );
+      } else {
+        throw new Error(
+          `Invalid transaction type: ${typeof signedTransaction}`,
+        );
+      }
+
       // Broadcast the transaction
-      const tx = await provider.broadcastTransaction(signedTransaction);
+      const tx = await provider.broadcastTransaction(rawTransaction);
 
       this.loggingService.log(
         rid,
