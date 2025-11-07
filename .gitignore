@@ -6,6 +6,7 @@
 /storage/user-txids
 /storage/used-txids
 /storage/obuilder-staging
+s3/obuilder-staging
 filesNotForGit
 # compiled output
 /dist
