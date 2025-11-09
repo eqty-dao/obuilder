@@ -839,7 +839,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     // Check LTO transaction ID
     let transactionIdData: TransactionIdData;
 
-    // If a transaction ID is provided in the JSON, verify it
+    // If a transaction ID is provided in the JSON, validate it now (during upload when transaction is fresh)
     if (jsonFile.OWNABLE_LTO_TRANSACTION_ID) {
       try {
         await this.wait(10000);
@@ -871,19 +871,47 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         throw new Error(err);
       }
     }
-    // If no transaction ID in JSON but signed transaction provided, we'll validate after broadcasting in the store function
+    // If no transaction ID in JSON but signed transaction provided, validate it now (during upload when transaction is fresh)
     else if (signedTransaction) {
-      this.loggingService.log(
-        requestId,
-        `No transaction ID in JSON, will validate after broadcasting during Ownable creation`,
-      );
-      // Use the signed transaction's sender as the transaction data since we haven't broadcast yet
-      transactionIdData = {
-        type: 4, // Transfer type
-        sender: signerAccountAddress,
-        recipient: this.getLTOAccountAddress(networkId),
-        amount: 0, // We don't know this yet as we haven't broadcast
-      };
+      try {
+        this.loggingService.log(
+          requestId,
+          `Validating signed transaction hash (already broadcast by frontend): ${signedTransaction}`,
+        );
+        await this.wait(10000);
+        transactionIdData = await this.checkLtoTransactionId(
+          networkId,
+          signedTransaction,
+          templateId,
+          'base',
+          requestId,
+          false,
+        );
+        this.loggingService.log(
+          requestId,
+          `transactionIdData:` + JSON.stringify(transactionIdData),
+        );
+
+        // Verify signer
+        if (
+          signerAccountAddress.toLowerCase() !==
+          transactionIdData.sender.toLowerCase()
+        ) {
+          throw new UserError(
+            `Error: Signer of Ownable request ${signerAccountAddress} did not sign transaction ${signedTransaction}. Signer of TXID:${transactionIdData.sender}`,
+          );
+        }
+
+        // Store the validated transaction hash for later use
+        await this.storeSignedTransaction(
+          requestId,
+          networkId,
+          signedTransaction,
+        );
+      } catch (err) {
+        this.loggingService.logError(requestId, `${err}`);
+        throw new Error(err);
+      }
     }
     // Neither transaction ID nor signed transaction provided
     else {
@@ -1309,54 +1337,20 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
       // }
 
       // Transaction validation:
-      // - If OWNABLE_LTO_TRANSACTION_ID exists, it was already validated in queueRequest() at upload time
-      // - Only validate again if reenqueued (transaction might have changed or needs re-validation)
-      // - If signedTransaction exists, it will be broadcast and validated later
+      // - Transactions are validated during upload (when fresh), not during queue processing
+      // - If OWNABLE_LTO_TRANSACTION_ID exists in JSON, it was already validated at upload time
+      // - If signedTransaction exists in signedTransactions, it's just a hash (already broadcast), use it directly
       let transactionIdData: TransactionIdData;
       let usedExistingTransaction = false;
 
-      if (
-        jsonFile.OWNABLE_LTO_TRANSACTION_ID &&
-        !this.signedTransactions.has(requestId)
-      ) {
-        // Only re-validate if this is a reenqueued request (transaction might have changed)
-        if (reenqueued) {
-          this.loggingService.log(
-            requestId,
-            `Re-validating existing transaction ID (reenqueued): ${jsonFile.OWNABLE_LTO_TRANSACTION_ID}`,
-          );
-
-          try {
-            transactionIdData = await this.checkLtoTransactionId(
-              networkId,
-              jsonFile.OWNABLE_LTO_TRANSACTION_ID,
-              templateId,
-              'base',
-              requestId,
-              reenqueued,
-            );
-            usedExistingTransaction = true;
-            this.loggingService.log(
-              requestId,
-              `Existing transaction re-validated: ${JSON.stringify(transactionIdData)}`,
-            );
-          } catch (err) {
-            this.loggingService.logError(
-              requestId,
-              `Error re-validating existing transaction: ${err}`,
-            );
-            throw err;
-          }
-        } else {
-          // Transaction was already validated at upload time, no need to validate again
-          this.loggingService.log(
-            requestId,
-            `Transaction ${jsonFile.OWNABLE_LTO_TRANSACTION_ID} was already validated at upload time, skipping redundant validation`,
-          );
-          usedExistingTransaction = true;
-          // We don't have transactionIdData here, but it's not needed since it was validated earlier
-          // The transaction ID in the queue entry should be sufficient
-        }
+      // If transaction ID exists in JSON, it was already validated at upload time
+      if (jsonFile.OWNABLE_LTO_TRANSACTION_ID) {
+        this.loggingService.log(
+          requestId,
+          `Transaction ${jsonFile.OWNABLE_LTO_TRANSACTION_ID} was already validated at upload time, using existing validation`,
+        );
+        usedExistingTransaction = true;
+        // Transaction was validated during upload, no need to validate again (would fail if too old)
       }
 
       // Create NFT first if needed
@@ -1479,10 +1473,12 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         }
 
         // Step 3: Process payment transaction just before sending
+        // If signed transaction hash exists, it was already broadcast by frontend
+        // Just use it directly without re-validating (validation happened at upload time)
         if (this.signedTransactions && this.signedTransactions.has(requestId)) {
           this.loggingService.log(
             requestId,
-            `Found signed transaction for request ID: ${requestId}`,
+            `Found signed transaction hash for request ID: ${requestId}`,
           );
 
           const storedTx = this.signedTransactions.get(requestId);
@@ -1499,47 +1495,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
           const txHash = storedTx.transaction;
           this.loggingService.log(
             requestId,
-            `Validating payment transaction hash: ${txHash}`,
+            `Using transaction hash (already validated at upload): ${txHash}`,
           );
-
-          // Validate the transaction
-          try {
-            this.loggingService.log(
-              requestId,
-              `store: Validating transaction: ${txHash}`,
-            );
-
-            // Wait for transaction to be confirmed
-            this.loggingService.log(
-              requestId,
-              `store: Waiting for transaction confirmation (10 seconds)...`,
-            );
-            await new Promise((resolve) => setTimeout(resolve, 10000));
-
-            transactionIdData = await this.checkLtoTransactionId(
-              networkId,
-              txHash,
-              templateId,
-              'base',
-              requestId,
-              false,
-            );
-            // Remove stored transaction
-            this.signedTransactions.delete(requestId);
-
-            this.loggingService.log(
-              requestId,
-              `store: Transaction validation successful: ${JSON.stringify(transactionIdData)}`,
-            );
-          } catch (err) {
-            this.loggingService.logError(
-              requestId,
-              `store: Transaction validation failed: ${err}`,
-            );
-            throw new Error(
-              `Payment transaction validation failed: ${err.message}`,
-            );
-          }
 
           // Update queue entry with transaction ID
           const [entry, index] =
@@ -1572,7 +1529,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
           this.loggingService.log(
             requestId,
-            `Payment transaction processed successfully`,
+            `Payment transaction hash processed successfully`,
           );
         } else if (!usedExistingTransaction) {
           this.loggingService.logError(
