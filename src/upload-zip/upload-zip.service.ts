@@ -1496,26 +1496,17 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
             throw new Error('Transaction network mismatch');
           }
 
-          // Now broadcast the transaction
+          const txHash = storedTx.transaction;
           this.loggingService.log(
             requestId,
-            `Broadcasting payment transaction before sending ownable...`,
-          );
-          const txResult = await this.broadcastTransaction(
-            networkId,
-            storedTx.transaction,
-            requestId,
-          );
-          this.loggingService.log(
-            requestId,
-            `Transaction broadcast successful with ID: ${txResult.id}`,
+            `Validating payment transaction hash: ${txHash}`,
           );
 
-          // Now validate the transaction
+          // Validate the transaction
           try {
             this.loggingService.log(
               requestId,
-              `store: Validating newly broadcast transaction: ${txResult.id}`,
+              `store: Validating transaction: ${txHash}`,
             );
 
             // Wait for transaction to be confirmed
@@ -1527,7 +1518,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
             transactionIdData = await this.checkLtoTransactionId(
               networkId,
-              txResult.hash,
+              txHash,
               templateId,
               'base',
               requestId,
@@ -1560,10 +1551,10 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
           console.log('store1: index', index);
 
           if (entry && index !== -1) {
-            entry.paymentTransactionId = txResult.hash;
+            entry.paymentTransactionId = txHash;
             // If transaction wasn't in the original JSON, update that too
             if (!jsonFile.OWNABLE_LTO_TRANSACTION_ID) {
-              entry.txId = txResult.hash;
+              entry.txId = txHash;
             }
 
             if (networkId === 'L') {
