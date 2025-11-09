@@ -17,8 +17,8 @@ let Binary: any;
 export class EqtyService implements OnModuleInit {
   public eqtyMainnet: any;
   public eqtyTestnet: any;
-  public eqtyAccountMainnet: ethers.HDNodeWallet;
-  public eqtyAccountTestnet: ethers.HDNodeWallet;
+  public eqtyAccountMainnet!: ethers.HDNodeWallet;
+  public eqtyAccountTestnet!: ethers.HDNodeWallet;
 
   constructor(
     private readonly config: ConfigService,
@@ -31,18 +31,54 @@ export class EqtyService implements OnModuleInit {
     // The actual chains will be created per request with the user's wallet address
     this.eqtyMainnet = null as any; // Will be created per request
     this.eqtyTestnet = null as any; // Will be created per request
-
-    // Initialize the accounts using mnemonics from the config service
-    this.eqtyAccountMainnet = ethers.Wallet.fromPhrase(
-      this.config.get('eth.account.mnemonic.mainnet'),
-    );
-    this.eqtyAccountTestnet = ethers.Wallet.fromPhrase(
-      this.config.get('eth.account.mnemonic.testnet'),
-    );
   }
 
   async onModuleInit() {
     await this.config.load();
+
+    // Initialize the accounts using mnemonics from the config service
+    const mainnetMnemonic = this.config.get('eth.account.mnemonic.mainnet');
+    const testnetMnemonic = this.config.get('eth.account.mnemonic.testnet');
+
+    if (
+      !mainnetMnemonic ||
+      typeof mainnetMnemonic !== 'string' ||
+      mainnetMnemonic.trim().length === 0
+    ) {
+      throw new Error(
+        'eth.account.mnemonic.mainnet is not configured or is empty',
+      );
+    }
+
+    if (
+      !testnetMnemonic ||
+      typeof testnetMnemonic !== 'string' ||
+      testnetMnemonic.trim().length === 0
+    ) {
+      throw new Error(
+        'eth.account.mnemonic.testnet is not configured or is empty',
+      );
+    }
+
+    try {
+      this.eqtyAccountMainnet = ethers.Wallet.fromPhrase(
+        mainnetMnemonic.trim(),
+      );
+    } catch (error) {
+      throw new Error(
+        `Failed to create mainnet wallet from mnemonic: ${error.message}`,
+      );
+    }
+
+    try {
+      this.eqtyAccountTestnet = ethers.Wallet.fromPhrase(
+        testnetMnemonic.trim(),
+      );
+    } catch (error) {
+      throw new Error(
+        `Failed to create testnet wallet from mnemonic: ${error.message}`,
+      );
+    }
 
     // Dynamic import of eqty-core ES module
     try {
