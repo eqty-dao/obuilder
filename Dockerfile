@@ -40,7 +40,7 @@ RUN which clang
 
 # Copy the rest of the application code and build
 COPY . .
-RUN npm run build
+RUN npm run build && ls -la /usr/src/dist/ && ls -la /usr/src/dist/*.js 2>/dev/null || echo "No JS files in dist root"
 
 # Runtime Stage (node version needs to be the same as build stage)
 FROM node:20 AS runtime
@@ -83,6 +83,9 @@ RUN /root/.cargo/bin/rustup target add wasm32-unknown-unknown
 COPY --from=build /usr/src/dist ./dist
 COPY --from=build /usr/src/node_modules ./node_modules
 COPY --from=build /usr/src/package*.json ./
+
+# Verify dist folder exists and contains main.js
+RUN ls -la ./dist/ && test -f ./dist/main.js || (echo "main.js not found, listing dist:" && find ./dist -name "*.js" | head -10)
 
 # Create storage directories (will be mounted as volumes in docker-compose)
 RUN mkdir -p ./storage/ownable-cids ./storage/ownable-templates ./ownables
