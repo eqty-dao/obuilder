@@ -102,12 +102,12 @@ export default {
       env: 'EQTY_NETWORK_ID',
     },
     relay: {
-      default: '',
+      default: 'https://relay-dev.lto.network',
       env: 'RELAY_SERVER',
     },
     local_relay: {
       default: '',
-      env: 'RELAY_SERVER',
+      env: 'LOCAL_RELAY_SERVER',
     },
     queue: {
       mainnet: {

@@ -90,6 +90,6 @@ RUN mkdir -p ./storage/ownable-cids ./storage/ownable-templates ./ownables
 # Copy templates (these are needed at build time, but storage will be mounted)
 COPY --from=build /usr/src/storage/ownable-templates ./storage/ownable-templates
 
-# Expose port and define command to run the application
+
 EXPOSE 3000
 CMD ["node", "dist/main.js"]
