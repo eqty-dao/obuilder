@@ -39,12 +39,14 @@ export class FileManagementService {
   }
 
   public async calculateCid(files: Map<string, Buffer>): Promise<string> {
-    // Dynamic import for ESM-only package
     const { importer } = await import('ipfs-unixfs-importer');
-    const { BaseBlockstore } = await import('blockstore-core/base');
+    const { BlackHoleBlockstore } = await import('blockstore-core');
 
     const filteredFiles = Array.from(files.entries()).filter(
-      ([filename]) => filename !== 'chain.json' && filename !== 'timestamp.txt',
+      ([filename]) =>
+        !filename.startsWith('.') &&
+        filename !== 'chain.json' &&
+        filename !== 'timestamp.txt',
     );
 
     const source = filteredFiles.map(([filename, buffer]) => ({
@@ -52,20 +54,7 @@ export class FileManagementService {
       content: new Uint8Array(buffer),
     }));
 
-    const blockstore = new (class extends BaseBlockstore {
-      async put(key: any, val: any, options?: any): Promise<any> {
-        return key;
-      }
-      async has(key: any, options?: any): Promise<boolean> {
-        return false;
-      }
-      async open(): Promise<void> {
-        // No-op
-      }
-      async close(): Promise<void> {
-        // No-op
-      }
-    })() as any;
+    const blockstore = new BlackHoleBlockstore();
 
     for await (const entry of importer(source, blockstore)) {
       if (entry.path === 'package' && entry.unixfs?.type === 'directory') {
