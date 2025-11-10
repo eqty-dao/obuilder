@@ -16,7 +16,7 @@ export class IpfsModule implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    // IPFS is already started in the provider
+    // IPFS is configured without networking, no need to start
   }
 
   async onModuleDestroy(): Promise<void> {
