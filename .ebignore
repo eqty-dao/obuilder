@@ -1,0 +1,45 @@
+# Elastic Beanstalk ignore file
+# Files listed here will be excluded from deployment
+
+# Exclude docker-compose.yml to force single-container Dockerfile mode
+# EB will use docker-compose mode if it detects docker-compose.yml
+# For single-container deployments, we need to exclude it
+docker-compose.yml
+
+# Exclude local development files
+.env.local
+.env.development
+.env.test
+
+# Exclude test files
+test/
+*.spec.ts
+*.test.ts
+
+# Exclude development documentation
+*.md
+!README.md
+
+# Exclude IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Exclude build artifacts (if any)
+dist/
+build/
+coverage/
+
+# Exclude node_modules (should be installed in container)
+# node_modules/
+
+# Exclude local storage (will be mounted/configured in EB)
+storage/
+ownables/
+
+# Exclude git files
+.git/
+.gitignore
+
