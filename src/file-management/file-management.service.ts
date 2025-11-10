@@ -22,8 +22,6 @@ import * as os from 'os';
 import { exec, execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 import { LoggingService } from '../logging/redis-logging.service';
-import { importer } from 'ipfs-unixfs-importer';
-import { BaseBlockstore } from 'blockstore-core/base';
 
 // Promisify exec for async/await usage
 const execAsync = promisify(exec);
@@ -41,6 +39,10 @@ export class FileManagementService {
   }
 
   public async calculateCid(files: Map<string, Buffer>): Promise<string> {
+    // Dynamic import for ESM-only package
+    const { importer } = await import('ipfs-unixfs-importer');
+    const { BaseBlockstore } = await import('blockstore-core/base');
+
     const filteredFiles = Array.from(files.entries()).filter(
       ([filename]) => filename !== 'chain.json' && filename !== 'timestamp.txt',
     );
