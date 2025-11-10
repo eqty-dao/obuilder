@@ -15,9 +15,7 @@ export class IpfsModule implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
   ) {}
 
-  async onModuleInit(): Promise<void> {
-    // IPFS is configured without networking, no need to start
-  }
+  async onModuleInit(): Promise<void> {}
 
   async onModuleDestroy(): Promise<void> {
     await this.ipfs.stop();

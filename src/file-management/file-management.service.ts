@@ -39,11 +39,14 @@ export class FileManagementService {
     const { importer } = await import('ipfs-unixfs-importer');
     const { BlackHoleBlockstore } = await import('blockstore-core');
 
+    // Match SDK behavior: include all files except those starting with '.', 'chain.json', and 'timestamp.txt'
+    // The SDK's extractAssets filters '.' files, then calculateCid includes all remaining files
+    // chain.json is extracted separately from message data, not from zip, so it should NOT be in CID
     const filteredFiles = Array.from(files.entries()).filter(
       ([filename]) =>
         !filename.startsWith('.') &&
-        filename !== 'chain.json' &&
-        filename !== 'timestamp.txt',
+        filename !== 'chain.json' && // Exclude chain.json as it's separate from package CID (matches SDK behavior)
+        filename !== 'timestamp.txt', // Exclude timestamp.txt as it's obuilder-specific and changes each time
     );
 
     const source = filteredFiles.map(([filename, buffer]) => ({

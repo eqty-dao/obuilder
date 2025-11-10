@@ -4,11 +4,10 @@ import { Provider } from '@nestjs/common';
 export const ipfsProviders: Array<Provider> = [
   {
     provide: 'IPFS',
-    useFactory: async (config: ConfigService): Promise<IPFS> => {
+    useFactory: async (config: ConfigService): Promise<any> => {
       await config.load();
-      const IPFSModule = await import('ipfs-core');
-      // Configure IPFS without libp2p networking since we only need CID calculation
-      return await IPFSModule.create({
+      const IPFS = await import('ipfs-core');
+      return await IPFS.create({
         start: false,
         libp2p: {
           start: false,

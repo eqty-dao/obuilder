@@ -1,9 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  OnModuleInit,
-  OnModuleDestroy,
-} from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { EventChainService } from '../event-chain/event-chain.service';
 import { FileManagementService } from '../file-management/file-management.service';
 import { PinataService } from '../pinata/pinata.service';
@@ -20,7 +15,6 @@ import { ethers } from 'ethers';
 import { NftInfo } from '../interfaces/OwnableInfo';
 import { TransactionIdData } from '../interfaces/TransactionIdData';
 import { TypedPackage } from '../interfaces/TypedPackage';
-import { IPFS } from '../interfaces/ipfs.interface';
 import { QueueEntry, OwnableStatus } from '../interfaces/QueueEntry';
 import { PinataSDK } from 'pinata';
 import { Request, Response } from 'express';
@@ -74,7 +68,6 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     private readonly coinmarketcap: CoinmarketcapService,
     private readonly loggingService: LoggingService,
     private readonly telegramService: TelegramBotService,
-    @Inject('IPFS') private readonly ipfs: IPFS,
   ) {
     this.ownableMeta = {
       type: 'Ownable',
@@ -1502,7 +1495,10 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         const paymentRequired = this.isPaymentRequired(networkId);
 
         if (paymentRequired) {
-          if (this.signedTransactions && this.signedTransactions.has(requestId)) {
+          if (
+            this.signedTransactions &&
+            this.signedTransactions.has(requestId)
+          ) {
             this.loggingService.log(
               requestId,
               `Found signed transaction hash for request ID: ${requestId}`,
@@ -1548,7 +1544,10 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
               }
               await this.queueService.updateQueueInS3Bucket(networkId);
 
-              console.log('store: queueTestnet', this.queueService.queueTestnet);
+              console.log(
+                'store: queueTestnet',
+                this.queueService.queueTestnet,
+              );
             }
 
             // Remove the stored transaction
