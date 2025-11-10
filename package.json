@@ -57,6 +57,8 @@
     "ethers": "^6.11.1",
     "file-saver": "^2.0.5",
     "ioredis": "^5.3.2",
+    "ipfs-unixfs-importer": "^15.1.0",
+    "blockstore-core": "^4.0.1",
     "jszip": "^3.10.1",
     "mysql2": "^3.9.1",
     "pinata": "^1.4.1",

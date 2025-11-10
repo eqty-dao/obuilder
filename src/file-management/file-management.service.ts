@@ -22,6 +22,8 @@ import * as os from 'os';
 import { exec, execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 import { LoggingService } from '../logging/redis-logging.service';
+import { importer } from 'ipfs-unixfs-importer';
+import { BaseBlockstore } from 'blockstore-core/base';
 
 // Promisify exec for async/await usage
 const execAsync = promisify(exec);
@@ -35,20 +37,43 @@ export class FileManagementService {
   ) {}
 
   public async getUniqueId(files: Map<string, Buffer>): Promise<string> {
-    // Since IPFS is disabled, create a deterministic hash from file contents
-    const hash = crypto.createHash('sha256');
+    return await this.calculateCid(files);
+  }
 
-    // Sort files by name for consistent hashing
-    const sortedFiles = Array.from(files.entries()).sort(([a], [b]) =>
-      a.localeCompare(b),
+  public async calculateCid(files: Map<string, Buffer>): Promise<string> {
+    const filteredFiles = Array.from(files.entries()).filter(
+      ([filename]) => filename !== 'chain.json' && filename !== 'timestamp.txt',
     );
 
-    for (const [filename, content] of sortedFiles) {
-      hash.update(filename);
-      hash.update(content);
+    const source = filteredFiles.map(([filename, buffer]) => ({
+      path: `./package/${filename}`,
+      content: new Uint8Array(buffer),
+    }));
+
+    const blockstore = new (class extends BaseBlockstore {
+      async put(key: any, val: any, options?: any): Promise<any> {
+        return key;
+      }
+      async has(key: any, options?: any): Promise<boolean> {
+        return false;
+      }
+      async open(): Promise<void> {
+        // No-op
+      }
+      async close(): Promise<void> {
+        // No-op
+      }
+    })() as any;
+
+    for await (const entry of importer(source, blockstore)) {
+      if (entry.path === 'package' && entry.unixfs?.type === 'directory') {
+        return entry.cid.toString();
+      }
     }
 
-    return hash.digest('hex');
+    throw new Error(
+      'Failed to calculate directory CID: importer did not find a directory entry in the input files',
+    );
   }
 
   public async directoryExists(path: string): Promise<boolean> {
