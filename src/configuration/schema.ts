@@ -119,6 +119,12 @@ export default {
         env: 'QUEUEING_ALLOWED_TESTNET',
       },
     },
+    requirePayment: {
+      testnet: {
+        default: true,
+        env: 'REQUIRE_PAYMENT_TESTNET',
+      },
+    },
   },
   eth: {
     account: {

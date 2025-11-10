@@ -83,6 +83,13 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  private isPaymentRequired(networkId: 'L' | 'T'): boolean {
+    if (networkId === 'T') {
+      return this.config.get('eqty.requirePayment.testnet') as boolean;
+    }
+    return true;
+  }
+
   async onModuleInit() {
     await this.config.load();
 
@@ -840,86 +847,103 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
     let transactionIdData: TransactionIdData;
 
     // If a transaction ID is provided in the JSON, validate it now (during upload when transaction is fresh)
-    if (jsonFile.OWNABLE_LTO_TRANSACTION_ID) {
-      try {
-        await this.wait(10000);
-        const chain = signedTransaction ? 'base' : jsonFile.NFT_BLOCKCHAIN;
-        transactionIdData = await this.checkLtoTransactionId(
-          networkId,
-          jsonFile.OWNABLE_LTO_TRANSACTION_ID,
-          templateId,
-          chain,
-          requestId,
-          false,
-        );
-        this.loggingService.log(
-          requestId,
-          `transactionIdData:` + JSON.stringify(transactionIdData),
-        );
+    const paymentRequired = this.isPaymentRequired(networkId);
 
-        // Verify signer
-        if (
-          signerAccountAddress.toLowerCase() !==
-          transactionIdData.sender.toLowerCase()
-        ) {
-          throw new UserError(
-            `Error: Signer of Ownable request ${signerAccountAddress} did not sign transactionID ${jsonFile.OWNABLE_LTO_TRANSACTION_ID}. Signer of TXID:${transactionIdData.sender}`,
+    if (paymentRequired) {
+      if (jsonFile.OWNABLE_LTO_TRANSACTION_ID) {
+        try {
+          await this.wait(10000);
+          const chain = signedTransaction ? 'base' : jsonFile.NFT_BLOCKCHAIN;
+          transactionIdData = await this.checkLtoTransactionId(
+            networkId,
+            jsonFile.OWNABLE_LTO_TRANSACTION_ID,
+            templateId,
+            chain,
+            requestId,
+            false,
           );
-        }
-      } catch (err) {
-        this.loggingService.logError(requestId, `${err}`);
-        throw new Error(err);
-      }
-    }
-    // If no transaction ID in JSON but signed transaction provided, validate it now (during upload when transaction is fresh)
-    else if (signedTransaction) {
-      try {
-        this.loggingService.log(
-          requestId,
-          `Validating signed transaction hash (already broadcast by frontend): ${signedTransaction}`,
-        );
-        await this.wait(10000);
-        transactionIdData = await this.checkLtoTransactionId(
-          networkId,
-          signedTransaction,
-          templateId,
-          'base',
-          requestId,
-          false,
-        );
-        this.loggingService.log(
-          requestId,
-          `transactionIdData:` + JSON.stringify(transactionIdData),
-        );
-
-        // Verify signer
-        if (
-          signerAccountAddress.toLowerCase() !==
-          transactionIdData.sender.toLowerCase()
-        ) {
-          throw new UserError(
-            `Error: Signer of Ownable request ${signerAccountAddress} did not sign transaction ${signedTransaction}. Signer of TXID:${transactionIdData.sender}`,
+          this.loggingService.log(
+            requestId,
+            `transactionIdData:` + JSON.stringify(transactionIdData),
           );
-        }
 
-        // Store the validated transaction hash for later use
-        await this.storeSignedTransaction(
-          requestId,
-          networkId,
-          signedTransaction,
-        );
-      } catch (err) {
-        this.loggingService.logError(requestId, `${err}`);
-        throw new Error(err);
+          // Verify signer
+          if (
+            signerAccountAddress.toLowerCase() !==
+            transactionIdData.sender.toLowerCase()
+          ) {
+            throw new UserError(
+              `Error: Signer of Ownable request ${signerAccountAddress} did not sign transactionID ${jsonFile.OWNABLE_LTO_TRANSACTION_ID}. Signer of TXID:${transactionIdData.sender}`,
+            );
+          }
+        } catch (err) {
+          this.loggingService.logError(requestId, `${err}`);
+          throw new Error(err);
+        }
       }
-    }
-    // Neither transaction ID nor signed transaction provided
-    else {
-      this.loggingService.logError(
+      // If no transaction ID in JSON but signed transaction provided, validate it now (during upload when transaction is fresh)
+      else if (signedTransaction) {
+        try {
+          this.loggingService.log(
+            requestId,
+            `Validating signed transaction hash (already broadcast by frontend): ${signedTransaction}`,
+          );
+          await this.wait(10000);
+          transactionIdData = await this.checkLtoTransactionId(
+            networkId,
+            signedTransaction,
+            templateId,
+            'base',
+            requestId,
+            false,
+          );
+          this.loggingService.log(
+            requestId,
+            `transactionIdData:` + JSON.stringify(transactionIdData),
+          );
+
+          // Verify signer
+          if (
+            signerAccountAddress.toLowerCase() !==
+            transactionIdData.sender.toLowerCase()
+          ) {
+            throw new UserError(
+              `Error: Signer of Ownable request ${signerAccountAddress} did not sign transaction ${signedTransaction}. Signer of TXID:${transactionIdData.sender}`,
+            );
+          }
+
+          // Store the validated transaction hash for later use
+          await this.storeSignedTransaction(
+            requestId,
+            networkId,
+            signedTransaction,
+          );
+        } catch (err) {
+          this.loggingService.logError(requestId, `${err}`);
+          throw new Error(err);
+        }
+      }
+      // Neither transaction ID nor signed transaction provided
+      else {
+        this.loggingService.logError(
+          requestId,
+          `No transaction ID in JSON and no signed transaction provided`,
+        );
+        throw new Error(`Missing transaction ID and signed transaction`);
+      }
+    } else {
+      this.loggingService.log(
         requestId,
-        `No transaction ID in JSON and no signed transaction provided`,
+        `Payment is disabled for ${networkId} network. Skipping transaction validation.`,
       );
-      throw new Error(`Missing transaction ID and signed transaction`);
+      transactionIdData = {
+        type: 0,
+        sender: signerAccountAddress,
+        recipient: '',
+        amount: 0,
+        transactionId: '',
+        confirmed: true,
+      };
     }
 
     // Add to queue (ZIP data will be stored to S3 by enqueue method)
@@ -1475,68 +1499,77 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         // Step 3: Process payment transaction just before sending
         // If signed transaction hash exists, it was already broadcast by frontend
         // Just use it directly without re-validating (validation happened at upload time)
-        if (this.signedTransactions && this.signedTransactions.has(requestId)) {
-          this.loggingService.log(
-            requestId,
-            `Found signed transaction hash for request ID: ${requestId}`,
-          );
+        const paymentRequired = this.isPaymentRequired(networkId);
 
-          const storedTx = this.signedTransactions.get(requestId);
+        if (paymentRequired) {
+          if (this.signedTransactions && this.signedTransactions.has(requestId)) {
+            this.loggingService.log(
+              requestId,
+              `Found signed transaction hash for request ID: ${requestId}`,
+            );
 
-          // Verify network matches
-          if (storedTx.networkId !== networkId) {
+            const storedTx = this.signedTransactions.get(requestId);
+
+            // Verify network matches
+            if (storedTx.networkId !== networkId) {
+              this.loggingService.logError(
+                requestId,
+                `Transaction network (${storedTx.networkId}) doesn't match ownable network (${networkId})`,
+              );
+              throw new Error('Transaction network mismatch');
+            }
+
+            const txHash = storedTx.transaction;
+            this.loggingService.log(
+              requestId,
+              `Using transaction hash (already validated at upload): ${txHash}`,
+            );
+
+            // Update queue entry with transaction ID
+            const [entry, index] =
+              await this.queueService.getQueueEntryByRequestId(
+                networkId,
+                requestId,
+              );
+            console.log('store1: entry', entry);
+            console.log('store1: index', index);
+
+            if (entry && index !== -1) {
+              entry.paymentTransactionId = txHash;
+              // If transaction wasn't in the original JSON, update that too
+              if (!jsonFile.OWNABLE_LTO_TRANSACTION_ID) {
+                entry.txId = txHash;
+              }
+
+              if (networkId === 'L') {
+                this.queueService.queueMainnet[index] = entry;
+              } else {
+                this.queueService.queueTestnet[index] = entry;
+              }
+              await this.queueService.updateQueueInS3Bucket(networkId);
+
+              console.log('store: queueTestnet', this.queueService.queueTestnet);
+            }
+
+            // Remove the stored transaction
+            this.signedTransactions.delete(requestId);
+
+            this.loggingService.log(
+              requestId,
+              `Payment transaction hash processed successfully`,
+            );
+          } else if (!usedExistingTransaction) {
             this.loggingService.logError(
               requestId,
-              `Transaction network (${storedTx.networkId}) doesn't match ownable network (${networkId})`,
+              `No payment transaction found for request ID: ${requestId}`,
             );
-            throw new Error('Transaction network mismatch');
+            throw new Error(`No payment transaction found`);
           }
-
-          const txHash = storedTx.transaction;
+        } else {
           this.loggingService.log(
             requestId,
-            `Using transaction hash (already validated at upload): ${txHash}`,
+            `Payment is disabled for ${networkId} network. Skipping payment transaction requirement.`,
           );
-
-          // Update queue entry with transaction ID
-          const [entry, index] =
-            await this.queueService.getQueueEntryByRequestId(
-              networkId,
-              requestId,
-            );
-          console.log('store1: entry', entry);
-          console.log('store1: index', index);
-
-          if (entry && index !== -1) {
-            entry.paymentTransactionId = txHash;
-            // If transaction wasn't in the original JSON, update that too
-            if (!jsonFile.OWNABLE_LTO_TRANSACTION_ID) {
-              entry.txId = txHash;
-            }
-
-            if (networkId === 'L') {
-              this.queueService.queueMainnet[index] = entry;
-            } else {
-              this.queueService.queueTestnet[index] = entry;
-            }
-            await this.queueService.updateQueueInS3Bucket(networkId);
-
-            console.log('store: queueTestnet', this.queueService.queueTestnet);
-          }
-
-          // Remove the stored transaction
-          this.signedTransactions.delete(requestId);
-
-          this.loggingService.log(
-            requestId,
-            `Payment transaction hash processed successfully`,
-          );
-        } else if (!usedExistingTransaction) {
-          this.loggingService.logError(
-            requestId,
-            `No payment transaction found for request ID: ${requestId}`,
-          );
-          throw new Error(`No payment transaction found`);
         }
         // Update queue status to Ready
         await this.queueService.setQueueEntryStatus(
