@@ -39,9 +39,6 @@ export class FileManagementService {
   }
 
   public async calculateCid(files: Map<string, Buffer>): Promise<string> {
-    const { importer } = await import('ipfs-unixfs-importer');
-    const { BlackHoleBlockstore } = await import('blockstore-core');
-
     const filteredFiles = Array.from(files.entries()).filter(
       ([filename]) =>
         !filename.startsWith('.') &&
@@ -51,13 +48,15 @@ export class FileManagementService {
 
     const source = filteredFiles.map(([filename, buffer]) => ({
       path: `./package/${filename}`,
-      content: new Uint8Array(buffer),
+      content: buffer,
     }));
 
-    const blockstore = new BlackHoleBlockstore();
-
-    for await (const entry of importer(source, blockstore)) {
-      if (entry.path === 'package' && entry.unixfs?.type === 'directory') {
+    for await (const entry of this.ipfs.addAll(source, {
+      onlyHash: true,
+      cidVersion: 1,
+      recursive: true,
+    })) {
+      if (entry.path === 'package' && entry.mode) {
         return entry.cid.toString();
       }
     }

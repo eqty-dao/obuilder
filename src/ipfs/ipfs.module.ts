@@ -1,4 +1,4 @@
-import { Inject, Module } from '@nestjs/common';
+import { Inject, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigModule } from '../config/config.module';
 import { ipfsProviders } from './ipfs.providers';
 import { ConfigService } from '../config/config.service';
@@ -9,9 +9,17 @@ import { ConfigService } from '../config/config.service';
   providers: [...ipfsProviders],
   exports: [...ipfsProviders],
 })
-export class IpfsModule {
+export class IpfsModule implements OnModuleInit, OnModuleDestroy {
   constructor(
     @Inject('IPFS') private readonly ipfs: IPFS,
     private readonly config: ConfigService,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    // IPFS is already started in the provider
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await this.ipfs.stop();
+  }
 }
