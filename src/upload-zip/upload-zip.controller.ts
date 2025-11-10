@@ -78,7 +78,6 @@ export class UploadZipController {
       buffer = file.buffer;
     }
 
-    // Process templateId from either query or body
     let templateId: number | undefined;
     console.log('inputUploadFile.templateId', inputUploadFile.templateId);
     if (inputUploadFile.templateId !== undefined) {
@@ -94,7 +93,6 @@ export class UploadZipController {
       }
     }
 
-    // Check for a signed transaction in the request body
     if (inputUploadFile.signedTransaction) {
       console.log(
         'Received signed transaction with upload:',
@@ -104,13 +102,12 @@ export class UploadZipController {
 
     let requestId: string;
     try {
-      // Pass the signed transaction to queueRequest
       requestId = await this.uploadZipService.queueRequest(
         ltoNetworkId,
         buffer,
         req,
         templateId,
-        inputUploadFile.signedTransaction, // Pass the signed transaction directly
+        inputUploadFile.signedTransaction,
       );
 
       return res.status(201).json({
@@ -270,12 +267,10 @@ export class UploadZipController {
 
       console.log('Before CoinMarketCap update');
 
-      // Force update and wait for it to complete
       await this.coinmarketcapService.getLatestPrice(true);
 
       console.log('After CoinMarketCap update');
 
-      // Get direct values from queue service for comparison (Base blockchain)
       const queueMainnet =
         await this.queueService.getTemplateCostsIncludingPrevious(
           'L',
@@ -294,12 +289,10 @@ export class UploadZipController {
         testnet: queueTestnet.current,
       });
 
-      // Get values via normal service call
       const result = await this.uploadZipService.templateCost(templateId);
 
       console.log('Service result:', result);
 
-      // Return the correct result from the service
       return result;
     } catch (err) {
       console.error('Template cost error:', err);

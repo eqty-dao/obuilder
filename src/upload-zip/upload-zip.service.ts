@@ -525,6 +525,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         package: pkg.cid,
         network_id: chainId,
         keywords: pkg.keywords ?? [], // ownables-sdk includes this, even though not in schema
+        description: pkg.description,
       };
 
       // Add NFT if available (nft.id must be a string for Uint128)
