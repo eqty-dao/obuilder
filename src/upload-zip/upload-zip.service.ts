@@ -1864,31 +1864,17 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
       // Process the zip file to create a unique CID
       const pkgFiles = await this.fileManagement.unzip(zipFile);
-      const timeMillisecondsNow = Date.now().toString();
-      pkgFiles.set('timestamp.txt', Buffer.from(timeMillisecondsNow, 'utf-8'));
 
-      // Before creating the CID, modify package.json
+      // Modify package.json BEFORE calculating CID to match what SDK will receive
       if (pkgFiles.has('package.json')) {
         try {
-          // Get and parse package.json
           const packageJsonBuffer = pkgFiles.get('package.json');
           const packageJson = JSON.parse(packageJsonBuffer.toString());
-
-          // Update the name field
           packageJson.name = jsonFile.PLACEHOLDER4_NAME;
-
-          // Add a log to see the exact format
-          this.loggingService.log(
-            requestId,
-            `Updated package.json content: ${JSON.stringify(packageJson, null, 2)}`,
-          );
-
-          // Convert back to Buffer and update in pkgFiles
           const updatedPackageJson = Buffer.from(
             JSON.stringify(packageJson, null, 2),
           );
           pkgFiles.set('package.json', updatedPackageJson);
-
           this.loggingService.log(
             requestId,
             `Updated package.json name to: ${jsonFile.PLACEHOLDER4_NAME}`,
@@ -1901,7 +1887,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
           throw err;
         }
       }
-      // Generate unique CID
+
+      // Calculate CID from files that match what SDK will receive
+      // Note: timestamp.txt will be added later but excluded from CID calculation
       const cid = await this.fileManagement.getUniqueId(pkgFiles);
       this.loggingService.log(requestId, `Generated CID: ${cid}`);
 
@@ -1914,9 +1902,22 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         jsonFile.NFT_TOKEN_URI,
       );
 
-      // Prepare the files for storing
+      // Create a new zip from the modified pkgFiles (with modified package.json)
+      // This ensures the stored zip matches what we calculated CID from
+      const modifiedZip = new JSZip();
+      for (const [filename, buffer] of pkgFiles.entries()) {
+        modifiedZip.file(filename, buffer);
+      }
+      const modifiedZipBuffer = await modifiedZip.generateAsync({
+        type: 'nodebuffer',
+      });
+
+      // Store the modified zip (with modified package.json)
       const ownableZip = `${this.pathToCids}/${cid}/${cid}.zip`;
-      await this.fileManagement.copyFile(zipFile, ownableZip);
+      await this.fileManagement.ensureDirectoryExists(
+        `${this.pathToCids}/${cid}`,
+      );
+      await this.fileManagement.writeFile(ownableZip, modifiedZipBuffer);
       await this.fileManagement.deleteFile(zipFile);
       await this.fileManagement.cleanupDirectory(
         `ownables/${jsonFile.PLACEHOLDER1_NAME}`,
@@ -1956,7 +1957,12 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
         pkgFiles,
       );
 
-      // Create final zip with chain
+      // Add timestamp.txt for storage/display (excluded from CID calculation)
+      const timeMillisecondsNow = Date.now().toString();
+      pkgFiles.set('timestamp.txt', Buffer.from(timeMillisecondsNow, 'utf-8'));
+
+      // Create final zip with chain and timestamp
+      // Start with the modified zip (which has modified package.json)
       const zipFile_buffer = await this.fileManagement.readFile(
         `${this.pathToCids}/${cid}/${cid}.zip`,
       );
