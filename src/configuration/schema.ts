@@ -1,3 +1,9 @@
+/**
+ * EQTY Configuration Schema
+ * 
+ * Configuration for Ownable Builder on Base blockchain
+ * Former LTO config migrated to EQTY namespace
+ */
 export default {
 	env: {
 		format: ['production', 'staging', 'development', 'test'],
@@ -26,11 +32,11 @@ export default {
 		channelId: {
 			mainnet: {
 				default: '',
-				env: 'TELEGRAM_CHANNEL_ID_L',
+				env: 'TELEGRAM_CHANNEL_ID_MAINNET',
 			},
 			testnet: {
 				default: '',
-				env: 'TELEGRAM_CHANNEL_ID_T',
+				env: 'TELEGRAM_CHANNEL_ID_TESTNET',
 			}
 		}
 	},
@@ -43,33 +49,33 @@ export default {
 			queue: {
 				mainnet: {
 					default: 'obuilder-production',
-					env: 'OWNABLE_BUCKET_QUEUE_L'
+					env: 'OWNABLE_BUCKET_QUEUE_MAINNET'
 				},
 				testnet: {
 					default: 'obuilder-staging',
-					env: 'OWNABLE_BUCKET_QUEUE_T'
+					env: 'OWNABLE_BUCKET_QUEUE_TESTNET'
 				},
 			},
 			pinata: {
 				mainnet: {
 					default: 'obuilder-pinata-mainnet',
-					env: 'PINATA_BUCKET_L'
+					env: 'PINATA_BUCKET_MAINNET'
 				},
 				testnet: {
 					default: 'obuilder-pinata-testnet',
-					env: 'PINATA_BUCKET_T'
+					env: 'PINATA_BUCKET_TESTNET'
 				},
 			},
 			ownables: {
 				mainnet: {
 					default: 'obuilder-ownables-mainnet',
-					env: 'OWNABLES_BUCKET_L'
+					env: 'OWNABLES_BUCKET_MAINNET'
 				},
 				testnet: {
 					default: 'obuilder-ownables-testnet',
-					env: 'OWNABLES_BUCKET_T'
+					env: 'OWNABLES_BUCKET_TESTNET'
 				},
-				
+
 			}
 		},
 		localTesting: {
@@ -77,94 +83,90 @@ export default {
 			env: 'LOCAL_TESTING',
 		}
 	},
-	// port: {
-	//   default: 80,
-	//   env: 'PORT',
-	// },  
-	// accept: {
-	//   unlockNFT: {
-	//     default: true,
-	//     env: 'UNLOCK_NFT',
-	//   },
-	//   webhook: {
-	//     default: '',
-	//     env: 'ACCEPT_WEBHOOK',
-	//   },
-	// },
-	lto: {
+	// EQTY blockchain configuration (Base network)
+	eqty: {
+		// Template costs in USD
 		templateCostsUSD: {
 			mainnet: {
 				default: '',
-				env: 'LTO_TEMPLATE_COSTSUSD_L'
+				env: 'EQTY_TEMPLATE_COSTSUSD_MAINNET'
 			},
 			testnet: {
 				default: '',
-				env: 'LTO_TEMPLATE_COSTSUSD_T'
+				env: 'EQTY_TEMPLATE_COSTSUSD_TESTNET'
 			}
 		},
-		networkId: {
-			default: 'L',
-			env: 'LTO_NETWORK_ID'
+		// Network type: mainnet (Base) or testnet (Base Sepolia)
+		networkType: {
+			default: 'testnet',
+			env: 'EQTY_NETWORK_TYPE'
 		},
-		node: {
+		// Use mainnet (true) or testnet (false)
+		useMainnet: {
+			default: false,
+			env: 'EQTY_USE_MAINNET'
+		},
+		// Base RPC endpoints
+		rpc: {
 			mainnet: {
-				default: '',
-				env: 'LTO_NODE_L'
+				default: 'https://mainnet.base.org',
+				env: 'EQTY_RPC_MAINNET'
 			},
 			testnet: {
-				default: '',
-				env: 'LTO_NODE_T'
+				default: 'https://sepolia.base.org',
+				env: 'EQTY_RPC_TESTNET'
 			}
 		},
+		// Wallet configuration
 		account: {
-			seed: {
+			// Private key for signing (hex format without 0x prefix)
+			privateKey: {
 				mainnet: {
 					default: '',
-					env: 'LTO_ACCOUNT_SEED_L'
+					env: 'EQTY_PRIVATE_KEY_MAINNET'
 				},
 				testnet: {
 					default: '',
-					env: 'LTO_ACCOUNT_SEED_T'
+					env: 'EQTY_PRIVATE_KEY_TESTNET'
 				},
 			},
 		},
+		// Message relay server
 		relay: {
 			default: '',
-			env: 'RELAY_SERVER',
+			env: 'EQTY_RELAY_SERVER',
 		},
-		local_relay: {
-			default: '',
-			env: 'RELAY_SERVER',
-		},
+		// Queue processing enabled
 		queue: {
 			mainnet: {
 				default: true,
-				env: 'QUEUEING_ALLOWED_L',
+				env: 'EQTY_QUEUEING_ALLOWED_MAINNET',
 			},
 			testnet: {
 				default: true,
-				env: 'QUEUEING_ALLOWED_T',
+				env: 'EQTY_QUEUEING_ALLOWED_TESTNET',
 			}
 		}
 	},
+	// EVM chain configuration
 	eth: {
 		account: {
 			obridge_wallet_address: {
 				mainnet: {
 					default: '',
-					env: 'OBRIDGE_WALLET_ADDR_L',
+					env: 'OBRIDGE_WALLET_ADDR_MAINNET',
 				}, testnet: {
 					default: '',
-					env: 'OBRIDGE_WALLET_ADDR_T',
+					env: 'OBRIDGE_WALLET_ADDR_TESTNET',
 				}
 			},
 			mnemonic: {
 				mainnet: {
 					default: '',
-					env: 'ACCOUNT_MNEMONIC_L',
+					env: 'ACCOUNT_MNEMONIC_MAINNET',
 				}, testnet: {
 					default: '',
-					env: 'ACCOUNT_MNEMONIC_T',
+					env: 'ACCOUNT_MNEMONIC_TESTNET',
 				}
 			},
 			arbitrum_alchemy_api_key: {
@@ -179,105 +181,50 @@ export default {
 				default: '',
 				env: 'ETH_ALCHEMY_API_KEY',
 			},
+			base_alchemy_api_key: {
+				default: '',
+				env: 'BASE_ALCHEMY_API_KEY',
+			},
 		},
 		contracts: {
 			ethereum: {
 				mainnet: {
 					default: '',
-					env: 'ETHEREUM_NFT_CONTRACT_ADDR_L',
+					env: 'ETHEREUM_NFT_CONTRACT_ADDR_MAINNET',
 				}, testnet: {
 					default: '',
-					env: 'ETHEREUM_NFT_CONTRACT_ADDR_T',
+					env: 'ETHEREUM_NFT_CONTRACT_ADDR_TESTNET',
 				}
 			},
 			arbitrum: {
 				mainnet: {
 					default: '',
-					env: 'ARBITRUM_NFT_CONTRACT_ADDR_L',
+					env: 'ARBITRUM_NFT_CONTRACT_ADDR_MAINNET',
 				}, testnet: {
 					default: '',
-					env: 'ARBITRUM_NFT_CONTRACT_ADDR_T',
+					env: 'ARBITRUM_NFT_CONTRACT_ADDR_TESTNET',
 				}
 			},
 			polygon: {
 				mainnet: {
 					default: '',
-					env: 'POLYGON_NFT_CONTRACT_ADDR',
+					env: 'POLYGON_NFT_CONTRACT_ADDR_MAINNET',
 				}, testnet: {
 					default: '',
-					env: 'POLYGON_NFT_CONTRACT_ADDR_T',
+					env: 'POLYGON_NFT_CONTRACT_ADDR_TESTNET',
+				}
+			},
+			base: {
+				mainnet: {
+					default: '',
+					env: 'BASE_NFT_CONTRACT_ADDR_MAINNET',
+				}, testnet: {
+					default: '',
+					env: 'BASE_NFT_CONTRACT_ADDR_TESTNET',
 				}
 			},
 		},
-		// providers: {
-		//   etherscan: {
-		//     default: '',
-		//     env: 'ETHERSCAN_KEY',
-		//   },
-		//   infura: {
-		//     default: '',
-		//     env: 'INFURA_KEY',
-		//   },
-		//   alchemy: {
-		//     default: '',
-		//     env: 'ALCHEMY_KEY',
-		//   },
-		//   pocket: {
-		//     default: '',
-		//     env: 'POCKET_KEY',
-		//   },
-		//   ankr: {
-		//     default: '',
-		//     env: 'ANKR_KEY',
-		//   },
-		// },
-		// networks: {
-		//   default: [
-		//     {
-		//       id: 421614,
-		//       name: 'arbitrumSepolia',
-		//       provider: 'jsonrpc' as 'jsonrpc' | 'etherscan' | 'infura' | 'alchemy' | 'cloudflare' | 'pocket' | 'ankr',
-		//       url: '',
-		//     },
-		//   ],
-		//   // default: [
-		//   //   {
-		//   //     id: 80001,
-		//   //     name: 'PolygonMumbai',
-		//   //     provider: 'alchemy' as 'jsonrpc' | 'etherscan' | 'infura' | 'alchemy' | 'cloudflare' | 'pocket' | 'ankr',
-		//   //     url: `https://polygon-mumbai.g.alchemy.com/v2/${process.env.POLYGON_MUMBAI_ALCHEMY_API_KEY}`,
-		//   //   },
-		//   // ],
-		//   format: 'typed-array',
-		//   children: {
-		//     id: {
-		//       default: 0,
-		//     },
-		//     name: {
-		//       default: '',
-		//     },
-		//     provider: {
-		//       format: ['jsonrpc', 'etherscan', 'infura', 'alchemy', 'cloudflare', 'pocket', 'ankr'],
-		//       default: 'jsonrpc',
-		//     },
-		//     url: {
-		//       default: '',
-		//     },
-		//   },
-		// },
 	},
-	// log: {
-	//   level: {
-	//     default: '',
-	//     env: 'LOG_LEVEL',
-	//   },
-	// },
-	// ssl: {
-	//   enabled: {
-	//     default: false,
-	//     env: 'SSL_ENABLED',
-	//   },
-	// },
 	ipfs: {
 		start: {
 			default: true,
@@ -294,18 +241,4 @@ export default {
 			env: 'CHAINS_PATH',
 		},
 	},
-	// verify: {
-	//   integrity: {
-	//     default: true,
-	//     env: 'VERIFY_INTEGRITY',
-	//   },
-	//   signer: {
-	//     default: true,
-	//     env: 'VERIFY_SIGNER',
-	//   },
-	//   chainId: {
-	//     default: true,
-	//     env: 'VERIFY_CHAIN_ID',
-	//   },
-	// },
 };

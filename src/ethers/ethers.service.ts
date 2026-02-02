@@ -57,6 +57,8 @@ export class EthersService implements OnModuleInit {
 			// case 'base':
 			//   if (networkId === 'T') return ['base-sepolia', 84532,this.config.get('eth.account.base_alchemy_api_key')]; // Base Sepolia Testnet
 			//   else return ['base', 8453,this.config.get('eth.account.base_alchemy_api_key')]; // Base mainnet
+			default:
+				throw new Error(`Unsupported EVM network: ${evmNetworkName}. Supported: ethereum, arbitrum, polygon`);
 		}
 	}
 
@@ -73,8 +75,8 @@ export class EthersService implements OnModuleInit {
 	public getEvmWalletAddresses(networkName: string): [string, string] {
 		let signer_L: ethers.HDNodeWallet;
 		let signer_T: ethers.HDNodeWallet;
-		signer_L = this.getSigner('L',networkName);
-		signer_T = this.getSigner('T',networkName);
+		signer_L = this.getSigner('L', networkName);
+		signer_T = this.getSigner('T', networkName);
 
 		return [signer_L.address.toString(), signer_T.address.toString()];
 
@@ -99,7 +101,7 @@ export class EthersService implements OnModuleInit {
 		const nftContract = this.getContract(ltoNetworkId, 'OBridgeNFT', nft.network, nft.address);
 		return await nftContract.getBridgeBaseURI(bridgeAddress);
 	}
-	public async getServerETHBalance(ltoNetworkId: 'L' | 'T', networkName: string): Promise<string> {		
+	public async getServerETHBalance(ltoNetworkId: 'L' | 'T', networkName: string): Promise<string> {
 		return await this.getBalance(ltoNetworkId, networkName);
 	}
 

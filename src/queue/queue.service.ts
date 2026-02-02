@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 
 import { QueueEntry, OwnableStatus } from '../interfaces/QueueEntry';
 import { QueueError } from '../interfaces/error';
@@ -11,6 +11,7 @@ import { S3Service } from '../s3/s3.service';
 
 @Injectable()
 export class QueueService implements OnModuleInit {
+	private readonly logger = new Logger(QueueService.name);
 
 	private queueMainnet = [];
 	private queueDataMainnet = [];
@@ -46,11 +47,11 @@ export class QueueService implements OnModuleInit {
 				const queueMainFileJsonData = JSON.parse(queueMainFileJsonString);
 				await this.initializeQueueWithS3Data('L', queueMainFileJsonData);
 			} else {
-				console.log("Queue.json does not exist on Mainnet S3 Bucket. Creating one ...");
+				this.logger.log('Queue.json does not exist on Mainnet S3 Bucket. Creating one ...');
 				await this.updateQueueInS3Bucket('L');
 			}
 		} catch (err) {
-			console.error("Error initializing Queue with S3 data:", err);
+			this.logger.error('Error initializing Queue with S3 data:', err);
 			await this.updateQueueInS3Bucket('L');
 		}
 
@@ -65,11 +66,11 @@ export class QueueService implements OnModuleInit {
 				// console.log("queueTestFileJsonData", queueTestFileJsonData);
 				await this.initializeQueueWithS3Data('T', queueTestFileJsonData);
 			} else {
-				console.log("Queue.json does not exist on Testnet S3 Bucket. Creating one ...");
+				this.logger.log('Queue.json does not exist on Testnet S3 Bucket. Creating one ...');
 				await this.updateQueueInS3Bucket('T');
 			}
 		} catch (err) {
-			console.error("Error initializing Queue with S3 data:", err);
+			this.logger.error('Error initializing Queue with S3 data:', err);
 			await this.updateQueueInS3Bucket('T');
 		}
 
@@ -100,7 +101,7 @@ export class QueueService implements OnModuleInit {
 	public async setTemplateCosts(ltoNetwork_id: 'L' | 'T', evmNetwork: string, templateId: string, lastValue: number, prevValue: number, usdValue: number) {
 
 		if (typeof this.templateCostsTestnet[evmNetwork] !== 'object') {
-			this.templateCostsTestnet = {				
+			this.templateCostsTestnet = {
 				"arbitrum": {
 					"1": {
 						"last": "20000000",
@@ -111,7 +112,7 @@ export class QueueService implements OnModuleInit {
 			// await this.updateTemplateCostsInS3Bucket('T');
 		}
 		if (typeof this.templateCostsMainnet[evmNetwork] !== 'object') {
-			this.templateCostsMainnet = {				
+			this.templateCostsMainnet = {
 				"arbitrum": {
 					"1": {
 						"last": "20000000",
@@ -178,7 +179,7 @@ export class QueueService implements OnModuleInit {
 					failedErrMsg: entry.failedErrMsg,
 					cid: entry.cid ?? '',
 					reenqueued: entry.reenqueued,
-					reenqueued_NFTURI: entry.reenqueued_NFTURI ?? '',	
+					reenqueued_NFTURI: entry.reenqueued_NFTURI ?? '',
 					nftInfo: {
 						network: '',
 						address: '',
@@ -203,7 +204,7 @@ export class QueueService implements OnModuleInit {
 					failedErrMsg: entry.failedErrMsg,
 					cid: entry.cid ?? '',
 					reenqueued: entry.reenqueued,
-					reenqueued_NFTURI: entry.reenqueued_NFTURI ?? '',	
+					reenqueued_NFTURI: entry.reenqueued_NFTURI ?? '',
 					nftInfo: {
 						network: '',
 						address: '',
@@ -213,7 +214,7 @@ export class QueueService implements OnModuleInit {
 			}
 			// Check if the status is not Unknown before fetching data
 			if (entry.ownableStatus !== OwnableStatus.Unknown) {
-				console.log("entry.data", entry.data);
+				this.logger.debug(`entry.data: ${entry.data}`);
 				try {
 					if (ltoNetwork_id === 'L') {
 						const dataUint8Array = await this.s3.s3BucketQueue_L.get(entry.data);
@@ -297,7 +298,7 @@ export class QueueService implements OnModuleInit {
 						try {
 							await this.telegramService.sendMessageToTelegramBot(ltoNetwork_id, botMessage);
 						} catch (err) {
-							console.error(`Failed to send Telegram message: ${err}`);
+							this.logger.error(`Failed to send Telegram message: ${err}`);
 						}
 					}
 				}
@@ -322,7 +323,7 @@ export class QueueService implements OnModuleInit {
 						try {
 							await this.telegramService.sendMessageToTelegramBot(ltoNetwork_id, botMessage);
 						} catch (err) {
-							console.error(`Failed to send Telegram message: ${err}`);
+							this.logger.error(`Failed to send Telegram message: ${err}`);
 						}
 					}
 				}
@@ -540,7 +541,7 @@ export class QueueService implements OnModuleInit {
 			throw new Error(`Telegram Service Error.  ${err}`);
 		}
 	}
-	
+
 	// public async moveBackFailedEntries() {
 	// 	const entry = this.queueTestnet.find((entry: QueueEntry) => entry.ownableStatus === OwnableStatus.Failed);
 	// 	entry.ownableStatus = OwnableStatus.InQueue;
@@ -551,7 +552,7 @@ export class QueueService implements OnModuleInit {
 	// 	entry.timestampFailed = 0;
 	// 	entry.failedErrMsg= '';
 	// 	entry.reenqueued= true;
-		
+
 	// }
 
 	public async setQueueEntryStatus(ltoNetwork_id: 'L' | 'T', requestId: string, status: OwnableStatus, hash?: string) {
@@ -632,7 +633,7 @@ export class QueueService implements OnModuleInit {
 			this.queueTestnet[index].ownableStatus = status;
 
 		}
-		console.log("updateQueueInS3Bucket...");
+		this.logger.debug('updateQueueInS3Bucket...');
 		await this.updateQueueInS3Bucket(ltoNetwork_id);
 	}
 

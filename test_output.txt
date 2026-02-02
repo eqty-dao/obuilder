@@ -1,0 +1,117 @@
+﻿node.exe : [33mThe CJS build of Vite's N
+ode API is deprecated. See https://vite.d
+ev/guide/troubleshooting.html#vite-cjs-no
+de-api-deprecated for more details.[39m
+At C:\Program Files\nodejs\npx.ps1:29 cha
+r:3
++   & $NODE_EXE $NPX_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecifi 
+   ed: ([33mThe CJS bu...e details.[3  
+  9m:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeComm 
+   andError
+ 
+
+[7m[1m[36m RUN [39m[22m[27m [36mv1.6.1[39m [90mC:/Users/jivee/.gemini/antigravity/scratch/ownabels-base/obuilder[39m
+
+[90mstdout[2m | src/s3/s3.service.spec.ts[2m > [22m[2mS3Service[2m > [22m[2mshould be defined[22m[39m
+Warning: configuration param 'account.seed' not declared in the schema
+
+[90mstdout[2m | src/s3/s3.service.spec.ts[2m > [22m[2mS3Service[2m > [22m[2mshould have bucket instances configured after init[22m[39m
+Warning: configuration param 'account.seed' not declared in the schema
+
+ [33mÔØ»[39m src/s3/s3.service.spec.ts [2m ([22m[2m2 tests[22m [2m|[22m [31m2 failed[39m[2m)[22m[90m 20[2mms[22m[39m
+[31m   [33mÔØ»[31m src/s3/s3.service.spec.ts[2m > [22mS3Service[2m > [22mshould be defined[39m
+[31m     ÔåÆ Cannot read properties of undefined (reading 'load')[39m
+[31m     ÔåÆ Cannot read properties of undefined (reading 'load')[39m
+[31m   [33mÔØ»[31m src/s3/s3.service.spec.ts[2m > [22mS3Service[2m > [22mshould have bucket instances configured after init[39m
+[31m     ÔåÆ Cannot read properties of undefined (reading 'load')[39m
+[31m     ÔåÆ Cannot read properties of undefined (reading 'load')[39m
+
+[31mÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[1m[7m Failed
+ Tests 2 [27m[22mÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»
+[39m
+
+[31m[1m[7m FAIL [27m[22m[39m src/s3
+/s3.service.spec.ts[2m > [22mS3Service
+[2m > [22mshould be defined
+[31m[1m[7m FAIL [27m[22m[39m src/s3
+/s3.service.spec.ts[2m > [22mS3Service
+[2m > [22mshould be defined
+[31m[1m[7m FAIL [27m[22m[39m src/s3
+/s3.service.spec.ts[2m > [22mS3Service
+[2m > [22mshould have bucket instances c
+onfigured after init
+[31m[1m[7m FAIL [27m[22m[39m src/s3
+/s3.service.spec.ts[2m > [22mS3Service
+[2m > [22mshould have bucket instances c
+onfigured after init
+[31m[1mTypeError[22m: Cannot read prop
+erties of undefined (reading 'load')[39m
+[36m [2mÔØ»[22m S3Service.onModuleInit
+ src/s3/s3.service.ts:[2m28:27[22m[39m
+    [90m 26| [39m    [35masync[39m [
+34monModuleInit[39m() {
+    [90m 27| [39m        [90m// First,
+ ensure config is loaded[39m
+    [90m 28| [39m        [35mawait[39
+m [35mthis[39m[33m.[39mconfig[33m.[
+39m[34mload[39m()[33m;[39m
+    [90m   | [39m                      
+    [31m^[39m
+    [90m 29| [39m
+    [90m 30| [39m        [90m// Initia
+lize S3 client based on config[39m
+[90m [2mÔØ»[22m MapIterator.iteratee n
+ode_modules/.pnpm/@nestjs+core@10.4.22_@n
+estjs+common@10.4.22_@nestjs+platform-exp
+ress@10.4.22_reflect-metadata@0.2.2_rxjs@
+7.8.2/node_modules/@nestjs/core/hooks/on-
+module-init.hook.js:[2m22:43[22m[39m
+[90m [2mÔØ»[22m MapIterator.next node_
+modules/.pnpm/iterare@1.2.1/node_modules/
+iterare/src/map.ts:[2m9:39[22m[39m
+[90m [2mÔØ»[22m IteratorWithOperators.
+next node_modules/.pnpm/iterare@1.2.1/nod
+e_modules/iterare/src/iterate.ts:[2m19:2
+8[22m[39m
+[90m [2mÔØ»[22m IteratorWithOperators.
+toArray node_modules/.pnpm/iterare@1.2.1/
+node_modules/iterare/src/iterate.ts:[2m2
+27:22[22m[39m
+[90m [2mÔØ»[22m callOperator node_modu
+les/.pnpm/@nestjs+core@10.4.22_@nestjs+co
+mmon@10.4.22_@nestjs+platform-express@10.
+4.22_reflect-metadata@0.2.2_rxjs@7.8.2/no
+de_modules/@nestjs/core/hooks/on-module-i
+nit.hook.js:[2m23:10[22m[39m
+[90m [2mÔØ»[22m callModuleInitHook nod
+e_modules/.pnpm/@nestjs+core@10.4.22_@nes
+tjs+common@10.4.22_@nestjs+platform-expre
+ss@10.4.22_reflect-metadata@0.2.2_rxjs@7.
+8.2/node_modules/@nestjs/core/hooks/on-mo
+dule-init.hook.js:[2m43:23[22m[39m
+[90m [2mÔØ»[22m TestingModule.callInit
+Hook node_modules/.pnpm/@nestjs+core@10.4
+.22_@nestjs+common@10.4.22_@nestjs+platfo
+rm-express@10.4.22_reflect-metadata@0.2.2
+_rxjs@7.8.2/node_modules/@nestjs/core/nes
+t-application-context.js:[2m234:50[22m
+[39m
+[90m [2mÔØ»[22m node_modules/.pnpm/@ne
+stjs+core@10.4.22_@nestjs+common@10.4.22_
+@nestjs+platform-express@10.4.22_reflect-
+metadata@0.2.2_rxjs@7.8.2/node_modules/@n
+estjs/core/nest-application-context.js:[
+2m102:17[22m[39m
+
+[31m[2mÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ
+»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[
+1/4]ÔÄ»[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m   Start at [22m 18:16:03
+[2m   Duration [22m 1.39s[2m (transform 80ms, setup 0ms, collect 826ms, tests 20ms, environment 0ms, prepare 134ms)[22m
+

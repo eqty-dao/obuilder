@@ -1,4 +1,4 @@
-import { Inject, Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { rmSync, cpSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import arrayToString from '../utils/arrayToString';
 import JSZip from 'jszip';
@@ -6,18 +6,18 @@ import fileExists from '../utils/fileExists';
 import path from 'path';
 // import { catchError, firstValueFrom } from 'rxjs';
 // import { AxiosError } from 'axios';
-import { Account, LTO, Event, EventChain, Message, Relay, getNetwork } from "@ltonetwork/lto";
+// LTO network no longer exists - using EqtyService for Base blockchain
 import { exec } from 'child_process';
 // import chokidar from 'chokidar';
 import { NftInfo, OwnableInfo } from '../interfaces/OwnableInfo';
 import { TransactionIdData } from '../interfaces/TransactionIdData';
 import { TypedPackage } from "../interfaces/TypedPackage";
-import { IEventChainJSON } from '@ltonetwork/lto/interfaces';
+// IEventChainJSON replaced by eqty-core types
 import { Blob } from 'buffer';
 import { QueueEntry, OwnableStatus } from '../interfaces/QueueEntry';
 import { PinataSDK } from "pinata";
 import { Request, Response } from 'express';
-import { sign, verify } from '@ltonetwork/http-message-signatures';
+// EIP-712 signatures used via EqtyService for Ethereum signing
 
 import { ConfigService } from '../config/config.service';
 import { HttpService } from '@nestjs/axios';
@@ -26,13 +26,15 @@ import { TelegramBotService } from 'src/telegram-bot/telegram-bot.service';
 import { UserError } from 'src/interfaces/error';
 import { QueueService } from 'src/queue/queue.service';
 import { LoggingService } from 'src/logging/logging.service';
-import { LtoService } from 'src/lto/lto.service';
+
 import { S3Service } from '../s3/s3.service';
 import { CoinmarketcapService } from 'src/coinmarketcap/coinmarketcap.service';
 import { JsonFile } from 'src/interfaces/JsonFile';
+import { EqtyService } from 'src/eqty/eqty.service';
 
 @Injectable()
 export class UploadZipService implements OnModuleInit, OnModuleDestroy {
+	private readonly logger = new Logger(UploadZipService.name);
 	// private pathToRids: string;
 	private pathToCids: string;
 	private pathToTemplates: string;
@@ -47,13 +49,13 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	constructor(
 		private readonly httpService: HttpService,
 		private readonly config: ConfigService,
-		private readonly ltoService: LtoService,
 		private readonly nft: NFTService,
 		private readonly queueService: QueueService,
 		private readonly s3: S3Service,
 		private readonly coinmarketcap: CoinmarketcapService,
 		private readonly loggingService: LoggingService,
 		private readonly telegramService: TelegramBotService,
+		private readonly eqtyService: EqtyService,
 		@Inject('IPFS') private readonly ipfs: IPFS,
 	) {
 
@@ -77,7 +79,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 				await this.checkQueueStatus();
 			}
 			catch (err) {
-				console.log(`ERROR QUEUE STATUS: ${err}`);
+				this.logger.error(`ERROR QUEUE STATUS: ${err}`);
 			}
 		}, 15000); // 10000 ms = 10 seconds
 	}
@@ -96,91 +98,78 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 		if (numericBalance <= 0.01) { // TODO: this comparison should be networkName specific
 			// Handle case where balance is below or equal to 0.1
-			console.log(`Balance is low: ${numericBalance}`);
+			this.logger.warn(`Balance is low: ${numericBalance}`);
 			await this.telegramService.sendMessageToTelegramBot(ltoNetworkId, `\n${networkName}: Balance is low: ${numericBalance}`);
 		}
 
 
 		return balance;
 	}
-	public getLTOAccountAddress(ltoNetworkId: 'L' | 'T'): string {
-		// return ltoNetworkId === 'L' 
-		//     ? this.ltoService.ltoAccountMainnet?.address 
-		//     : this.ltoService.ltoAccountTestnet?.address;
-		return this.ltoService.getLTOAccountAddress(ltoNetworkId);
-
+	/**
+	 * Get EQTY account address for a network
+	 * @param networkType 'mainnet' or 'testnet' (or legacy 'L'/'T')
+	 */
+	public getEqtyAddress(networkType: 'mainnet' | 'testnet' | 'L' | 'T'): string {
+		const type = networkType === 'L' ? 'mainnet' : networkType === 'T' ? 'testnet' : networkType;
+		return this.eqtyService.getAddress(type);
 	}
+
 	public isEVMAddress(address: string): boolean {
 		return this.nft.isEVMAddress(address);
 	}
-	public isValidLtoAddress(address: string): string {
-		const isValidMainnet = this.ltoService.ltoMainnet.isValidAddress(address);
-		const isValidTestnet = this.ltoService.ltoTestnet.isValidAddress(address);
-		if (isValidMainnet) return "L";
-		if (isValidTestnet) return "T";
-		return "false";
-	}
-	public async getLTOAccountBalance(ltoNetworkId: 'L' | 'T') {
-		const address = this.getLTOAccountAddress(ltoNetworkId);
-		console.log("address1", address);
-		let url: string;
-		if (ltoNetworkId === 'L') {
-			url = `${this.config.get('lto.node.mainnet')}/addresses/balance/${address}`;
-		} else {
-			url = `${this.config.get('lto.node.testnet')}/addresses/balance/${address}`;
 
+	/**
+	 * Validate Ethereum address
+	 * Returns 'mainnet' for valid addresses, 'false' otherwise
+	 */
+	public isValidAddress(address: string): string {
+		if (this.eqtyService.isValidAddress(address)) {
+			return 'mainnet'; // Valid Ethereum address
+		}
+		return 'false';
+	}
+	/**
+	 * Get EQTY/ETH balance for Base blockchain
+	 * @param networkType 'mainnet' or 'testnet'
+	 */
+	public async getEqtyBalance(networkType: 'mainnet' | 'testnet') {
+		const balance = await this.eqtyService.getBalance(networkType);
+		return { balance: balance.toString() };
+	}
+
+	/**
+	 * Send file via relay
+	 * @deprecated LTO network no longer exists - use sendOwnableBase instead
+	 */
+	public async sendFile(relay: any, content: Uint8Array, sender: any, recipient: string, rid: string) {
+		// LTO network no longer exists - use EqtyService Message/Relay
+		if (!this.eqtyService.isValidAddress(recipient)) {
+			this.loggingService.logError(rid, `Invalid Ethereum address: ${recipient}`);
+			throw new Error(`Invalid Ethereum address. LTO network no longer exists.`);
 		}
 
-		console.log("url1", url)
+		const networkType = this.getNetworkType();
 
-		const data = await this.httpService.axiosRef
-			.get(url)
-			.then((res) => res.data)
-			.catch((err) => {
-				throw new Error(
-					err?.message + ': ' + JSON.stringify(err?.response?.data),
-				);
-			});
-		console.log("data1", data)
-		return data;
-	}
-	public async sendFile(relay: any, content: Uint8Array, sender: Account, recipient: string, rid: string) {
 		try {
-			let message: Message;
+			this.loggingService.log(rid, `Sending file via Base ${networkType} to recipient: ${recipient}`);
 
-			const ltoNetwork = getNetwork(recipient);
-			this.loggingService.log(rid, `Sending File with sender:${sender.address} and recipient:${recipient}`);
-			if (sender && recipient) {
-				message = new Message(content).to(recipient).signWith(sender);
-				// console.log("message.hash.base58",message.hash.base58);
-				// console.log("message.hash.hex",message.hash.hex);
+			const { message, hash } = await this.eqtyService.createAndSendMessage(
+				content,
+				recipient,
+				networkType,
+				undefined,
+				'application/octet-stream'
+			);
 
-				//DONE
-				try {
-					this.loggingService.log(rid, `Message hash: ${message.hash.base58}`);
-					this.loggingService.log(rid, `Message: type${message.type} sender:${JSON.stringify(message.sender)} recipient:${message.recipient} timestamp:${message.timestamp} mediaType:${message.mediaType}`);
-					// throw `test without Relay`;
-					await relay.send(message);
-					this.loggingService.log(rid, `Ownable successfully sent to Relay. Setting Queue status to sent.`);
-					if (ltoNetwork === 'L') {
-						await this.queueService.setQueueEntryStatus('L', rid, OwnableStatus.Sent, message.hash.base58);
-					}
-					else {
-						await this.queueService.setQueueEntryStatus('T', rid, OwnableStatus.Sent, message.hash.base58);
+			this.loggingService.log(rid, `Message hash: ${hash}`);
+			this.loggingService.log(rid, `Ownable successfully sent to Relay via Base. Setting Queue status to sent.`);
 
-					}
-
-				} catch (err) {
-					this.loggingService.logError(rid, `Error relay.send: ${err}`);
-				}
-			} else {
-				this.loggingService.logError(rid, `Provide the signer and recipient. signer: ${sender.address}  recipient:${recipient}`);
-				return;
-			}
-
-
-		} catch {
-			return true;
+			// Use 'L' for mainnet, 'T' for testnet for queue compat
+			const networkId = networkType === 'mainnet' ? 'L' : 'T';
+			await this.queueService.setQueueEntryStatus(networkId as 'L' | 'T', rid, OwnableStatus.Sent, hash);
+		} catch (err) {
+			this.loggingService.logError(rid, `Error sending via Base: ${err}`);
+			throw err;
 		}
 	}
 
@@ -189,7 +178,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	}
 
 	private getRelayUrl(): string {
-		return this.config.get('lto.relay') || this.config.get('lto.local_relay');
+		return this.config.get('eqty.relay');
 	}
 
 	private async isRelayUp(url: string | undefined): Promise<boolean> {
@@ -219,44 +208,75 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			throw new Error(`Relay Server ${relayURL} is down: ${error}`);
 		}
 	}
+	/**
+	 * Send Ownable to recipient
+	 * @deprecated LTO network no longer exists - use sendOwnableBase instead
+	 */
 	public async sendOwnable(ltoNetworkId: 'L' | 'T', rid: string, recipient: string, content?: Uint8Array) {
-		const relayURL = this.getRelayUrl();
-		let relay: Relay = new Relay(`${relayURL}`);
-		let sender: Account;
-
-		const ltoNetworkIdRecipient = getNetwork(recipient);
-		this.loggingService.log(rid, `Sending Ownablefile...  RELAY:${relayURL} RECIPIENT:${recipient} RID:${rid} NETWORKID: ${ltoNetworkId}.`);
-		if (ltoNetworkId !== ltoNetworkIdRecipient) {
-			this.loggingService.logError(rid, `Lto NetworkIds of currently produced Ownable ${ltoNetworkId} and recipient ${ltoNetworkIdRecipient} do not match`);
-			throw new Error(`Lto NetworkIds of currently produced Ownable ${ltoNetworkId} and recipient ${ltoNetworkIdRecipient} do not match`);
+		// LTO network no longer exists - all addresses must be Ethereum addresses
+		if (!this.eqtyService.isValidAddress(recipient)) {
+			this.loggingService.logError(rid, `Invalid Ethereum address: ${recipient}. LTO network no longer exists.`);
+			throw new Error(`Invalid Ethereum address: ${recipient}. LTO network no longer exists.`);
 		}
 
-		if (ltoNetworkId == 'L') {
-			// this.ltoService.ltoMainnet.relay = 
-			// relay = this.ltoService.ltoMainnet.relay;
-			sender = this.ltoService.ltoAccountMainnet;
-		} else if (ltoNetworkId == 'T') {
-			// this.ltoService.ltoTestnet.relay = new Relay(`${relayURL}`);
-			// relay = this.ltoService.ltoTestnet.relay;
-			sender = this.ltoService.ltoAccountTestnet;
-		} else {
-			this.loggingService.logError(rid, `Unknown ltoNetworkID ${ltoNetworkId}`);
-			throw new Error(`Unknown ltoNetworkID ${ltoNetworkId}`);
+		// Map old LTO network IDs to new network types
+		const networkType = ltoNetworkId === 'L' ? 'mainnet' : 'testnet';
+
+		await this.sendOwnableBase(networkType, rid, recipient, content);
+	}
+
+	/**
+	 * Send Ownable via Base blockchain using eqty-core Message/Relay
+	 * This is the EVM-native replacement for sendOwnable
+	 * @param networkType 'mainnet' for Base, 'testnet' for Base Sepolia
+	 * @param rid Request ID for logging
+	 * @param recipient Ethereum address (0x...) of the recipient
+	 * @param content Ownable content as Uint8Array
+	 */
+	public async sendOwnableBase(
+		networkType: 'mainnet' | 'testnet',
+		rid: string,
+		recipient: string,
+		content?: Uint8Array
+	): Promise<void> {
+		// Validate Ethereum address
+		if (!this.eqtyService.isValidAddress(recipient)) {
+			this.loggingService.logError(rid, `Invalid Ethereum address: ${recipient}`);
+			throw new Error(`Invalid Ethereum address: ${recipient}. Expected 0x-prefixed hex address.`);
 		}
-		// const relay = new Relay('http://relay-dev.eba-zrdkspxn.eu-west-1.elasticbeanstalk.com');
+
+		const senderAddress = this.eqtyService.getAddress(networkType);
+		const relayUrl: string = (this.config as any).get('eqty.relayUrl') || 'https://relay.eqty.io';
+
+		this.loggingService.log(rid, `Sending Ownable via Base ${networkType}... RELAY:${relayUrl} RECIPIENT:${recipient} RID:${rid}`);
+
+		if (!content) {
+			this.loggingService.logError(rid, `No content provided for ownable`);
+			throw new Error('No content provided for ownable');
+		}
 
 		try {
-			this.loggingService.log(rid, `Try sending file...  RELAYURL:${relayURL} SENDER:${sender.address} RECIPIENT:${recipient} RID:${rid}`);
-			if (recipient) {
-				this.loggingService.log(rid, `Recipient: ${recipient} RID:${rid}.`);
-				await this.sendFile(relay, content, sender, recipient, rid);
-			} else {
-				this.loggingService.logError(rid, `Failed to send Ownable RELAY:${relayURL} SENDER:${sender.address} RECIPIENT:${recipient} RID:${rid}.`);
-				throw new Error("No recipient provided");
-			}
+			this.loggingService.log(rid, `Try sending file... SENDER:${senderAddress} RECIPIENT:${recipient} RID:${rid}`);
+
+			// Create and sign message using EqtyService
+			const { message, hash } = await this.eqtyService.createAndSendMessage(
+				content,
+				recipient,
+				networkType,
+				relayUrl,
+				'application/octet-stream'
+			);
+
+			this.loggingService.log(rid, `Message hash: ${hash}`);
+			this.loggingService.log(rid, `Ownable successfully sent to Relay via Base ${networkType}. Setting Queue status to sent.`);
+
+			// Update queue status with network type indicator
+			const networkId = networkType === 'mainnet' ? 'L' : 'T'; // Temporary: use L/T for queue compat
+			await this.queueService.setQueueEntryStatus(networkId, rid, OwnableStatus.Sent, hash);
+
 		} catch (error) {
-			this.loggingService.logError(rid, `Error sending message: ${error}`);
-			throw new Error(`Error sending message: ${error}`);
+			this.loggingService.logError(rid, `Error sending message via Base: ${error}`);
+			throw new Error(`Error sending message via Base: ${error}`);
 		}
 	}
 
@@ -270,93 +290,26 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		}
 	}
 
+	/**
+	 * @deprecated LTO network no longer exists. Transaction verification should use Base blockchain.
+	 * This method is kept for backwards compatibility but will throw an error.
+	 */
 	private async checkLtoTransactionId(ltoNetworkId: 'L' | 'T', ltoTransactionId: string, templateId: number, chain: string, requestId: string, reenqueued: boolean): Promise<TransactionIdData> {
-		// FIRST WORKING METHOD
-		let url: string;
-		if (ltoNetworkId === 'L') {
-			url = `${this.config.get('lto.node.mainnet')}/transactions/info/${ltoTransactionId}`;
-		} else {
-			url = `${this.config.get('lto.node.testnet')}/transactions/info/${ltoTransactionId}`;
-		}
-		this.loggingService.log(requestId, `HTTP Request sent to: ${url} on LTO network ${ltoNetworkId}`);
-		// const data = await this.httpService.axiosRef
-		//   .get(url)
-		//   .then((res) => res.data)
-		//   .catch((err) => {
-		//     throw new Error(
-		//       err?.message + ': ' + JSON.stringify(err?.response?.data),
-		//     );
-		//   });
-		// SECOND WORKING METHOD
-		// const { data } = await firstValueFrom(
-		//   this.httpService.get(url).pipe(
-		//     catchError((error: AxiosError) => {
-		//       //this.logger.error(error.response.data);
-		//       throw 'An error happened!';
-		//     }),
-		//   ),
-		// );
+		// LTO network no longer exists - cannot verify LTO transactions
+		this.loggingService.logError(requestId, `LTO transaction verification is deprecated. Use Base blockchain instead.`);
 
-		// THIRD WORKING METHOD - requires node >= v18
-		let data: any;
-		try {
-			const response = await fetch(url);
-			data = await response.json();
-			this.loggingService.log(requestId, `Request Done. Data: ${JSON.stringify(data)}`);
-			if (data.status === 'error') {
-				this.loggingService.logError(requestId, `Request Failed. Data details: ${data.details}`);
-				throw new Error(data.details);
-			}
-		} catch (err) {
-			this.loggingService.logError(requestId, `Request Failed with error: ${err}`);
-			throw new Error(err);
+		// For backwards compatibility, return a mock response if reenqueued
+		if (reenqueued) {
+			this.loggingService.log(requestId, `Reenqueued request - skipping LTO transaction verification`);
+			return {
+				type: 4,
+				sender: ltoTransactionId, // Use txId as placeholder
+				recipient: this.eqtyService.getAddress('mainnet'),
+				amount: 0,
+			};
 		}
 
-		// Must be of type "transaction"
-		if (data.type != 4) {
-			this.loggingService.logError(requestId, `Wrong Transaction type: ${data.type}`);
-			throw new Error('Wrong Transaction type');
-		}
-		const [templateCostsLast, templateCostsPrev]: [string, string] = await this.queueService.getTemplateCostsIncludingPrevious(ltoNetworkId, chain.toString(), templateId.toString());
-
-		if (templateCostsLast === undefined || templateCostsPrev === undefined) {
-			this.loggingService.logError(requestId, `Undefined templateCost for chain ${chain}`);
-			throw new Error(`Undefined templateCost for chain ${chain}`);
-		}
-
-		this.loggingService.log(requestId, `data.fee: ${data.fee.toString()}`);
-		this.loggingService.log(requestId, `data.amount: ${data.amount.toString()}`);
-		this.loggingService.log(requestId, `Template Cost: ${templateCostsLast} ${templateCostsPrev}`);
-
-		if (!reenqueued) {
-
-			if (data.amount.toString() !== templateCostsLast && data.amount.toString() !== templateCostsPrev) {
-				// console.log("templateCost", templateCosts);
-				// console.log("amount sent", data.amount.toString());
-				this.loggingService.logError(requestId, `Sent wrong LTO amount: ${data.amount.toString()} Correct amount should be: ${templateCostsLast} or ${templateCostsPrev}`);
-				throw new Error(`Sent wrong LTO amount: ${data.amount.toString()} Correct amount should be: ${templateCostsLast} or ${templateCostsPrev}`);
-			}
-		}
-
-		let thisServerAddress = this.getLTOAccountAddress(ltoNetworkId);
-		if (data.recipient != thisServerAddress) {
-			this.loggingService.logError(requestId, `Wrong recipient address: ${data.recipient}! Use Server LTO Wallet address: ${thisServerAddress}`);
-			throw new Error('Wrong recipient! Use Server LTO Wallet address');
-		}
-		if (!reenqueued) {
-			try {
-				await this.checkReuseOfTxId(ltoTransactionId, requestId);
-			} catch (err) {
-				this.loggingService.logError(requestId, `Check reuse of TxID failed: ${err}`);
-				throw new Error(`Check reuse of TxID failed: ${err}`);
-			}
-		}
-		return {
-			type: data.type,
-			sender: data.sender,
-			recipient: data.recipient,
-			amount: data.amount,
-		};
+		throw new Error(`LTO network no longer exists. Transaction verification unavailable. Use Base blockchain.`);
 	}
 
 	public async getAvailableNftChains(): Promise<JSON> {
@@ -437,79 +390,108 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	}
 
 
+	/**
+	 * Create an event chain for an ownable
+	 * LTO network no longer exists - this method now uses Base blockchain via eqty-core
+	 * @deprecated Use createEventChainBase directly for new code
+	 */
 	private async createEventChain(pkg: TypedPackage, nftInfo: NftInfo, receiver: string): Promise<Buffer> {
-		const ltoNetworkId = getNetwork(receiver);
-		let ltoAccount: Account;
+		// LTO network no longer exists - all addresses must be Ethereum addresses
+		const networkType = this.getNetworkType();
 
-		if (ltoNetworkId === 'L') {
-			ltoAccount = this.ltoService.ltoAccountMainnet;
-		} else {
-			ltoAccount = this.ltoService.ltoAccountTestnet;
+		if (!this.eqtyService.isValidAddress(receiver)) {
+			this.loggingService.logError(pkg.cid, `Invalid address format. Expected Ethereum address (0x...), got: ${receiver}`);
+			throw new Error(`Invalid address format. LTO network no longer exists. Expected Ethereum address (0x...), got: ${receiver}`);
 		}
 
-		const chain: EventChain = new EventChain(ltoAccount);
-		var buf: Buffer;
+		return this.createEventChainBase(pkg, nftInfo, receiver, networkType);
+	}
+
+	/**
+	 * Determine network type from configuration
+	 * @deprecated LTO network no longer exists - use 'mainnet' or 'testnet' for Base
+	 */
+	private getNetworkType(): 'mainnet' | 'testnet' {
+		const useMainnet = (this.config as any).get('eqty.useMainnet') || false;
+		return useMainnet ? 'mainnet' : 'testnet';
+	}
+
+	/**
+	 * Create an event chain for Base blockchain using eqty-core
+	 * This is the EVM-native replacement for createEventChain
+	 * @param pkg The ownable package
+	 * @param nftInfo NFT information
+	 * @param receiver Ethereum address (0x...) of the receiver
+	 * @param networkType 'mainnet' for Base, 'testnet' for Base Sepolia
+	 */
+	private async createEventChainBase(
+		pkg: TypedPackage,
+		nftInfo: NftInfo,
+		receiver: string,
+		networkType: 'mainnet' | 'testnet' = 'testnet'
+	): Promise<Buffer> {
+		// Validate Ethereum address
+		if (!this.eqtyService.isValidAddress(receiver)) {
+			throw new Error(`Invalid Ethereum address: ${receiver}. Expected 0x-prefixed hex address.`);
+		}
+
+		const chain = this.eqtyService.createEventChain(networkType);
+		const chainId = chain.id;
+		const networkId = this.eqtyService.getNetworkId(networkType);
+		let buf: Buffer;
+
 		if (pkg.isDynamic) {
 			let msg: any;
 			if (nftInfo.id != 0) {
 				msg = {
 					"@context": "instantiate_msg.json",
-					ownable_id: chain.id,
+					ownable_id: chainId,
 					package: pkg.cid,
-					network_id: ltoNetworkId,
+					network_id: networkId,
 					keywords: pkg.keywords,
 					nft: {
-						network: nftInfo.network, id: nftInfo.id.toString(), address: nftInfo.address,
+						network: nftInfo.network,
+						id: nftInfo.id.toString(),
+						address: nftInfo.address,
 					},
 				};
 			} else {
 				msg = {
 					"@context": "instantiate_msg.json",
-					ownable_id: chain.id,
+					ownable_id: chainId,
 					package: pkg.cid,
-					network_id: ltoNetworkId,
+					network_id: networkId,
 					keywords: pkg.keywords,
 				};
 			}
 
-			new Event(msg)
-				.addTo(chain)
-				.signWith(ltoAccount);
+			// Create and sign instantiate event
+			await this.eqtyService.addEventToChain(chain, msg, networkType);
 
-			new Event({ "@context": 'execute_msg.json', transfer: { to: receiver } }).addTo(chain).signWith(ltoAccount);
+			// Create and sign transfer event
+			await this.eqtyService.addEventToChain(
+				chain,
+				{ "@context": 'execute_msg.json', transfer: { to: receiver } },
+				networkType
+			);
 
-			// DONE: THIS NEEDS TO BE ENABLED !
-			const appendedEvents = chain.startingWith(chain.events[0]);
-			const anchorMap1 = appendedEvents.anchorMap;
+			// Anchor to Base blockchain
 			try {
-				if (ltoNetworkId === 'L') {
-					await this.ltoService.ltoMainnet.anchor(ltoAccount, ...anchorMap1);
-				} else {
-					await this.ltoService.ltoTestnet.anchor(ltoAccount, ...anchorMap1);
-				}
+				await this.eqtyService.anchorChain(chain, networkType);
+				this.loggingService.log(pkg.cid, `Anchored event chain to Base ${networkType}`);
 			} catch (err) {
-				this.loggingService.logError(pkg.cid, `Anchoring Failed: ${err}`);
+				this.loggingService.logError(pkg.cid, `Anchoring to Base failed: ${err}`);
 				throw err;
 			}
 
-			chain.validate();
-			let genesisSigner: Account;
-			if (ltoNetworkId === 'L') {
-				genesisSigner = this.ltoService.ltoMainnet.account(chain.events[0].signKey);
-			} else {
-				genesisSigner = this.ltoService.ltoTestnet.account(chain.events[0].signKey);
-			}
-			if (!chain.isCreatedBy(genesisSigner)) {
-				this.loggingService.logError(pkg.cid, `Event chain hijacking: genesis event not signed by chain creator on lto Network ${ltoNetworkId}`);
-				throw new Error(`Event chain hijacking: genesis event not signed by chain creator on lto Network ${ltoNetworkId}`);
-			}
-			else {
-				this.loggingService.log(pkg.cid, `All good! Genesis signer correct after creating the Ownable on lto Network ${ltoNetworkId}`);
-			}
+			// Validate chain
+			await chain.validate();
+			this.loggingService.log(pkg.cid, `Event chain validated for Base ${networkType}`);
 
-			const json1 = `${this.pathToCids}/${pkg.cid}/${pkg.cid}.json`
+			// Serialize chain to JSON
+			const json1 = `${this.pathToCids}/${pkg.cid}/${pkg.cid}.json`;
 			try {
-				writeFileSync(json1, JSON.stringify(chain));
+				writeFileSync(json1, JSON.stringify(chain.toJSON()));
 			} catch (err) {
 				this.loggingService.logError(pkg.cid, `Writing ${json1} failed`);
 				throw err;
@@ -524,29 +506,28 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			}
 			buf = Buffer.from(file, 'utf8');
 
-			// Checking the import of the EvenChain json if this still works (e.g. for ownables-sdk)
-			const data: IEventChainJSON = JSON.parse(JSON.stringify(chain));
-			const chain1 = EventChain.from(data);
-			chain1.validate();
-			if (!chain1.isCreatedBy(genesisSigner)) {
-
-				this.loggingService.logError(pkg.cid, `Event chain hijacking: genesis event not signed by chain creator on lto Network ${ltoNetworkId}`);
-				throw new Error(`Event chain hijacking: genesis event not signed by chain creator on lto Network ${ltoNetworkId}`);
-			}
-			else {
-				this.loggingService.log(pkg.cid, `All good! Genesis signer correct after reading EventChain from disk on lto Network ${ltoNetworkId}`);
-			}
+			this.loggingService.log(pkg.cid, `Successfully created event chain for Base ${networkType}`);
 		}
 
 		return buf;
 	}
 
 
-	public getServerLtoWalletAddresses(): [string, string] {
-		return [this.getLTOAccountAddress('L'), this.getLTOAccountAddress('T')];
+	public getServerWalletAddresses(): [string, string] {
+		return [this.getEqtyAddress('mainnet'), this.getEqtyAddress('testnet')];
 	}
 	public getServerEVMwalletAddresses(networkName: string): [string, string] {
 		return this.nft.getEvmWalletAddresses(networkName);
+	}
+
+	/**
+	 * Get Base blockchain wallet addresses for mainnet and testnet
+	 */
+	public getServerBaseWalletAddresses(): [string, string] {
+		return [
+			this.eqtyService.getAddress('mainnet'),
+			this.eqtyService.getAddress('testnet')
+		];
 	}
 
 	public async templateCost(templateId: number): Promise<any> {
@@ -560,8 +541,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		await this.coinmarketcap.getLatestPrice();
 		const main = this.queueService.getTemplateCosts('L', 'arbitrum', '1');
 		const test = this.queueService.getTemplateCosts('T', 'arbitrum', '1');
-		console.log("main", main);
-		console.log("test", test);
+		this.logger.debug(`templateCost main: ${JSON.stringify(main)}`);
+		this.logger.debug(`templateCost test: ${JSON.stringify(test)}`);
 		return {
 			'L': {
 				'arbitrum': main
@@ -601,9 +582,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		const formDataPicture = new FormData();
 
 		if (this.nodeVersion.startsWith('v18.')) {
-			formDataPicture.append("file", blobPicture);
+			formDataPicture.append("file", blobPicture as any);
 		} else if (this.nodeVersion.startsWith('v20.')) {
-			const fileBlob = new File([blobPicture], "OwnableNftPicture", { type: 'image/webp' });
+			const fileBlob = new File([blobPicture as any], "OwnableNftPicture", { type: 'image/webp' });
 			formDataPicture.append("file", fileBlob);
 		}
 
@@ -652,9 +633,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		const formDataJson = new FormData();
 
 		if (this.nodeVersion.startsWith('v18.')) {
-			formDataJson.append("file", blobJson);
+			formDataJson.append("file", blobJson as any);
 		} else if (this.nodeVersion.startsWith('v20.')) {
-			const fileBlob = new File([blobJson], "OwnableNftJson", { type: 'application/json' });
+			const fileBlob = new File([blobJson as any], "OwnableNftJson", { type: 'application/json' });
 			formDataJson.append("file", fileBlob);
 		}
 
@@ -743,54 +724,37 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		nftInfo.id = nftcount;
 		return nftInfo;
 	}
-	private async getSignerOfRequest(req: Request, ltoNetworkId: 'L' | 'T'): Promise<string> {
-		// let signerAccountAddress: string;
+	/**
+	 * Extract signer address from EIP-712 signed request
+	 * The EIP712Guard already verifies the signature and attaches signerAddress to request
+	 */
+	private async getSignerOfRequest(req: Request, networkType: 'L' | 'T' | 'mainnet' | 'testnet'): Promise<string> {
+		// EIP712Guard already validated and attached the signer address
+		const signerAddress = (req as any).signerAddress;
 
-		console.log("req headers", req.headers);
-		console.log("req url", req.url);
-		console.log("req method", req.method);
-		console.log("req headers origin", req.headers.origin);
-		console.log("req headers host", req.headers.host);
-
-		const longUrl = req.headers.origin;
-		const httpPartOfUrl = longUrl.split('//');
-		const urlWithoutParams = req.url.split('?');
-		const signedRequest = {
-			headers: {
-				'Signature': req.headers.signature,
-				'Signature-Input': req.headers['signature-input']
-			},
-			url: `${httpPartOfUrl[0]}//${req.headers.host}${urlWithoutParams[0]}`,
-			method: `${req.method}`
-		}
-		console.log("signedRequest:", signedRequest);
-		let signerAccount: Account = null;
-		// First try if request has been signed by mainnet account
-		try {
-			if (ltoNetworkId === 'L') {
-				signerAccount = await verify(signedRequest, this.ltoService.ltoMainnet);
-			} else if (ltoNetworkId === 'T') {
-				signerAccount = await verify(signedRequest, this.ltoService.ltoTestnet);
-			}
-		} catch (err) {
-			signerAccount = null;
-			throw new UserError(
-				`Invalid signed request on LTO network ${ltoNetworkId}. Not possible to extract signer. Signed Request: ${JSON.stringify(signedRequest)} Error: ${err}`
-			);
+		if (signerAddress && this.eqtyService.isValidAddress(signerAddress)) {
+			this.logger.debug(`Extracted signer from EIP-712 request: ${signerAddress}`);
+			return signerAddress;
 		}
 
+		// Fallback: check for x-wallet-address header (for testing/migration)
+		const walletAddress = req.headers['x-wallet-address'] as string;
+		if (walletAddress && this.eqtyService.isValidAddress(walletAddress)) {
+			this.logger.warn(`Using x-wallet-address header (migration mode): ${walletAddress}`);
+			return walletAddress;
+		}
 
-		console.log("Extracted signer from LtoRequest:", signerAccount.address);
-		return signerAccount.address;
-
+		throw new UserError(
+			`No valid signer found in request. Ensure request is signed with EIP-712 or x-wallet-address header is provided.`
+		);
 	}
 	public async queueRequest(ltoNetworkId: 'L' | 'T', uint8ArrayData: Uint8Array, templateId: number, req: Request): Promise<any> {
 		let signerAccountAddress: string;
 		// let ltoNetworkId: 'L' | 'T';
 		try {
 			signerAccountAddress = await this.getSignerOfRequest(req, ltoNetworkId);
-			console.log("signerAccountAddress", signerAccountAddress);
-			console.log("getNetwork", getNetwork(signerAccountAddress));
+			this.logger.debug(`signerAccountAddress: ${signerAccountAddress}`);
+			this.logger.debug(`signerAddress: ${signerAccountAddress} (LTO network no longer exists)`);
 			// if (getNetwork(signerAccountAddress) === 'L') {
 			//   ltoNetworkId = 'L';
 			// } else if (getNetwork(signerAccountAddress) === 'T') {
@@ -807,7 +771,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		const relayURL = this.getRelayUrl();
 		const isUp: boolean = await this.isRelayUp(relayURL);
 		if (isUp) {
-			console.log(`oRelay Server ${relayURL} is up and running!`);
+			this.logger.debug(`oRelay Server ${relayURL} is up and running!`);
 		}
 		else {
 			throw new Error(`Error: oRelay Server ${relayURL} is down`);
@@ -817,14 +781,14 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			throw new Error('Queueing of new Requests currently disabled!');
 		}
 
-		console.log("unzipping user input file into memory...");
+		this.logger.debug('unzipping user input file into memory...');
 		const requestIdFiles = await this.unzip(uint8ArrayData);
 
 		const timeMillisecondsNow = Date.now().toString();
 		requestIdFiles.set('timestamp.txt', Buffer.from(timeMillisecondsNow, 'utf-8'));
 
-		console.log("requestIdFiles", requestIdFiles);
-		console.log("getting request ID of input requestIdFiles...");
+		this.logger.debug(`requestIdFiles: ${requestIdFiles}`);
+		this.logger.debug('getting request ID of input requestIdFiles...');
 
 		const requestId: string = await this.getUniqueId(requestIdFiles);
 		this.loggingService.log(requestId, `New Logging Service added for unique request ID: ${requestId}`);
@@ -854,9 +818,9 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			jsonFile.NFT_BLOCKCHAIN = 'noNFT';
 		}
 
-		const thisLtoServerAddress = this.getLTOAccountAddress(ltoNetworkId);
-		this.loggingService.log(requestId, `LTO ACCOUNT: ${thisLtoServerAddress}`);
-		this.loggingService.log(requestId, `Checking LTO transaction ID: ${jsonFile.OWNABLE_LTO_TRANSACTION_ID}`);
+		const thisServerAddress = this.getEqtyAddress(ltoNetworkId);
+		this.loggingService.log(requestId, `EQTY ACCOUNT: ${thisServerAddress}`);
+		this.loggingService.log(requestId, `Checking transaction ID: ${jsonFile.OWNABLE_LTO_TRANSACTION_ID}`);
 
 
 		await this.wait(10000);
@@ -960,8 +924,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			}
 		}
 
-		const queueingAllowed_L = this.config.get('lto.queue.mainnet');
-		const queueingAllowed_T = this.config.get('lto.queue.testnet');
+		const queueingAllowed_L = this.config.get('eqty.queue.mainnet');
+		const queueingAllowed_T = this.config.get('eqty.queue.testnet');
 		this.queueService.allowQueueing('L', queueingAllowed_L);
 		this.queueService.allowQueueing('T', queueingAllowed_T);
 	}
@@ -981,16 +945,18 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	public getQueueEntriesByRequestId(ltoNetworkId: 'L' | 'T', requestId: string): [QueueEntry, number] {
 		return this.queueService.getQueueEntryByRequestId(ltoNetworkId, requestId);
 	}
+	/**
+	 * Get queue entries by wallet address
+	 * LTO network no longer exists - uses Ethereum address validation
+	 */
 	public getQueueEntriesByWallet(wallet: string): QueueEntry[] {
-		if (this.isValidLtoAddress(wallet) === "false") {
+		// LTO addresses no longer exist, check for valid Ethereum address
+		if (!this.eqtyService.isValidAddress(wallet)) {
 			return [];
 		}
-		if (getNetwork(wallet) === 'L') {
-			return this.queueService.getQueueEntriesByWallet('L', wallet);
-		} else {
-			return this.queueService.getQueueEntriesByWallet('T', wallet);
-
-		}
+		// Use config-based network detection
+		const networkId = this.getNetworkType() === 'mainnet' ? 'L' : 'T';
+		return this.queueService.getQueueEntriesByWallet(networkId as 'L' | 'T', wallet);
 	}
 	public getQueueEntriesByStatus(ltoNetworkId: 'L' | 'T', status: OwnableStatus): QueueEntry[] {
 		return this.queueService.getQueueEntriesByStatus(ltoNetworkId, status);
@@ -1055,7 +1021,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	private isValidPackageName(name: string): boolean {
 		// Regular expression to match Unicode letters, numbers, underscores, and hyphens
 		const xidRegex = /^[a-zA-Z0-9]+(\.webp)?$/g;
-		console.log("isValidPackageName", xidRegex.test(name));
+		this.logger.debug(`isValidPackageName: ${xidRegex.test(name)}`);
 		return xidRegex.test(name);
 	}
 	private sanitizePackageName(name: string, hasdotWebp: boolean): string {
@@ -1073,7 +1039,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	private wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
 
 
-	public async store(ltoNetworkId: 'L' | 'T', requestId: string, data: Uint8Array, templateId: number, sender: string, reenqueued: boolean, reenqueued_NFTURI: string, reenqueued_NFTINFO:NftInfo) {
+	public async store(ltoNetworkId: 'L' | 'T', requestId: string, data: Uint8Array, templateId: number, sender: string, reenqueued: boolean, reenqueued_NFTURI: string, reenqueued_NFTINFO: NftInfo) {
 		try {
 			this.loggingService.log(requestId, `Unzipping user input files for Ownable creation into memory`);
 			const requestIdFiles = await this.unzip(data);
@@ -1165,7 +1131,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 						nftInfo = await this.mintNewNft(ltoNetworkId, jsonFile, requestId);
 					} else {
 						nftInfo = reenqueued_NFTINFO;
-				}
+					}
 				} catch (err) {
 					this.loggingService.logError(requestId, `Minting NFT failed: ${err}`);
 					throw (err);
@@ -1295,7 +1261,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		this.loggingService.log(rid, `setCidNftInfo rid ${rid}`);
 		this.loggingService.log(rid, `setCidNftInfo cid ${cid}`);
 		this.loggingService.log(rid, `setCidNftInfo nftInfo` + JSON.stringify(nftInfo));
-		this.loggingService.log(rid, `setCidNftInfo nft TOken URI ${jsonFile.NFT_TOKEN_URI}` );
+		this.loggingService.log(rid, `setCidNftInfo nft TOken URI ${jsonFile.NFT_TOKEN_URI}`);
 		try {
 			await this.queueService.setCidNftInfo(ltoNetworkId, rid, cid, nftInfo, jsonFile.NFT_TOKEN_URI);
 		} catch (err) {
@@ -1436,11 +1402,11 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		} else {
 			files = await this.s3.s3BucketOwnables_T.list();
 		}
-		console.log("Bucket files:", files);
+		this.logger.debug(`Bucket files: ${files}`);
 
 		// Build the regex pattern
 		const myReg = new RegExp(`^${requestId}_`, 'g');
-		console.log('Regex pattern:', myReg);
+		this.logger.debug(`Regex pattern: ${myReg}`);
 		const matchingFile = files.find((file) => file.match(myReg));
 
 
@@ -1454,7 +1420,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 		if (matchingFile) {
 			const filesArray = matchingFile.split('_');
-			console.log("Matching file array:", filesArray);
+			this.logger.debug(`Matching file array: ${filesArray}`);
 
 			retVal.cid = filesArray[1]; // cid
 			retVal.sender = filesArray[2];

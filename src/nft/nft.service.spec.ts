@@ -1,41 +1,34 @@
-// import { NFTService } from './nft.service';
-// import { Test, TestingModule } from '@nestjs/testing';
-// import { EthersModule } from '../common/ethers/ethers.module';
-// import { NFTInfo } from '../interfaces/OwnableInfo';
-// import { EthereumService } from './ethereum/ethereum.service';
+import { Test, TestingModule } from '@nestjs/testing';
+import { NFTService } from './nft.service';
+import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '../config/config.service';
 
-// describe('NFTService', () => {
-//   let service: NFTService;
-//   let ethereumService: EthereumService;
+describe('NFTService', () => {
+    let service: NFTService;
 
-//   beforeEach(async () => {
-//     const module: TestingModule = await Test.createTestingModule({
-//       imports: [EthersModule],
-//       providers: [NFTService, EthereumService],
-//     }).compile();
-//     await module.init();
+    const mockConfigService = {
+        get: vi.fn().mockReturnValue('test-value'),
+        load: vi.fn().mockResolvedValue(undefined),
+    };
 
-//     service = module.get<NFTService>(NFTService);
-//     ethereumService = module.get<EthereumService>(EthereumService);
-//   });
+    const mockHttpService = {
+        get: vi.fn(),
+        post: vi.fn(),
+    };
 
-//   it('should be defined', () => {
-//     expect(service).toBeDefined();
-//   });
+    beforeEach(async () => {
+        const module: TestingModule = await Test.createTestingModule({
+            providers: [
+                NFTService,
+                { provide: ConfigService, useValue: mockConfigService },
+                { provide: HttpService, useValue: mockHttpService },
+            ],
+        }).compile();
 
-//   it('should call unlock proof for ethereum', async () => {
-//     const nft: NFTInfo = {
-//       network: 'eip155:1',
-//       address: '0x123',
-//       id: '456',
-//     };
-//     // const getContractSpy = jest
-//     //   .spyOn(ethereumService, 'getUnlockProof')
-//     //   .mockReturnValue(Promise.resolve('unlock-proof'));
+        service = module.get<NFTService>(NFTService);
+    });
 
-//     // const unlockProof = await service.getUnlockProof(nft);
-
-//     // expect(getContractSpy).toHaveBeenCalledWith(nft);
-//     // expect(unlockProof).toBe('unlock-proof');
-//   });
-// });
+    it('should be defined', () => {
+        expect(service).toBeDefined();
+    });
+});

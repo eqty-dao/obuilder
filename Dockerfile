@@ -20,8 +20,8 @@ RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
 # Set default Rust toolchain and add WebAssembly target
 RUN rustup default nightly \
-&& rustup update nightly \
-&& rustup target add wasm32-unknown-unknown
+    && rustup update nightly \
+    && rustup target add wasm32-unknown-unknown
 
 # Debugging: Verify installation paths
 RUN cargo --version
@@ -44,8 +44,8 @@ RUN npm run build
 
 # Runtime Stage (node version needs to be the same as build stage)
 FROM node:20 AS runtime
-# Install necessary tools and dependencies
-RUN apt-get update && apt-get install -y clang zip \
+# Install necessary tools and dependencies (including curl for health checks)
+RUN apt-get update && apt-get install -y clang zip curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -88,4 +88,10 @@ COPY --from=build /usr/src/storage ./storage
 
 # Expose port and define command to run the application
 EXPOSE 3000
+
+# Health check for container orchestration
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
 CMD ["node", "dist/main.js"]
+
