@@ -533,4 +533,137 @@ describe('UploadZipService', () => {
     });
   });
 
+  describe('templateCost', () => {
+    beforeEach(() => {
+      mockCoinmarketcap.getLatestPrice = vi.fn().mockResolvedValue(100);
+      mockQueue.getTemplateCosts = vi.fn().mockReturnValue({ usd: 5, eth: 0.01 });
+    });
+
+    it('should return costs for template ID 1', async () => {
+      const result = await service.templateCost(1);
+
+      expect(result).toHaveProperty('L');
+      expect(result).toHaveProperty('T');
+      expect(result.L).toHaveProperty('arbitrum');
+      expect(result.T).toHaveProperty('arbitrum');
+    });
+
+    it('should call coinmarketcap getLatestPrice', async () => {
+      await service.templateCost(1);
+
+      expect(mockCoinmarketcap.getLatestPrice).toHaveBeenCalled();
+    });
+
+    it('should call queueService.getTemplateCosts for both networks', async () => {
+      await service.templateCost(1);
+
+      expect(mockQueue.getTemplateCosts).toHaveBeenCalledWith('L', 'arbitrum', '1');
+      expect(mockQueue.getTemplateCosts).toHaveBeenCalledWith('T', 'arbitrum', '1');
+    });
+
+    it('should throw for unsupported template ID', async () => {
+      await expect(service.templateCost(2)).rejects.toMatch(/Currently only Template ID 1/);
+    });
+
+    it('should throw for template ID 0', async () => {
+      await expect(service.templateCost(0)).rejects.toMatch(/Currently only Template ID 1/);
+    });
+  });
+
+  describe('queueStatus', () => {
+    beforeEach(() => {
+      mockQueue.isCreatingOwnable = vi.fn().mockReturnValue(null);
+      mockQueue.isQueueingAllowed = vi.fn().mockReturnValue(true);
+      mockQueue.getQueueEntriesByStatus = vi.fn().mockReturnValue([]);
+    });
+
+    it('should return status when no ownable is being created', () => {
+      const result = service.queueStatus();
+
+      expect(result).toHaveProperty('creatingOwnable', '');
+      expect(result).toHaveProperty('isQueueingAllowed', true);
+    });
+
+    it('should return processing entry when ownable is being created on L', () => {
+      mockQueue.isCreatingOwnable = vi.fn().mockReturnValue('L');
+      mockQueue.isQueueingAllowed = vi.fn().mockReturnValue(false);
+      mockQueue.getQueueEntriesByStatus = vi.fn().mockReturnValue([{
+        rid: 'processing-rid',
+        ltoWallet: '0xWallet',
+        hash: '0xHash',
+        txId: '0xTxId',
+        ownableStatus: 2,
+        templateId: 1,
+        timestampInQueue: 123,
+        timestampProcessing: 456,
+        timestampSent: 0,
+        timestampFailed: 0,
+      }]);
+
+      const result = service.queueStatus();
+
+      expect(result.creatingOwnable).toBe('L');
+      expect(result.isQueueingAllowed).toBe(false);
+      expect(result.requestId).toBe('processing-rid');
+    });
+
+    it('should return processing entry when ownable is being created on T', () => {
+      mockQueue.isCreatingOwnable = vi.fn().mockReturnValue('T');
+      mockQueue.getQueueEntriesByStatus = vi.fn().mockReturnValue([{
+        rid: 'test-rid',
+        ltoWallet: '0xTest',
+        hash: '',
+        txId: '',
+        ownableStatus: 2,
+        templateId: 1,
+        timestampInQueue: 0,
+        timestampProcessing: 0,
+        timestampSent: 0,
+        timestampFailed: 0,
+      }]);
+
+      const result = service.queueStatus();
+
+      expect(result.creatingOwnable).toBe('T');
+    });
+  });
+
+  describe('getProcessingEntries', () => {
+    it('should call getQueueEntriesByStatus with Processing status', () => {
+      mockQueue.getQueueEntriesByStatus = vi.fn().mockReturnValue([]);
+
+      service.getProcessingEntries('L');
+
+      expect(mockQueue.getQueueEntriesByStatus).toHaveBeenCalledWith('L', expect.anything());
+    });
+
+    it('should return entries from queueService', () => {
+      const mockEntries = [{ rid: 'entry1' }, { rid: 'entry2' }];
+      mockQueue.getQueueEntriesByStatus = vi.fn().mockReturnValue(mockEntries);
+
+      const result = service.getProcessingEntries('T');
+
+      expect(result).toEqual(mockEntries);
+    });
+  });
+
+  describe('getQueueEntriesByStatus', () => {
+    it('should delegate to queueService with correct status', () => {
+      mockQueue.getQueueEntriesByStatus = vi.fn().mockReturnValue([]);
+
+      service.getQueueEntriesByStatus('L', 1); // 1 = InQueue
+
+      expect(mockQueue.getQueueEntriesByStatus).toHaveBeenCalledWith('L', 1);
+    });
+
+    it('should work with different status values', () => {
+      mockQueue.getQueueEntriesByStatus = vi.fn().mockReturnValue([]);
+
+      service.getQueueEntriesByStatus('T', 3); // 3 = Ready
+
+      expect(mockQueue.getQueueEntriesByStatus).toHaveBeenCalledWith('T', 3);
+    });
+  });
+
 });
+
