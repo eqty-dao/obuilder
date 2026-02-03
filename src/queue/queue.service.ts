@@ -102,7 +102,7 @@ export class QueueService implements OnModuleInit {
 
 		if (typeof this.templateCostsTestnet[evmNetwork] !== 'object') {
 			this.templateCostsTestnet = {
-				"arbitrum": {
+				"base": {
 					"1": {
 						"last": "20000000",
 						"prev": "20000000"
@@ -113,7 +113,7 @@ export class QueueService implements OnModuleInit {
 		}
 		if (typeof this.templateCostsMainnet[evmNetwork] !== 'object') {
 			this.templateCostsMainnet = {
-				"arbitrum": {
+				"base": {
 					"1": {
 						"last": "20000000",
 						"prev": "20000000"
