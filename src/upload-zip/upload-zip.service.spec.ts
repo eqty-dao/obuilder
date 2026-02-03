@@ -768,15 +768,8 @@ describe('UploadZipService', () => {
     });
   });
 
-  // REMOVED: readOwnableDataFromZip tests - logic now delegated to OwnableStorageService and tested there
 
-  // Skipped: getNetworkType now delegates to OwnableBuilderService
-  describe.skip('getNetworkType (private)', () => {
-    it('should return testnet when config is testnet', () => {
-      const result = (service as any).getNetworkType();
-      expect(['mainnet', 'testnet']).toContain(result);
-    });
-  });
+  // REMOVED: readOwnableDataFromZip tests - logic now delegated to OwnableStorageService and tested there
 
   describe('checkForFailedEntries', () => {
     beforeEach(() => {
@@ -793,77 +786,8 @@ describe('UploadZipService', () => {
     });
   });
 
-  // Skipped: isRelayServerUp now delegates to OwnableRelayService - tested in relay.service.spec.ts
-  describe.skip('isRelayServerUp', () => {
-    it('should throw when relay is down', async () => {
-      // Mock global fetch to fail
-      global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
-
-      await expect(service.isRelayServerUp()).rejects.toThrow(/Relay Server.*is down/);
-    });
-
-    it('should return success message when relay is up', async () => {
-      global.fetch = vi.fn().mockResolvedValue({ ok: true });
-
-      const result = await service.isRelayServerUp();
-
-      expect(result).toContain('SUCCESS');
-      expect(result).toContain('is up and running');
-    });
-  });
-
-  // Skipped: getRelayUrl now delegates to OwnableRelayService - tested in relay.service.spec.ts
-  describe.skip('getRelayUrl', () => {
-    it('should return configured relay URL', () => {
-      const result = (service as any).getRelayUrl();
-
-      expect(result).toBe('https://relay.example.com');
-    });
-  });
-
-  // Skipped: isRelayUp now delegates to OwnableRelayService - tested in relay.service.spec.ts
-  describe.skip('isRelayUp (private)', () => {
-    it('should throw when URL is undefined', async () => {
-      await expect((service as any).isRelayUp(undefined)).rejects.toThrow(/Undefined relay URL/);
-    });
-
-    it('should return true when fetch succeeds with ok response', async () => {
-      global.fetch = vi.fn().mockResolvedValue({ ok: true });
-
-      const result = await (service as any).isRelayUp('https://test-relay.com');
-
-      expect(result).toBe(true);
-    });
-
-    it('should return false when fetch succeeds with non-ok response', async () => {
-      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 });
-
-      const result = await (service as any).isRelayUp('https://test-relay.com');
-
-      expect(result).toBe(false);
-    });
-
-    it('should throw when fetch fails', async () => {
-      global.fetch = vi.fn().mockRejectedValue(new Error('Connection refused'));
-
-      await expect((service as any).isRelayUp('https://test-relay.com'))
-        .rejects.toThrow(/Relay Server.*is down/);
-    });
-  });
-
-  // Skipped: getNetworkType now delegates to OwnableBuilderService
-  describe.skip('getNetworkType (private) - extended', () => {
-    it('should return mainnet when useMainnet is true', () => {
-      mockConfig.get = vi.fn().mockImplementation((key: string) => {
-        if (key === 'eqty.useMainnet') return true;
-        return undefined;
-      });
-
-      // Use existing service since config is mocked globally
-      const result = (service as any).getNetworkType();
-      expect(result).toBe('mainnet');
-    });
-  });
+  // REMOVED: getNetworkType, isRelayServerUp, getRelayUrl, isRelayUp tests
+  // Logic delegated to OwnableBuilderService and OwnableRelayService - tested in their respective spec files
 
   describe('checkReuseOfTxId (private)', () => {
     beforeEach(() => {
@@ -1325,69 +1249,7 @@ describe('UploadZipService', () => {
     });
   });
 
-  // ============================================
-  // FASE 6c: mintNewNft Tests
-  // NOTE: Skipped - method has complex internal validation and logging
-  // ============================================
-
-  describe.skip('mintNewNft (private) - REQUIRES INTERNAL MOCKING', () => {
-    beforeEach(() => {
-      mockNft.mintNFT = vi.fn().mockResolvedValue({
-        network: 'arbitrum',
-        address: '0xNftContract',
-        id: 42,
-      });
-    });
-
-    it('should mint NFT on mainnet for L network', async () => {
-      const jsonFile = {
-        NFT_BLOCKCHAIN: 'arbitrum',
-        NFT_TOKEN_URI: 'https://example.com/metadata.json',
-      };
-
-      const result = await (service as any).mintNewNft('L', jsonFile, 'rid-123');
-
-      expect(mockNft.mintNFT).toHaveBeenCalledWith(
-        'mainnet',
-        expect.any(Object)
-      );
-      expect(result).toEqual({
-        network: 'arbitrum',
-        address: '0xNftContract',
-        id: 42,
-      });
-    });
-
-    it('should mint NFT on testnet for T network', async () => {
-      const jsonFile = {
-        NFT_BLOCKCHAIN: 'base-sepolia',
-        NFT_TOKEN_URI: 'https://example.com/metadata.json',
-      };
-
-      await (service as any).mintNewNft('T', jsonFile, 'rid-456');
-
-      expect(mockNft.mintNFT).toHaveBeenCalledWith(
-        'testnet',
-        expect.any(Object)
-      );
-    });
-
-    it('should log NFT info after minting', async () => {
-      (mockLogging as any).logInfo = vi.fn();
-
-      await (service as any).mintNewNft('L', { NFT_BLOCKCHAIN: 'arbitrum', NFT_TOKEN_URI: 'uri' }, 'rid-789');
-
-      expect((mockLogging as any).logInfo).toHaveBeenCalled();
-    });
-
-    it('should throw when minting fails', async () => {
-      mockNft.mintNFT = vi.fn().mockRejectedValue(new Error('Minting failed'));
-
-      await expect(
-        (service as any).mintNewNft('L', { NFT_BLOCKCHAIN: 'arbitrum', NFT_TOKEN_URI: 'uri' }, 'rid-000')
-      ).rejects.toThrow('Minting failed');
-    });
-  });
+  // REMOVED: mintNewNft tests - logic delegated to OwnableBuilderService and tested there
 
   // ============================================
   // FASE 6d: getSignerOfRequest Tests
@@ -2010,27 +1872,7 @@ describe('UploadZipService', () => {
   // Note: getInQueueEntries, getProcessingEntries, getReadyEntries, getSentEntries, getQueueEntriesByStatus
   // are simple wrapper methods that delegate to queueService. They are tested via integration tests.
 
-  // Skipped: getNetworkType now delegates to OwnableBuilderService
-  describe.skip('getNetworkType', () => {
-    it('should return mainnet when config says useMainnet=true', () => {
-      mockConfig.get = vi.fn().mockImplementation((key: string) => {
-        if (key === 'eqty.useMainnet') return true;
-        return undefined;
-      });
-
-      const result = (service as any).getNetworkType();
-
-      expect(result).toBe('mainnet');
-    });
-
-    it('should return testnet by default (useMainnet=false)', () => {
-      mockConfig.get = vi.fn().mockReturnValue(false);
-
-      const result = (service as any).getNetworkType();
-
-      expect(result).toBe('testnet');
-    });
-  });
+  // REMOVED: getNetworkType tests - logic delegated to OwnableBuilderService and tested there
 
 });
 
