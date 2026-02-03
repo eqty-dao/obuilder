@@ -1020,9 +1020,11 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 	private isValidPackageName(name: string): boolean {
 		// Regular expression to match Unicode letters, numbers, underscores, and hyphens
-		const xidRegex = /^[a-zA-Z0-9]+(\.webp)?$/g;
-		this.logger.debug(`isValidPackageName: ${xidRegex.test(name)}`);
-		return xidRegex.test(name);
+		// Note: Removed /g flag to avoid stateful regex issues between calls
+		const xidRegex = /^[a-zA-Z0-9]+(\.webp)?$/;
+		const isValid = xidRegex.test(name);
+		this.logger.debug(`isValidPackageName: ${isValid}`);
+		return isValid;
 	}
 	private sanitizePackageName(name: string, hasdotWebp: boolean): string {
 		// Regular expression to match invalid characters

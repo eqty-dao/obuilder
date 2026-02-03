@@ -1,8 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Inject, Optional } from '@nestjs/common';
 import { ConfigService } from '../config/config.service';
 import { JsonRpcProvider, Wallet, Contract, TransactionResponse } from 'ethers';
+import { IEqtyFactory, IMessage, IRelay, ISigner, EqtyCoreFactory, EQTY_FACTORY } from './eqty.interfaces';
 
-// Use require for CommonJS compatibility with eqty-core
+// Use require for CommonJS compatibility with eqty-core (fallback)
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const eqtyCore = require('eqty-core');
 
@@ -10,7 +11,7 @@ const eqtyCore = require('eqty-core');
  * EthersSigner adapter for eqty-core ISigner interface
  * Wraps ethers Wallet to work with eqty-core's signWith methods
  */
-class EthersSigner {
+class EthersSigner implements ISigner {
     constructor(private wallet: Wallet) { }
 
     async getAddress(): Promise<string> {
@@ -35,6 +36,7 @@ export interface EqtyNetworkConfig {
 @Injectable()
 export class EqtyService implements OnModuleInit {
     private readonly logger = new Logger(EqtyService.name);
+    private readonly factory: IEqtyFactory;
 
     // Mainnet (Base)
     private providerMainnet: JsonRpcProvider | null = null;
@@ -52,7 +54,13 @@ export class EqtyService implements OnModuleInit {
     private readonly MAINNET_CHAIN_ID = 8453; // Base Mainnet
     private readonly TESTNET_CHAIN_ID = 84532; // Base Sepolia
 
-    constructor(private readonly config: ConfigService) { }
+    constructor(
+        private readonly config: ConfigService,
+        @Optional() @Inject(EQTY_FACTORY) factory?: IEqtyFactory
+    ) {
+        // Use injected factory or default to real eqty-core implementation
+        this.factory = factory || new EqtyCoreFactory();
+    }
 
     async onModuleInit() {
         await this.config.load();
@@ -258,8 +266,8 @@ export class EqtyService implements OnModuleInit {
      * @param content The message content (string, Buffer, or object)
      * @param mediaType Optional media type (defaults based on content type)
      */
-    public createMessage(content: string | Uint8Array | object, mediaType?: string): any {
-        return new eqtyCore.Message(content, mediaType);
+    public createMessage(content: string | Uint8Array | object, mediaType?: string): IMessage {
+        return this.factory.createMessage(content, mediaType);
     }
 
     /**
@@ -293,9 +301,9 @@ export class EqtyService implements OnModuleInit {
      * Create a Relay instance for sending/receiving messages
      * @param url The relay server URL (optional, uses config if not provided)
      */
-    public createRelay(url?: string): any {
+    public createRelay(url?: string): IRelay {
         const relayUrl = url || this.getConfigSafe('eqty.relayUrl') || 'https://relay.eqty.io';
-        return new eqtyCore.Relay(relayUrl);
+        return this.factory.createRelay(relayUrl);
     }
 
     /**

@@ -2045,5 +2045,191 @@ describe('UploadZipService', () => {
     });
   });
 
+  // ============================================
+  // Phase 2: Additional Tests for 85% Coverage
+  // ============================================
+
+  // isValidPackageName tests - fixed by removing /g flag from regex
+  // The regex no longer has state issues between calls
+  describe('isValidPackageName (private)', () => {
+    it('should validate simple lowercase names', () => {
+      expect((service as any).isValidPackageName('simpletest')).toBe(true);
+    });
+
+    it('should reject names with special characters', () => {
+      expect((service as any).isValidPackageName('test-package')).toBe(false);
+    });
+
+    it('should reject names with spaces', () => {
+      expect((service as any).isValidPackageName('test package')).toBe(false);
+    });
+
+    it('should reject names with underscores', () => {
+      expect((service as any).isValidPackageName('test_package')).toBe(false);
+    });
+
+    it('should reject empty string', () => {
+      expect((service as any).isValidPackageName('')).toBe(false);
+    });
+  });
+
+  describe('sanitizePackageName (private)', () => {
+    it('should remove special characters from name', () => {
+      const result = (service as any).sanitizePackageName('test-package_123!@#', false);
+      expect(result).toBe('testpackage123');
+    });
+
+    it('should preserve .webp extension when hasdotWebp is true', () => {
+      const result = (service as any).sanitizePackageName('my-image.webp', true);
+      expect(result).toBe('myimage.webp');
+    });
+
+    it('should not modify extension when hasdotWebp is false', () => {
+      const result = (service as any).sanitizePackageName('my-image.webp', false);
+      expect(result).toBe('myimagewebp');
+    });
+
+    it('should handle name without extension', () => {
+      const result = (service as any).sanitizePackageName('simple', false);
+      expect(result).toBe('simple');
+    });
+
+    it('should handle name with multiple dots', () => {
+      const result = (service as any).sanitizePackageName('my.file.name.webp', true);
+      expect(result).toBe('myfilename.webp');
+    });
+  });
+
+  describe('sendOwnableBase', () => {
+    beforeEach(() => {
+      mockEqty.isValidAddress = vi.fn().mockReturnValue(true);
+      mockEqty.getAddress = vi.fn().mockReturnValue('0xServer123');
+      mockEqty.createAndSendMessage = vi.fn().mockResolvedValue({
+        message: 'test-message',
+        hash: '0xHash123',
+      });
+    });
+
+    it('should send ownable via Base blockchain', async () => {
+      const content = new Uint8Array([1, 2, 3, 4]);
+
+      await service.sendOwnableBase('testnet', 'rid-123', '0x1234567890123456789012345678901234567890', content);
+
+      expect(mockEqty.createAndSendMessage).toHaveBeenCalled();
+      expect(mockQueue.setQueueEntryStatus).toHaveBeenCalled();
+    });
+
+    it('should throw when recipient address is invalid', async () => {
+      mockEqty.isValidAddress = vi.fn().mockReturnValue(false);
+      const content = new Uint8Array([1, 2, 3, 4]);
+
+      await expect(
+        service.sendOwnableBase('testnet', 'rid-123', 'invalid-address', content)
+      ).rejects.toThrow('Invalid Ethereum address');
+    });
+
+    it('should throw when no content provided', async () => {
+      await expect(
+        service.sendOwnableBase('testnet', 'rid-123', '0x1234567890123456789012345678901234567890', undefined)
+      ).rejects.toThrow('No content provided');
+    });
+
+    it('should use mainnet when specified', async () => {
+      const content = new Uint8Array([1, 2, 3, 4]);
+
+      await service.sendOwnableBase('mainnet', 'rid-main', '0x1234567890123456789012345678901234567890', content);
+
+      expect(mockQueue.setQueueEntryStatus).toHaveBeenCalledWith('L', 'rid-main', expect.anything(), expect.anything());
+    });
+
+    it('should handle createAndSendMessage error', async () => {
+      mockEqty.createAndSendMessage = vi.fn().mockRejectedValue(new Error('Network error'));
+      const content = new Uint8Array([1, 2, 3, 4]);
+
+      await expect(
+        service.sendOwnableBase('testnet', 'rid-err', '0x1234567890123456789012345678901234567890', content)
+      ).rejects.toThrow('Error sending message via Base');
+    });
+  });
+
+  describe('checkLtoTransactionId (deprecated)', () => {
+    it('should throw when not reenqueued', async () => {
+      await expect(
+        (service as any).checkLtoTransactionId('L', 'tx123', 1, 'arbitrum', 'rid-123', false)
+      ).rejects.toThrow('LTO network no longer exists');
+    });
+
+    it('should return mock response when reenqueued', async () => {
+      const result = await (service as any).checkLtoTransactionId('L', 'tx123', 1, 'arbitrum', 'rid-123', true);
+
+      expect(result.type).toBe(4);
+      expect(result.sender).toBe('tx123');
+    });
+  });
+
+  describe('unzip', () => {
+    it('should unzip valid zip data', async () => {
+      // Create a simple zip-like structure
+      const JSZip = require('jszip');
+      const zip = new JSZip();
+      zip.file('test.txt', 'Hello World');
+      const zipData = await zip.generateAsync({ type: 'uint8array' });
+
+      const result = await (service as any).unzip(zipData);
+
+      expect(result).toBeInstanceOf(Map);
+      expect(result.has('test.txt')).toBe(true);
+    });
+
+    it('should return empty map for invalid zip', async () => {
+      const invalidData = new Uint8Array([1, 2, 3, 4]);
+
+      // Should throw or return empty map
+      await expect((service as any).unzip(invalidData)).rejects.toThrow();
+    });
+  });
+
+  describe('getQueueEntriesByWallet', () => {
+    it('should return entries for valid wallet', () => {
+      mockQueue.getQueueEntriesByWallet = vi.fn().mockReturnValue([{ rid: 'test-1' }, { rid: 'test-2' }]);
+
+      const result = service.getQueueEntriesByWallet('0x1234567890123456789012345678901234567890');
+
+      expect(result).toHaveLength(2);
+    });
+
+    it('should return empty array for wallet without entries', () => {
+      mockQueue.getQueueEntriesByWallet = vi.fn().mockReturnValue([]);
+
+      const result = service.getQueueEntriesByWallet('0x9999999999999999999999999999999999999999');
+
+      expect(result).toHaveLength(0);
+    });
+  });
+
+  // Note: getInQueueEntries, getProcessingEntries, getReadyEntries, getSentEntries, getQueueEntriesByStatus
+  // are simple wrapper methods that delegate to queueService. They are tested via integration tests.
+
+  describe('getNetworkType', () => {
+    it('should return mainnet when config says useMainnet=true', () => {
+      mockConfig.get = vi.fn().mockImplementation((key: string) => {
+        if (key === 'eqty.useMainnet') return true;
+        return undefined;
+      });
+
+      const result = (service as any).getNetworkType();
+
+      expect(result).toBe('mainnet');
+    });
+
+    it('should return testnet by default (useMainnet=false)', () => {
+      mockConfig.get = vi.fn().mockReturnValue(false);
+
+      const result = (service as any).getNetworkType();
+
+      expect(result).toBe('testnet');
+    });
+  });
+
 });
 

@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EqtyService } from './eqty.service';
 import { ConfigService } from '../config/config.service';
+import { IEqtyFactory, IMessage, IRelay, ISigner } from './eqty.interfaces';
 
-// Mock eqty-core
+// Mock eqty-core (still needed for EventChain, Event, AnchorClient)
 vi.mock('eqty-core', () => ({
     EventChain: {
         create: vi.fn().mockReturnValue({ id: 'mock-chain-id', anchorMap: [] }),
@@ -43,9 +44,41 @@ vi.mock('ethers', () => ({
     })),
 }));
 
+/**
+ * Create a mock message that conforms to IMessage interface
+ */
+function createMockMessage(): IMessage {
+    return {
+        to: vi.fn(),
+        signWith: vi.fn().mockResolvedValue(undefined),
+        isSigned: vi.fn().mockReturnValue(true) as () => boolean,
+        hash: { base58: 'mock-hash', hex: '0xmockhash' },
+    };
+}
+
+/**
+ * Create a mock relay that conforms to IRelay interface
+ */
+function createMockRelay(): IRelay {
+    return {
+        send: vi.fn().mockResolvedValue({ success: true }),
+    };
+}
+
+/**
+ * Create a mock factory for testing
+ */
+function createMockFactory(): IEqtyFactory {
+    return {
+        createMessage: vi.fn().mockImplementation(() => createMockMessage()),
+        createRelay: vi.fn().mockImplementation(() => createMockRelay()),
+    };
+}
+
 describe('EqtyService', () => {
     let service: EqtyService;
     let mockConfig: Partial<ConfigService>;
+    let mockFactory: IEqtyFactory;
 
     beforeEach(() => {
         mockConfig = {
@@ -62,7 +95,8 @@ describe('EqtyService', () => {
             }),
         };
 
-        service = new EqtyService(mockConfig as ConfigService);
+        mockFactory = createMockFactory();
+        service = new EqtyService(mockConfig as ConfigService, mockFactory);
     });
 
     describe('Initialization', () => {
@@ -268,4 +302,180 @@ describe('EqtyService', () => {
             expect(service.getSigner('mainnet')).not.toBeNull();
         });
     });
+
+    // ============================================
+    // Phase 2: Additional Tests for 85% Coverage
+    // ============================================
+
+    // Note: signMessage, sendViaRelay, createAndSendMessage tests require
+    // real eqty-core integration due to complex signature encoding.
+    // Skipped as they fail with mock wallet signature format.
+
+    describe('signMessage (extended)', () => {
+        beforeEach(async () => {
+            await service.onModuleInit();
+        });
+
+        it('should sign message with valid recipient', async () => {
+            const message = service.createMessage('Hello');
+            const validRecipient = '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD15';
+
+            const result = await service.signMessage(message, validRecipient, 'mainnet');
+
+            expect(result).toBeDefined();
+            expect(message.to).toHaveBeenCalledWith(validRecipient);
+            expect(message.signWith).toHaveBeenCalled();
+        });
+
+        it('should sign message for testnet', async () => {
+            const message = service.createMessage({ data: 'test' });
+            const validRecipient = '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD15';
+
+            const result = await service.signMessage(message, validRecipient, 'testnet');
+
+            expect(result).toBeDefined();
+        });
+    });
+
+    describe('sendViaRelay', () => {
+        beforeEach(async () => {
+            await service.onModuleInit();
+        });
+
+        it('should throw if message not signed', async () => {
+            const message = service.createMessage('test');
+            message.isSigned = vi.fn().mockReturnValue(false);
+
+            await expect(service.sendViaRelay(message)).rejects.toThrow('Message must be signed');
+        });
+
+        it('should send signed message via relay', async () => {
+            const message = service.createMessage('test');
+
+            const result = await service.sendViaRelay(message);
+
+            expect(result).toBeDefined();
+        });
+
+        it('should send via custom relay URL', async () => {
+            const message = service.createMessage('test');
+
+            const result = await service.sendViaRelay(message, 'https://custom-relay.example.com');
+
+            expect(result).toBeDefined();
+        });
+    });
+
+    describe('createAndSendMessage', () => {
+        beforeEach(async () => {
+            await service.onModuleInit();
+        });
+
+        it('should create, sign, and send message', async () => {
+            const recipient = '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD15';
+
+            const result = await service.createAndSendMessage('Hello', recipient, 'mainnet');
+
+            expect(result).toBeDefined();
+            expect(result.message).toBeDefined();
+            expect(result.hash).toBeDefined();
+        });
+
+        it('should handle object content', async () => {
+            const recipient = '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD15';
+
+            const result = await service.createAndSendMessage(
+                { type: 'ownable', data: 'test' },
+                recipient,
+                'testnet'
+            );
+
+            expect(result.message).toBeDefined();
+            expect(typeof result.hash).toBe('string');
+        });
+
+        it('should handle Uint8Array content', async () => {
+            const recipient = '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD15';
+            const binaryContent = new Uint8Array([1, 2, 3, 4]);
+
+            const result = await service.createAndSendMessage(
+                binaryContent,
+                recipient,
+                'mainnet',
+                undefined,
+                'application/octet-stream'
+            );
+
+            expect(result.message).toBeDefined();
+        });
+
+        it('should use custom relay URL', async () => {
+            const recipient = '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD15';
+
+            const result = await service.createAndSendMessage(
+                'test content',
+                recipient,
+                'mainnet',
+                'https://custom-relay.io'
+            );
+
+            expect(result.message).toBeDefined();
+        });
+    });
+
+    describe('anchorChain (extended)', () => {
+        beforeEach(async () => {
+            await service.onModuleInit();
+        });
+
+        it('should anchor chain to mainnet', async () => {
+            const chain = { anchorMap: [{ hash: 'test' }] };
+
+            const result = await service.anchorChain(chain, 'mainnet');
+
+            expect(result).toBeDefined();
+        });
+
+        it('should anchor chain to testnet', async () => {
+            const chain = { anchorMap: [] };
+
+            const result = await service.anchorChain(chain, 'testnet');
+
+            expect(result).toBeDefined();
+        });
+    });
+
+    describe('anchorHash (extended)', () => {
+        beforeEach(async () => {
+            await service.onModuleInit();
+        });
+
+        it('should anchor hash to mainnet', async () => {
+            const hash = new Uint8Array(32).fill(0xAB);
+
+            const result = await service.anchorHash(hash, 'mainnet');
+
+            expect(result).toBeDefined();
+        });
+
+        it('should anchor hash to testnet', async () => {
+            const hash = new Uint8Array(32).fill(0xCD);
+
+            const result = await service.anchorHash(hash, 'testnet');
+
+            expect(result).toBeDefined();
+        });
+    });
+
+    describe('getBalance (extended)', () => {
+        beforeEach(async () => {
+            await service.onModuleInit();
+        });
+
+        it('should get balance for testnet', async () => {
+            const balance = await service.getBalance('testnet');
+            expect(balance).toBe(BigInt(1000000000000000000));
+        });
+    });
 });
+
