@@ -32,6 +32,9 @@ import { CoinmarketcapService } from 'src/coinmarketcap/coinmarketcap.service';
 import { JsonFile } from 'src/interfaces/JsonFile';
 import { EqtyService } from 'src/eqty/eqty.service';
 
+// Extracted services for better separation of concerns
+import { OwnableValidationService, OwnableStorageService, OwnableRelayService } from './services';
+
 @Injectable()
 export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	private readonly logger = new Logger(UploadZipService.name);
@@ -57,6 +60,10 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		private readonly telegramService: TelegramBotService,
 		private readonly eqtyService: EqtyService,
 		@Inject('IPFS') private readonly ipfs: IPFS,
+		// Extracted services
+		private readonly validation: OwnableValidationService,
+		private readonly storage: OwnableStorageService,
+		private readonly relay: OwnableRelayService,
 	) {
 
 	}
@@ -1019,24 +1026,12 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	}
 
 	private isValidPackageName(name: string): boolean {
-		// Regular expression to match Unicode letters, numbers, underscores, and hyphens
-		// Note: Removed /g flag to avoid stateful regex issues between calls
-		const xidRegex = /^[a-zA-Z0-9]+(\.webp)?$/;
-		const isValid = xidRegex.test(name);
-		this.logger.debug(`isValidPackageName: ${isValid}`);
-		return isValid;
+		// Delegated to OwnableValidationService
+		return this.validation.isValidPackageName(name);
 	}
 	private sanitizePackageName(name: string, hasdotWebp: boolean): string {
-		// Regular expression to match invalid characters
-		let baseStr: string = name;
-		let extension: string = '';
-		if (hasdotWebp && name.endsWith('.webp')) {
-			baseStr = name.slice(0, -5); // Remove the .webp part
-			extension = '.webp';
-		}
-		// Replace all non-alphanumeric characters with nothing
-		const sanitizedBaseStr = baseStr.replace(/[^a-zA-Z0-9]/g, '');
-		return sanitizedBaseStr + extension;
+		// Delegated to OwnableValidationService
+		return this.validation.sanitizePackageName(name, hasdotWebp);
 	}
 	private wait = (n: number) => new Promise((resolve) => setTimeout(resolve, n));
 
@@ -1567,21 +1562,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	}
 
 	private async unzip(data: Uint8Array | string): Promise<Map<string, Buffer>> {
-		let archive: JSZip;
-		var zip = new JSZip();
-		if (typeof data === "string") {
-			archive = await zip.loadAsync(readFileSync(data), { createFolders: true });
-		} else {
-			archive = await zip.loadAsync(data, { createFolders: true });
-		}
-
-		const entries: Array<[string, Buffer]> = await Promise.all(
-			Object.entries(archive.files)
-				// .filter(([filename]) => filename !== 'chain.json')
-				.map(async ([filename, file]) => [filename, await file.async('nodebuffer')]),
-		);
-
-		return new Map(entries);
+		// Delegated to OwnableStorageService
+		return this.storage.unzip(data);
 	}
 
 	private async getUniqueId(files: Map<string, Buffer>): Promise<string> {
