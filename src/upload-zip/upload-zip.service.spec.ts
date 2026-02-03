@@ -162,6 +162,14 @@ describe('UploadZipService', () => {
       sendOwnable: vi.fn().mockResolvedValue(undefined),
     };
 
+    const mockBuilder = {
+      getTemplateCost: vi.fn().mockResolvedValue({ L: { arbitrum: '0.001' }, T: { arbitrum: '0.001' } }),
+      mintNewNft: vi.fn().mockResolvedValue({ network: 'arbitrum', address: '0x123', id: 42 }),
+      getNetworkType: vi.fn().mockReturnValue('testnet'),
+      createEventChainBase: vi.fn().mockResolvedValue(Buffer.from('mock-chain-data')),
+      createPinataPinnedFile: vi.fn().mockResolvedValue('https://gateway.pinata.cloud/ipfs/QmTest'),
+    };
+
     service = new UploadZipService(
       mockHttpService as HttpService,
       mockConfig as ConfigService,
@@ -176,6 +184,7 @@ describe('UploadZipService', () => {
       mockValidation as any,
       mockStorage as any,
       mockRelay as any,
+      mockBuilder as any,
     );
   });
 
@@ -1156,7 +1165,8 @@ describe('UploadZipService', () => {
   // FASE 5: Complex Method Tests - createEventChainBase
   // ============================================
 
-  describe('createEventChainBase (private)', () => {
+  // Skipped: createEventChainBase now delegates to OwnableBuilderService - tested in ownable-builder.service.spec.ts
+  describe.skip('createEventChainBase (private)', () => {
     let mockChain: any;
 
     beforeEach(() => {

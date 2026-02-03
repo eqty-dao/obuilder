@@ -33,7 +33,7 @@ import { JsonFile } from 'src/interfaces/JsonFile';
 import { EqtyService } from 'src/eqty/eqty.service';
 
 // Extracted services for better separation of concerns
-import { OwnableValidationService, OwnableStorageService, OwnableRelayService } from './services';
+import { OwnableValidationService, OwnableStorageService, OwnableRelayService, OwnableBuilderService } from './services';
 
 @Injectable()
 export class UploadZipService implements OnModuleInit, OnModuleDestroy {
@@ -64,6 +64,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		private readonly validation: OwnableValidationService,
 		private readonly storage: OwnableStorageService,
 		private readonly relay: OwnableRelayService,
+		private readonly builder: OwnableBuilderService,
 	) {
 
 	}
@@ -420,86 +421,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		receiver: string,
 		networkType: 'mainnet' | 'testnet' = 'testnet'
 	): Promise<Buffer> {
-		// Validate Ethereum address
-		if (!this.eqtyService.isValidAddress(receiver)) {
-			throw new Error(`Invalid Ethereum address: ${receiver}. Expected 0x-prefixed hex address.`);
-		}
-
-		const chain = this.eqtyService.createEventChain(networkType);
-		const chainId = chain.id;
-		const networkId = this.eqtyService.getNetworkId(networkType);
-		let buf: Buffer;
-
-		if (pkg.isDynamic) {
-			let msg: any;
-			if (nftInfo.id != 0) {
-				msg = {
-					"@context": "instantiate_msg.json",
-					ownable_id: chainId,
-					package: pkg.cid,
-					network_id: networkId,
-					keywords: pkg.keywords,
-					nft: {
-						network: nftInfo.network,
-						id: nftInfo.id.toString(),
-						address: nftInfo.address,
-					},
-				};
-			} else {
-				msg = {
-					"@context": "instantiate_msg.json",
-					ownable_id: chainId,
-					package: pkg.cid,
-					network_id: networkId,
-					keywords: pkg.keywords,
-				};
-			}
-
-			// Create and sign instantiate event
-			await this.eqtyService.addEventToChain(chain, msg, networkType);
-
-			// Create and sign transfer event
-			await this.eqtyService.addEventToChain(
-				chain,
-				{ "@context": 'execute_msg.json', transfer: { to: receiver } },
-				networkType
-			);
-
-			// Anchor to Base blockchain
-			try {
-				await this.eqtyService.anchorChain(chain, networkType);
-				this.loggingService.log(pkg.cid, `Anchored event chain to Base ${networkType}`);
-			} catch (err) {
-				this.loggingService.logError(pkg.cid, `Anchoring to Base failed: ${err}`);
-				throw err;
-			}
-
-			// Validate chain
-			await chain.validate();
-			this.loggingService.log(pkg.cid, `Event chain validated for Base ${networkType}`);
-
-			// Serialize chain to JSON
-			const json1 = `${this.pathToCids}/${pkg.cid}/${pkg.cid}.json`;
-			try {
-				writeFileSync(json1, JSON.stringify(chain.toJSON()));
-			} catch (err) {
-				this.loggingService.logError(pkg.cid, `Writing ${json1} failed`);
-				throw err;
-			}
-
-			let file: any;
-			try {
-				file = readFileSync(json1, { encoding: 'utf8' });
-			} catch (err) {
-				this.loggingService.logError(pkg.cid, `Reading ${json1} failed`);
-				throw err;
-			}
-			buf = Buffer.from(file, 'utf8');
-
-			this.loggingService.log(pkg.cid, `Successfully created event chain for Base ${networkType}`);
-		}
-
-		return buf;
+		// Delegated to OwnableBuilderService
+		return this.builder.createEventChainBase(pkg, nftInfo, receiver, networkType, this.pathToCids);
 	}
 
 
@@ -557,162 +480,12 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 
 
 	public async createPinataPinnedFile(picture: Buffer, name: string, description: string): Promise<string> {
-
-		let blobPicture: Blob;
-		const pinataMetadata = JSON.stringify({
-			name: "PictureNFT",
-		});
-		const pinataOptions = JSON.stringify({
-			cidVersion: 1,
-		});
-		const JWT = this.config.get('pinata.jwt');
-
-
-		blobPicture = new Blob([picture]);
-		const formDataPicture = new FormData();
-
-		if (this.nodeVersion.startsWith('v18.')) {
-			formDataPicture.append("file", blobPicture as any);
-		} else if (this.nodeVersion.startsWith('v20.')) {
-			const fileBlob = new File([blobPicture as any], "OwnableNftPicture", { type: 'image/webp' });
-			formDataPicture.append("file", fileBlob);
-		}
-
-		formDataPicture.append("pinataMetadata", pinataMetadata);
-		formDataPicture.append("pinataOptions", pinataOptions);
-
-		let requestPicture: any;
-		try {
-
-			requestPicture = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${JWT}`
-				},
-				body: formDataPicture,
-			});
-		} catch (err) {
-			throw err;
-		}
-		let responsePicture: any;
-		try {
-			responsePicture = await requestPicture.json();
-		} catch (err) {
-			throw err;
-		}
-		// console.log(response);
-		// https://black-rigid-chickadee-743.mypinata.cloud/ipfs/bafkreierxsqjdhgs576mc76idbm2wqhzmjc4uqvalw2fkm43xzjj7247wi
-
-		const pinata_gateway_url = this.config.get('pinata.gateway');
-		// console.log("1 pinata_gateway_url", pinata_gateway_url);
-		// console.log("1 file", `${pinata_gateway_url}/ipfs/${response.IpfsHash}`);
-
-
-
-		let blobJson: Blob;
-		const jsonTest = {
-			"name": name,
-			"description": description,
-			"image": `${pinata_gateway_url}/ipfs/${responsePicture.IpfsHash}`,
-			"attributes": []
-		}
-
-		var buf = Buffer.from(JSON.stringify(jsonTest));
-
-		blobJson = new Blob([buf]);
-		const formDataJson = new FormData();
-
-		if (this.nodeVersion.startsWith('v18.')) {
-			formDataJson.append("file", blobJson as any);
-		} else if (this.nodeVersion.startsWith('v20.')) {
-			const fileBlob = new File([blobJson as any], "OwnableNftJson", { type: 'application/json' });
-			formDataJson.append("file", fileBlob);
-		}
-
-
-		formDataJson.append("pinataMetadata", pinataMetadata);
-		formDataJson.append("pinataOptions", pinataOptions);
-		let requestJson: any;
-		try {
-			requestJson = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${JWT}`
-				},
-				body: formDataJson,
-			});
-		} catch (err) {
-			throw err;
-		}
-		let responseJson: any;
-		try {
-			responseJson = await requestJson.json();
-			// console.log("response1", responseJson);
-		} catch (err) {
-			throw err;
-		}
-
-		return `${pinata_gateway_url}/ipfs/${responseJson.IpfsHash}`;
+		// Delegated to OwnableBuilderService
+		return this.builder.createPinataPinnedFile(picture, name, description);
 	}
 	private async mintNewNft(ltoNetworkId: 'L' | 'T', jsonFile: any, requestId: string): Promise<NftInfo> {
-		let nftNetwork: string;
-		let nftContractAddress: string;
-		if (jsonFile.NFT_BLOCKCHAIN === 'ethereum') {
-			if (ltoNetworkId === 'L') {
-				nftContractAddress = this.config.get('eth.contracts.ethereum.mainnet');
-			} else {
-				nftContractAddress = this.config.get('eth.contracts.ethereum.testnet');
-			}
-			nftNetwork = "ethereum";
-		} else if (jsonFile.NFT_BLOCKCHAIN === 'arbitrum') {
-			if (ltoNetworkId === 'L') {
-				nftContractAddress = this.config.get('eth.contracts.arbitrum.mainnet');
-			} else {
-				nftContractAddress = this.config.get('eth.contracts.arbitrum.testnet');
-			}
-			nftNetwork = "arbitrum";
-		} else {
-			this.loggingService.logError(requestId, `Unsupported Blockchain: ${jsonFile.NFT_BLOCKCHAIN}`);
-			throw (`Unsupported Blockchain: ${jsonFile.NFT_BLOCKCHAIN}`);
-		}
-		// else if (jsonFile.NFT_BLOCKCHAIN === 'polygon') {
-		//   nftContractAddress = this.config.get('eth.contracts.polygon');
-		//   nftNetwork = "polygon";
-		// } 
-		this.loggingService.log(requestId, `minting NFT on ${nftNetwork} via NFT contract at: ${nftContractAddress}`);
-
-		let nftReceiverAddress: string;
-		if (ltoNetworkId === 'L') {
-			nftReceiverAddress = this.config.get('eth.account.obridge_wallet_address.mainnet');
-		} else {
-			nftReceiverAddress = this.config.get('eth.account.obridge_wallet_address.testnet');
-
-		}
-
-		const nftTokenURI = jsonFile.NFT_TOKEN_URI;
-
-		this.loggingService.log(requestId, `nftOwner ${nftReceiverAddress}`);
-		this.loggingService.log(requestId, `nftTokenURI ${nftTokenURI}`);
-		this.loggingService.log(requestId, `NFT_BLOCKCHAIN ${jsonFile.NFT_BLOCKCHAIN}`);
-
-		const nftInfo: NftInfo = {
-			network: nftNetwork,
-			address: nftContractAddress,
-			id: 0,  // id is not used when minting a new NFT
-		};
-
-		let nftcount: number;
-		try {
-			nftcount = await this.nft.mintNFT(ltoNetworkId, nftReceiverAddress, nftTokenURI, nftInfo);
-			// DONE
-			// nftcount = 200;
-		} catch (err) {
-			this.loggingService.logError(requestId, `Minting new NFT failed ${err}`);
-			throw err;
-		}
-		this.loggingService.log(requestId, `nftcount ${nftcount}`);
-		nftInfo.id = nftcount;
-		return nftInfo;
+		// Delegated to OwnableBuilderService
+		return this.builder.mintNewNft(ltoNetworkId, jsonFile, requestId);
 	}
 	/**
 	 * Extract signer address from EIP-712 signed request
