@@ -534,7 +534,7 @@ export class QueueService implements OnModuleInit {
 			if (ltoNetwork_id === 'L') {
 				botMessage = `QUEUE-Failed(L): (${formattedDate})\nrequestId: ${requestId}\ntxID: ${this.queueMainnet[index].txId}\nltoWallet: ${this.queueMainnet[index].ltoWallet}\ncid:${this.queueMainnet[index].cid}\nerrMsg: ${this.queueMainnet[index].failedErrMsg}`
 			} else {
-				botMessage = `QUEUE-Failed(T): (${formattedDate})\nrequestId: ${requestId}\ntxID: ${this.queueTestnet[index].txId}\nltoWallet: ${this.queueTestnet[index].ltoWallet}\ncid:${this.queueMainnet[index].cid}\nerrMsg: ${this.queueTestnet[index].failedErrMsg}`
+				botMessage = `QUEUE-Failed(T): (${formattedDate})\nrequestId: ${requestId}\ntxID: ${this.queueTestnet[index].txId}\nltoWallet: ${this.queueTestnet[index].ltoWallet}\ncid:${this.queueTestnet[index].cid}\nerrMsg: ${this.queueTestnet[index].failedErrMsg}`
 			}
 			await this.telegramService.sendMessageToTelegramBot(ltoNetwork_id, botMessage);
 		} catch (err) {

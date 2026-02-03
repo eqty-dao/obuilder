@@ -302,5 +302,215 @@ describe('QueueService', () => {
       expect(entry.ownableStatus).toBe(5); // Failed = 5
       expect(entry.failedErrMsg).toBe('Test error message');
     });
+
+    it('should mark testnet entry as failed', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('T', 'rid-failed-testnet', data, '0x456', 'tx2', 1);
+
+      await service.ownableFailed('T', 'rid-failed-testnet', 'Testnet error');
+
+      const [entry] = service.getQueueEntryByRequestId('T', 'rid-failed-testnet');
+      expect(entry.ownableStatus).toBe(5);
+      expect(entry.failedErrMsg).toBe('Testnet error');
+    });
+
+    it('should send telegram notification on failure', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('L', 'rid-telegram-test', data, '0x123', 'tx1', 1);
+
+      await service.ownableFailed('L', 'rid-telegram-test', 'Error message');
+
+      expect(mockTelegramService.sendMessageToTelegramBot).toHaveBeenCalledWith(
+        'L',
+        expect.stringContaining('rid-telegram-test')
+      );
+    });
+  });
+
+  // ============================================
+  // Additional Tests for Better Coverage
+  // ============================================
+
+  describe('getQueueEntriesByWallet (extended)', () => {
+    it('should return entries for matching wallet on mainnet', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('L', 'rid-wallet-1', data, '0xMyWallet', 'tx1', 1);
+      await service.enqueue('L', 'rid-wallet-2', data, '0xMyWallet', 'tx2', 1);
+
+      const entries = service.getQueueEntriesByWallet('L', '0xMyWallet');
+      expect(entries).toHaveLength(2);
+    });
+
+    it('should return entries for matching wallet on testnet', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('T', 'rid-wallet-t1', data, '0xTestWallet', 'tx1', 1);
+
+      const entries = service.getQueueEntriesByWallet('T', '0xTestWallet');
+      expect(entries).toHaveLength(1);
+      expect(entries[0].ltoWallet).toBe('0xTestWallet');
+    });
+
+    it('should return empty array for non-matching wallet', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('L', 'rid-other', data, '0xOtherWallet', 'tx1', 1);
+
+      const entries = service.getQueueEntriesByWallet('L', '0xNonExistent');
+      expect(entries).toHaveLength(0);
+    });
+  });
+
+  describe('getRequestIdByTxId (extended)', () => {
+    it('should find request ID on mainnet', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('L', 'rid-tx-lookup', data, '0x123', 'unique-tx-123', 1);
+
+      const [requestId, network] = service.getRequestIdByTxId('unique-tx-123');
+      expect(requestId).toBe('rid-tx-lookup');
+      expect(network).toBe('L');
+    });
+
+    it('should find request ID on testnet', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('T', 'rid-tx-testnet', data, '0x456', 'testnet-tx-456', 1);
+
+      const [requestId, network] = service.getRequestIdByTxId('testnet-tx-456');
+      expect(requestId).toBe('rid-tx-testnet');
+      expect(network).toBe('T');
+    });
+  });
+
+  describe('isCreatingOwnable (extended)', () => {
+    it('should return L when mainnet entry is processing', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('L', 'rid-processing', data, '0x123', 'tx1', 1);
+      await service.setQueueEntryStatus('L', 'rid-processing', 2); // Processing = 2
+
+      expect(service.isCreatingOwnable()).toBe('L');
+    });
+
+    it('should return T when testnet entry is processing', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('T', 'rid-processing-t', data, '0x456', 'tx2', 1);
+      await service.setQueueEntryStatus('T', 'rid-processing-t', 2); // Processing = 2
+
+      expect(service.isCreatingOwnable()).toBe('T');
+    });
+  });
+
+  describe('isQueueEmpty (extended)', () => {
+    it('should return false when entries are in queue', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('L', 'rid-queue-check', data, '0x123', 'tx1', 1);
+
+      expect(service.isQueueEmpty()).toBe(false);
+    });
+
+    it('should return false when testnet has entries', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('T', 'rid-queue-testnet', data, '0x456', 'tx2', 1);
+
+      expect(service.isQueueEmpty()).toBe(false);
+    });
+  });
+
+  describe('setQueueEntryStatus (extended)', () => {
+    it('should handle Ready status and send telegram', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('L', 'rid-ready', data, '0x123', 'tx1', 1);
+
+      await service.setQueueEntryStatus('L', 'rid-ready', 3); // Ready = 3
+
+      const [entry] = service.getQueueEntryByRequestId('L', 'rid-ready');
+      expect(entry.ownableStatus).toBe(3);
+      expect(entry.timestampReady).toBeGreaterThan(0);
+    });
+
+    it('should handle InQueue status reset', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('L', 'rid-inqueue', data, '0x123', 'tx1', 1);
+      await service.setQueueEntryStatus('L', 'rid-inqueue', 2); // Processing
+
+      await service.setQueueEntryStatus('L', 'rid-inqueue', 1); // Back to InQueue = 1
+
+      const [entry] = service.getQueueEntryByRequestId('L', 'rid-inqueue');
+      expect(entry.ownableStatus).toBe(1);
+    });
+
+    it('should handle Failed status', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('L', 'rid-failed-status', data, '0x123', 'tx1', 1);
+
+      await service.setQueueEntryStatus('L', 'rid-failed-status', 5); // Failed
+
+      const [entry] = service.getQueueEntryByRequestId('L', 'rid-failed-status');
+      expect(entry.ownableStatus).toBe(5);
+      expect(entry.timestampFailed).toBeGreaterThan(0);
+    });
+
+    it('should throw for unknown status', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('L', 'rid-unknown', data, '0x123', 'tx1', 1);
+
+      await expect(
+        service.setQueueEntryStatus('L', 'rid-unknown', 99 as any)
+      ).rejects.toThrow('Unknown Ownable status');
+    });
+
+    it('should handle testnet Ready status', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('T', 'rid-ready-t', data, '0x456', 'tx2', 1);
+
+      await service.setQueueEntryStatus('T', 'rid-ready-t', 3); // Ready
+
+      const [entry] = service.getQueueEntryByRequestId('T', 'rid-ready-t');
+      expect(entry.ownableStatus).toBe(3);
+    });
+  });
+
+  describe('processNextQueueEntry (extended)', () => {
+    it('should process mainnet entry first', async () => {
+      const data = new Uint8Array([5, 6, 7, 8]);
+      await service.enqueue('L', 'rid-process-l', data, '0x123', 'tx1', 1);
+
+      const result = await service.processNextQueueEntry();
+
+      expect(result[0]).toBe('L');
+      expect(result[1]).toBe('rid-process-l');
+      expect(result[3]).toBe('0x123');
+    });
+
+    it('should process testnet entry when mainnet is empty', async () => {
+      const data = new Uint8Array([5, 6, 7, 8]);
+      await service.enqueue('T', 'rid-process-t', data, '0x456', 'tx2', 1);
+
+      const result = await service.processNextQueueEntry();
+
+      expect(result[0]).toBe('T');
+      expect(result[1]).toBe('rid-process-t');
+    });
+  });
+
+  describe('getQueueEntriesByStatus (extended)', () => {
+    it('should return entries on testnet', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('T', 'rid-status-t', data, '0x456', 'tx1', 1);
+
+      const entries = service.getQueueEntriesByStatus('T', 1); // InQueue = 1
+      expect(Array.isArray(entries)).toBe(true);
+    });
+  });
+
+  describe('setCidNftInfo (extended)', () => {
+    it('should set CID info on testnet', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('T', 'rid-cid-t', data, '0x456', 'tx1', 1);
+
+      const nftInfo = { network: 'base-sepolia', address: '0xNFT', id: 456 };
+      await service.setCidNftInfo('T', 'rid-cid-t', 'QmTestCID', nftInfo, 'https://test.uri');
+
+      const [entry] = service.getQueueEntryByRequestId('T', 'rid-cid-t');
+      expect(entry.cid).toBe('QmTestCID');
+      expect(entry.nftInfo.id).toBe(456);
+    });
   });
 });
