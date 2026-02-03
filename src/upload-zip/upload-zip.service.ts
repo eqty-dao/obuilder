@@ -403,8 +403,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	 * @deprecated LTO network no longer exists - use 'mainnet' or 'testnet' for Base
 	 */
 	private getNetworkType(): 'mainnet' | 'testnet' {
-		const useMainnet = (this.config as any).get('eqty.useMainnet') || false;
-		return useMainnet ? 'mainnet' : 'testnet';
+		// Delegated to OwnableBuilderService
+		return this.builder.getNetworkType();
 	}
 
 	/**
@@ -444,38 +444,13 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	}
 
 	public async templateCost(templateId: number): Promise<any> {
-		//console.log("templateId", templateId, "chain", chain, " cost: ", this.packageInfo.templateCost[chain][templateId]);
-		// if (this.packageInfo.templateCost[chain.toString()][templateId] === undefined) {
-		//   throw (`Undefined Template cost for template number ${templateId} and chain: ${chain}`);
-		// }
-		if (templateId != 1) {
-			throw (`Currently only Template ID 1 is support`);
-		}
-		await this.coinmarketcap.getLatestPrice();
-		const main = this.queueService.getTemplateCosts('L', 'arbitrum', '1');
-		const test = this.queueService.getTemplateCosts('T', 'arbitrum', '1');
-		this.logger.debug(`templateCost main: ${JSON.stringify(main)}`);
-		this.logger.debug(`templateCost test: ${JSON.stringify(test)}`);
-		return {
-			'L': {
-				'arbitrum': main
-			},
-			'T': {
-				'arbitrum': test
-			}
-			// 'ethereum': (this.packageInfo.templateCost.ethereum[templateId]).toString(),
-			// 'arbitrum': (this.packageInfo.templateCost.arbitrum[templateId]).toString(),
-			//'polygon': (this.packageInfo.templateCost.polygon[templateId]).toString()
-		}
-
+		// Delegated to OwnableBuilderService
+		return this.builder.getTemplateCost(templateId);
 	}
 
 	private async readOwnableDataFromZip(files: Map<string, Buffer>) {
-		try {
-			return JSON.parse(files.get('ownableData.json').toString())[0];
-		} catch (error) {
-			throw (`Failed to read JSON file ownableData.json`);
-		}
+		// Delegated to OwnableStorageService
+		return this.storage.readOwnableDataFromZip(files);
 	}
 
 
