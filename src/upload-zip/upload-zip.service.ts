@@ -185,35 +185,18 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	}
 
 	private getRelayUrl(): string {
-		return this.config.get('eqty.relay');
+		// Delegated to OwnableRelayService
+		return this.relay.getRelayUrl();
 	}
 
 	private async isRelayUp(url: string | undefined): Promise<boolean> {
-
-		if (!url)
-			throw new Error(`Undefined relay URL in oBuilder`);
-		try {
-			const response = await fetch(url, {
-				method: "HEAD",
-			});
-			return response.ok;
-		} catch (e) {
-			throw new Error(`Relay Server ${url} is down: ${e}`);
-		}
+		// Delegated to OwnableRelayService
+		return this.relay.isRelayUp(url);
 	}
 
 	public async isRelayServerUp(): Promise<string> {
-		const relayURL = this.getRelayUrl();
-		// const relayURL = this.config.get('lto.relay');
-
-		try {
-			const isUp: boolean = await this.isRelayUp(relayURL);
-			if (isUp) {
-				return `SUCCESS: oRelay Server ${relayURL} is up and running!`;
-			}
-		} catch (error) {
-			throw new Error(`Relay Server ${relayURL} is down: ${error}`);
-		}
+		// Delegated to OwnableRelayService
+		return this.relay.isRelayServerUp();
 	}
 	/**
 	 * Send Ownable to recipient

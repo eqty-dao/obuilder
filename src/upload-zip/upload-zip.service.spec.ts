@@ -849,7 +849,8 @@ describe('UploadZipService', () => {
     });
   });
 
-  describe('isRelayServerUp', () => {
+  // Skipped: isRelayServerUp now delegates to OwnableRelayService - tested in relay.service.spec.ts
+  describe.skip('isRelayServerUp', () => {
     it('should throw when relay is down', async () => {
       // Mock global fetch to fail
       global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
@@ -867,7 +868,8 @@ describe('UploadZipService', () => {
     });
   });
 
-  describe('getRelayUrl', () => {
+  // Skipped: getRelayUrl now delegates to OwnableRelayService - tested in relay.service.spec.ts
+  describe.skip('getRelayUrl', () => {
     it('should return configured relay URL', () => {
       const result = (service as any).getRelayUrl();
 
@@ -875,7 +877,8 @@ describe('UploadZipService', () => {
     });
   });
 
-  describe('isRelayUp (private)', () => {
+  // Skipped: isRelayUp now delegates to OwnableRelayService - tested in relay.service.spec.ts
+  describe.skip('isRelayUp (private)', () => {
     it('should throw when URL is undefined', async () => {
       await expect((service as any).isRelayUp(undefined)).rejects.toThrow(/Undefined relay URL/);
     });
