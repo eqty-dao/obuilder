@@ -35,6 +35,9 @@ import { EqtyService } from 'src/eqty/eqty.service';
 // Extracted services for better separation of concerns
 import { OwnableValidationService, OwnableStorageService, OwnableRelayService, OwnableBuilderService } from './services';
 
+// Network ID type and helpers for gradual migration from 'L'|'T' to 'mainnet'|'testnet'
+import { NetworkId, normalizeNetworkId, toLegacyNetworkId } from '../validation/schemas';
+
 @Injectable()
 export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	private readonly logger = new Logger(UploadZipService.name);
@@ -100,14 +103,15 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	}
 
 
-	public async GetServerETHBalance(ltoNetworkId: 'L' | 'T', networkName: string): Promise<string> {
-		const balance = await this.nft.getServerETHBalance(ltoNetworkId, networkName);
+	public async GetServerETHBalance(networkId: NetworkId, networkName: string): Promise<string> {
+		const legacyId = toLegacyNetworkId(networkId);
+		const balance = await this.nft.getServerETHBalance(legacyId, networkName);
 		const numericBalance = parseFloat(balance);
 
 		if (numericBalance <= 0.01) { // TODO: this comparison should be networkName specific
 			// Handle case where balance is below or equal to 0.1
 			this.logger.warn(`Balance is low: ${numericBalance}`);
-			await this.telegramService.sendMessageToTelegramBot(ltoNetworkId, `\n${networkName}: Balance is low: ${numericBalance}`);
+			await this.telegramService.sendMessageToTelegramBot(legacyId, `\n${networkName}: Balance is low: ${numericBalance}`);
 		}
 
 
@@ -201,17 +205,18 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 	}
 	/**
 	 * Send Ownable to recipient
-	 * @deprecated LTO network no longer exists - use sendOwnableBase instead
+	 * @param networkId Network identifier - accepts 'L', 'T', 'mainnet', or 'testnet'
+	 * @deprecated Use sendOwnableBase with explicit 'mainnet'|'testnet' instead
 	 */
-	public async sendOwnable(ltoNetworkId: 'L' | 'T', rid: string, recipient: string, content?: Uint8Array) {
+	public async sendOwnable(networkId: NetworkId, rid: string, recipient: string, content?: Uint8Array) {
 		// LTO network no longer exists - all addresses must be Ethereum addresses
 		if (!this.eqtyService.isValidAddress(recipient)) {
 			this.loggingService.logError(rid, `Invalid Ethereum address: ${recipient}. LTO network no longer exists.`);
 			throw new Error(`Invalid Ethereum address: ${recipient}. LTO network no longer exists.`);
 		}
 
-		// Map old LTO network IDs to new network types
-		const networkType = ltoNetworkId === 'L' ? 'mainnet' : 'testnet';
+		// Normalize to modern network type
+		const networkType = normalizeNetworkId(networkId);
 
 		await this.sendOwnableBase(networkType, rid, recipient, content);
 	}
@@ -486,11 +491,11 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			`No valid signer found in request. Ensure request is signed with EIP-712 or x-wallet-address header is provided.`
 		);
 	}
-	public async queueRequest(ltoNetworkId: 'L' | 'T', uint8ArrayData: Uint8Array, templateId: number, req: Request): Promise<any> {
+	public async queueRequest(networkId: NetworkId, uint8ArrayData: Uint8Array, templateId: number, req: Request): Promise<any> {
 		let signerAccountAddress: string;
-		// let ltoNetworkId: 'L' | 'T';
+		const legacyNetworkId = toLegacyNetworkId(networkId);
 		try {
-			signerAccountAddress = await this.getSignerOfRequest(req, ltoNetworkId);
+			signerAccountAddress = await this.getSignerOfRequest(req, legacyNetworkId);
 			this.logger.debug(`signerAccountAddress: ${signerAccountAddress}`);
 			this.logger.debug(`signerAddress: ${signerAccountAddress} (LTO network no longer exists)`);
 			// if (getNetwork(signerAccountAddress) === 'L') {
@@ -515,7 +520,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			throw new Error(`Error: oRelay Server ${relayURL} is down`);
 		}
 
-		if (!this.queueService.isQueueingAllowed(ltoNetworkId)) {
+		if (!this.queueService.isQueueingAllowed(legacyNetworkId)) {
 			throw new Error('Queueing of new Requests currently disabled!');
 		}
 
@@ -556,7 +561,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 			jsonFile.NFT_BLOCKCHAIN = 'noNFT';
 		}
 
-		const thisServerAddress = this.getEqtyAddress(ltoNetworkId);
+		const thisServerAddress = this.getEqtyAddress(legacyNetworkId);
 		this.loggingService.log(requestId, `EQTY ACCOUNT: ${thisServerAddress}`);
 		this.loggingService.log(requestId, `Checking transaction ID: ${jsonFile.OWNABLE_LTO_TRANSACTION_ID}`);
 
@@ -564,7 +569,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		await this.wait(10000);
 		let transactionIdData: TransactionIdData;
 		try {
-			transactionIdData = await this.checkLtoTransactionId(ltoNetworkId, jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, jsonFile.NFT_BLOCKCHAIN, requestId, false);
+			transactionIdData = await this.checkLtoTransactionId(legacyNetworkId, jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId, jsonFile.NFT_BLOCKCHAIN, requestId, false);
 			this.loggingService.log(requestId, `transactionIdData:` + JSON.stringify(transactionIdData));
 		} catch (err) {
 			this.loggingService.logError(requestId, `${err}`);
@@ -577,7 +582,7 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		}
 		let entry: QueueEntry;
 		try {
-			entry = await this.queueService.enqueue(ltoNetworkId, requestId, uint8ArrayData, transactionIdData.sender, jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId);
+			entry = await this.queueService.enqueue(legacyNetworkId, requestId, uint8ArrayData, transactionIdData.sender, jsonFile.OWNABLE_LTO_TRANSACTION_ID, templateId);
 			this.loggingService.log(requestId, `Added successfully new entry to queue ` + JSON.stringify(entry));
 		} catch (err) {
 			this.loggingService.logError(requestId, `${err}`);
@@ -668,20 +673,20 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		this.queueService.allowQueueing('T', queueingAllowed_T);
 	}
 
-	public getInQueueEntries(ltoNetworkId: 'L' | 'T'): QueueEntry[] {
-		return this.queueService.getQueueEntriesByStatus(ltoNetworkId, OwnableStatus.InQueue);
+	public getInQueueEntries(networkId: NetworkId): QueueEntry[] {
+		return this.queueService.getQueueEntriesByStatus(toLegacyNetworkId(networkId), OwnableStatus.InQueue);
 	}
-	public getProcessingEntries(ltoNetworkId: 'L' | 'T'): QueueEntry[] {
-		return this.queueService.getQueueEntriesByStatus(ltoNetworkId, OwnableStatus.Processing);
+	public getProcessingEntries(networkId: NetworkId): QueueEntry[] {
+		return this.queueService.getQueueEntriesByStatus(toLegacyNetworkId(networkId), OwnableStatus.Processing);
 	}
-	public getReadyEntries(ltoNetworkId: 'L' | 'T'): QueueEntry[] {
-		return this.queueService.getQueueEntriesByStatus(ltoNetworkId, OwnableStatus.Ready);
+	public getReadyEntries(networkId: NetworkId): QueueEntry[] {
+		return this.queueService.getQueueEntriesByStatus(toLegacyNetworkId(networkId), OwnableStatus.Ready);
 	}
-	public getSentEntries(ltoNetworkId: 'L' | 'T'): QueueEntry[] {
-		return this.queueService.getQueueEntriesByStatus(ltoNetworkId, OwnableStatus.Sent);
+	public getSentEntries(networkId: NetworkId): QueueEntry[] {
+		return this.queueService.getQueueEntriesByStatus(toLegacyNetworkId(networkId), OwnableStatus.Sent);
 	}
-	public getQueueEntriesByRequestId(ltoNetworkId: 'L' | 'T', requestId: string): [QueueEntry, number] {
-		return this.queueService.getQueueEntryByRequestId(ltoNetworkId, requestId);
+	public getQueueEntriesByRequestId(networkId: NetworkId, requestId: string): [QueueEntry, number] {
+		return this.queueService.getQueueEntryByRequestId(toLegacyNetworkId(networkId), requestId);
 	}
 	/**
 	 * Get queue entries by wallet address
@@ -696,8 +701,8 @@ export class UploadZipService implements OnModuleInit, OnModuleDestroy {
 		const networkId = this.getNetworkType() === 'mainnet' ? 'L' : 'T';
 		return this.queueService.getQueueEntriesByWallet(networkId as 'L' | 'T', wallet);
 	}
-	public getQueueEntriesByStatus(ltoNetworkId: 'L' | 'T', status: OwnableStatus): QueueEntry[] {
-		return this.queueService.getQueueEntriesByStatus(ltoNetworkId, status);
+	public getQueueEntriesByStatus(networkId: NetworkId, status: OwnableStatus): QueueEntry[] {
+		return this.queueService.getQueueEntriesByStatus(toLegacyNetworkId(networkId), status);
 	}
 
 	public queueStatus(): any {

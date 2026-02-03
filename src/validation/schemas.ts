@@ -207,3 +207,41 @@ export function legacyNetworkIdToType(networkId: LegacyNetworkId): NetworkType {
 export function networkTypeToLegacyId(networkType: NetworkType): LegacyNetworkId {
     return networkType === 'mainnet' ? 'L' : 'T';
 }
+
+// ============================================================
+// Unified Network ID (Supports Both Formats)
+// ============================================================
+
+/**
+ * Unified network ID that accepts both legacy ('L'|'T') and modern ('mainnet'|'testnet') formats
+ */
+export type NetworkId = LegacyNetworkId | NetworkType;
+
+/**
+ * Unified schema for any network ID format
+ */
+export const NetworkIdSchema = z.union([LegacyNetworkIdSchema, NetworkTypeSchema]);
+
+/**
+ * Normalize any network ID to the modern format
+ * Accepts: 'L', 'T', 'mainnet', 'testnet'
+ * Returns: 'mainnet' | 'testnet'
+ */
+export function normalizeNetworkId(networkId: NetworkId): NetworkType {
+    if (networkId === 'L' || networkId === 'mainnet') {
+        return 'mainnet';
+    }
+    return 'testnet';
+}
+
+/**
+ * Convert any network ID to legacy format
+ * Accepts: 'L', 'T', 'mainnet', 'testnet'
+ * Returns: 'L' | 'T'
+ */
+export function toLegacyNetworkId(networkId: NetworkId): LegacyNetworkId {
+    if (networkId === 'L' || networkId === 'mainnet') {
+        return 'L';
+    }
+    return 'T';
+}
