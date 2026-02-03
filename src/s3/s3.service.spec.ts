@@ -319,4 +319,58 @@ describe('S3Service', () => {
       expect(service.s3BucketQueue_L).toBeDefined();
     });
   });
+
+  // ============================================
+  // Additional Coverage Tests
+  // ============================================
+
+  describe('storeZip error handling', () => {
+    beforeEach(async () => {
+      await service.onModuleInit();
+    });
+
+    it('should throw descriptive error when bucket put fails for mainnet', async () => {
+      // Mock the bucket put to fail
+      const originalPut = service.s3BucketOwnables_L.put.bind(service.s3BucketOwnables_L);
+      service.s3BucketOwnables_L.put = vi.fn().mockRejectedValue(new Error('S3 connection failed'));
+
+      await expect(
+        service.storeZip('L', 'error-cid', 'error-rid', '0xSender', new Uint8Array([1, 2, 3]))
+      ).rejects.toThrow('into s3 Bucket failed');
+
+      // Restore
+      service.s3BucketOwnables_L.put = originalPut;
+    });
+
+    it('should throw descriptive error when bucket put fails for testnet', async () => {
+      const originalPut = service.s3BucketOwnables_T.put.bind(service.s3BucketOwnables_T);
+      service.s3BucketOwnables_T.put = vi.fn().mockRejectedValue(new Error('Network timeout'));
+
+      await expect(
+        service.storeZip('T', 'testnet-cid', 'testnet-rid', '0xSender', new Uint8Array([4, 5, 6]))
+      ).rejects.toThrow('LTO network T');
+
+      // Restore
+      service.s3BucketOwnables_T.put = originalPut;
+    });
+  });
+
+  describe('uploadPictureToS3 real mode', () => {
+    it('should be in local testing mode by default', async () => {
+      await service.onModuleInit();
+
+      // Verify localTesting is true (default for tests)
+      expect((service as any).localTesting).toBe(true);
+    });
+
+    it('should return mock URL in local testing mode', async () => {
+      await service.onModuleInit();
+
+      const picture = Buffer.from([0x89, 0x50, 0x4E, 0x47]);
+      const result = await service.uploadPictureToS3(picture);
+
+      expect(result).toContain('mock-bucket');
+      expect(result).toContain('.json');
+    });
+  });
 });
