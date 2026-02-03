@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { QueueService } from './queue.service';
 import { TelegramBotService } from '../telegram-bot/telegram-bot.service';
 import { S3Service } from '../s3/s3.service';
@@ -604,6 +604,70 @@ describe('QueueService', () => {
 
       const index = (service as any).getQueueEntryIndexByStatus('L', 1); // InQueue = 1
       expect(index).toBe(0);
+    });
+  });
+
+  // ============================================
+  // Self-Healing Queue Tests (Time Dependent)
+  // ============================================
+  describe('Self-healing Queue (Time dependent)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should re-enqueue entries that have been stuck in Ready state for > 600 seconds', async () => {
+      // 1. Legg til en entry
+      const data = new Uint8Array([1, 2, 3]);
+      await service.enqueue('L', 'stuck-request', data, '0xWallet', 'tx1', 1);
+
+      // 2. Sett den til READY manuelt (simuler at den ble ferdig for lenge siden)
+      await service.setQueueEntryStatus('L', 'stuck-request', 3); // Ready = 3
+
+      // 3. Spol tiden frem med 601 sekunder
+      vi.advanceTimersByTime(601 * 1000);
+
+      // 4. Trigger sjekken (den kjøres hver gang enqueue kalles)
+      await service.enqueue('L', 'trigger-entry', data, '0xWallet', 'tx2', 1);
+
+      // 5. Sjekk at den gamle entryen er resatt
+      const [entry] = service.getQueueEntryByRequestId('L', 'stuck-request');
+
+      // Entry should be marked as reenqueued or status reset
+      expect(entry).toBeDefined();
+      expect(entry.reenqueued).toBe(true); // Skal være merket som reenqueued
+    });
+
+    it('should NOT re-enqueue entries that are Ready but within the 600s threshold', async () => {
+      const data = new Uint8Array([1]);
+      await service.enqueue('L', 'fresh-ready', data, '0xWallet', 'tx1', 1);
+      await service.setQueueEntryStatus('L', 'fresh-ready', 3); // Ready
+
+      // Spol tiden frem bare 300 sekunder
+      vi.advanceTimersByTime(300 * 1000);
+
+      // Trigger sjekk
+      await service.enqueue('L', 'trigger', data, '0xWallet', 'tx2', 1);
+
+      const [entry] = service.getQueueEntryByRequestId('L', 'fresh-ready');
+      expect(entry.ownableStatus).toBe(3); // Skal fortsatt være Ready
+      expect(entry.reenqueued).toBe(false);
+    });
+
+    it('should handle testnet entries stuck in Ready state', async () => {
+      const data = new Uint8Array([1, 2, 3]);
+      await service.enqueue('T', 'testnet-stuck', data, '0xTestWallet', 'tx1', 1);
+      await service.setQueueEntryStatus('T', 'testnet-stuck', 3); // Ready
+
+      vi.advanceTimersByTime(700 * 1000); // Over threshold
+
+      await service.enqueue('T', 'testnet-trigger', data, '0xTestWallet', 'tx2', 1);
+
+      const [entry] = service.getQueueEntryByRequestId('T', 'testnet-stuck');
+      expect(entry).toBeDefined();
     });
   });
 });

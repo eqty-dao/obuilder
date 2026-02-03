@@ -373,4 +373,59 @@ describe('S3Service', () => {
       expect(result).toContain('.json');
     });
   });
+
+  // ============================================
+  // Error Handling Tests
+  // ============================================
+  describe('Error Handling', () => {
+    beforeEach(async () => {
+      await service.onModuleInit();
+    });
+
+    it('should throw formatted error when storeZip bucket put fails', async () => {
+      // Override the mock bucket's put method to fail
+      const originalPut = (service as any).s3BucketOwnables_L.put;
+      (service as any).s3BucketOwnables_L.put = vi.fn().mockRejectedValue(new Error('Network Error'));
+
+      await expect(
+        service.storeZip('L', 'test-cid', 'test-rid', '0xSender', new Uint8Array([1, 2, 3]))
+      ).rejects.toThrow('Putting test-rid_test-cid_0xSender_.zip into s3 Bucket failed');
+
+      // Restore
+      (service as any).s3BucketOwnables_L.put = originalPut;
+    });
+
+    it('should throw formatted error when testnet storeZip fails', async () => {
+      (service as any).s3BucketOwnables_T.put = vi.fn().mockRejectedValue(new Error('AWS Down'));
+
+      await expect(
+        service.storeZip('T', 'cid', 'rid', 'sender', new Uint8Array([1]))
+      ).rejects.toThrow('Putting rid_cid_sender_.zip into s3 Bucket failed');
+    });
+
+    it('should handle errors from checkFileExists gracefully', async () => {
+      // Mock bucket get rejection - should return false
+      const originalGet = (service as any).s3BucketQueue_L.get;
+      (service as any).s3BucketQueue_L.get = vi.fn().mockRejectedValue({
+        name: 'AccessDenied',
+        message: 'Permission denied'
+      });
+
+      // The mock implementation returns false on any error
+      const result = await service.checkFileExists('L', 'test-key');
+      expect(result).toBe(false);
+
+      (service as any).s3BucketQueue_L.get = originalGet;
+    });
+
+    it('should return false when file does not exist (NotFound)', async () => {
+      const originalGet = (service as any).s3BucketQueue_L.get;
+      (service as any).s3BucketQueue_L.get = vi.fn().mockRejectedValue({ name: 'NotFound' });
+
+      const result = await service.checkFileExists('L', 'nonexistent-key');
+      expect(result).toBe(false);
+
+      (service as any).s3BucketQueue_L.get = originalGet;
+    });
+  });
 });

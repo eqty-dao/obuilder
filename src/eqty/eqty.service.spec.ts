@@ -210,24 +210,36 @@ describe('EqtyService', () => {
     });
 
     describe('Event Chain Operations', () => {
-        // Note: These tests are skipped because eqty-core is a CommonJS module
-        // that's difficult to fully mock with vitest. Integration tests should
-        // cover these operations with the real eqty-core library.
-
-        it.skip('should create event chain - requires eqty-core integration test', () => {
-            // Would test: service.createEventChain('mainnet')
+        beforeEach(async () => {
+            await service.onModuleInit();
         });
 
-        it.skip('should create event chain with custom address - requires eqty-core integration test', () => {
-            // Would test: service.createEventChain('mainnet', customAddress)
+        it('should create event chain for mainnet', () => {
+            const chain = service.createEventChain('mainnet');
+            expect(chain).toBeDefined();
+            expect(chain.id).toBeDefined();
         });
 
-        it.skip('should create event - requires eqty-core integration test', () => {
-            // Would test: service.createEvent({ test: 'data' })
+        it('should create event chain for testnet', () => {
+            const chain = service.createEventChain('testnet');
+            expect(chain).toBeDefined();
         });
 
-        it.skip('should create event with custom media type - requires eqty-core integration test', () => {
-            // Would test: service.createEvent('binary data', 'application/octet-stream')
+        it('should create event chain with custom address', () => {
+            const chain = service.createEventChain('mainnet', '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD15');
+            expect(chain).toBeDefined();
+            expect(chain.id).toBeDefined();
+        });
+
+        it('should create event with object data', () => {
+            const event = service.createEvent({ test: 'data' });
+            expect(event).toBeDefined();
+            expect(event.data).toBeDefined();
+        });
+
+        it('should create event with custom media type', () => {
+            const event = service.createEvent('binary data', 'application/octet-stream');
+            expect(event).toBeDefined();
         });
     });
 
