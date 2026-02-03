@@ -67,15 +67,15 @@ export class OwnableBuilderService {
         requestId: string,
     ): Promise<NftInfo> {
         const nftNetwork = jsonFile.NFT_BLOCKCHAIN;
-        const nftContractAddress =
+        const nftContractAddress: string =
             ltoNetworkId === 'L'
-                ? this.config.get(`eth.contracts.${nftNetwork}.mainnet`)
-                : this.config.get(`eth.contracts.${nftNetwork}.testnet`);
+                ? this.config.get(`eth.contracts.${nftNetwork}.mainnet` as any) as string
+                : this.config.get(`eth.contracts.${nftNetwork}.testnet` as any) as string;
 
         const nftReceiverAddress =
             ltoNetworkId === 'L'
-                ? this.config.get('eth.account.obridge_wallet_address.mainnet')
-                : this.config.get('eth.account.obridge_wallet_address.testnet');
+                ? this.config.get('eth.account.obridge_wallet_address.mainnet') as string
+                : this.config.get('eth.account.obridge_wallet_address.testnet') as string;
 
         const nftTokenURI = jsonFile.NFT_TOKEN_URI;
 
