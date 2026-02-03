@@ -24,6 +24,7 @@ import {
   OwnableValidationService,
   OwnableStorageService,
   OwnableRelayService,
+  OwnableBuilderService,
 } from './services';
 
 @Module({
@@ -56,6 +57,7 @@ import {
     OwnableValidationService,
     OwnableStorageService,
     OwnableRelayService,
+    OwnableBuilderService,
   ],
   controllers: [UploadZipController],
   exports: [
@@ -63,6 +65,7 @@ import {
     OwnableValidationService,
     OwnableStorageService,
     OwnableRelayService,
+    OwnableBuilderService,
   ],
 })
 export class UploadZipModule { }
