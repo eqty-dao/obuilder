@@ -19,6 +19,13 @@ import { CoinmarketcapService } from 'src/coinmarketcap/coinmarketcap.service';
 import { QueueModule } from 'src/queue/queue.module';
 import { EqtyService } from 'src/eqty/eqty.service';
 
+// New extracted services
+import {
+  OwnableValidationService,
+  OwnableStorageService,
+  OwnableRelayService,
+} from './services';
+
 @Module({
   imports: [
     HttpModule.registerAsync({
@@ -38,11 +45,24 @@ import { EqtyService } from 'src/eqty/eqty.service';
     S3Module
   ],
   providers: [
-    UploadZipService, QueueService, TelegramBotService, S3Service, LoggingService, EqtyService, CoinmarketcapService
+    UploadZipService,
+    QueueService,
+    TelegramBotService,
+    S3Service,
+    LoggingService,
+    EqtyService,
+    CoinmarketcapService,
+    // New extracted services
+    OwnableValidationService,
+    OwnableStorageService,
+    OwnableRelayService,
   ],
   controllers: [UploadZipController],
   exports: [
-    UploadZipService
+    UploadZipService,
+    OwnableValidationService,
+    OwnableStorageService,
+    OwnableRelayService,
   ],
 })
 export class UploadZipModule { }
