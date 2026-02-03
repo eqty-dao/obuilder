@@ -258,4 +258,52 @@ describe('OwnableBuilderService', () => {
             expect(mockEqty.isValidAddress).toBeDefined();
         });
     });
+
+    describe('createPinataPinnedFile - extended', () => {
+        it('should throw when metadata pinning fails', async () => {
+            // First call (picture) succeeds, second call (metadata) fails
+            let callCount = 0;
+            (global.fetch as any).mockImplementation(() => {
+                callCount++;
+                if (callCount === 1) {
+                    // Picture upload succeeds
+                    return Promise.resolve({
+                        json: vi.fn().mockResolvedValue({ IpfsHash: 'QmPictureHash' }),
+                    });
+                }
+                // Metadata upload fails
+                return Promise.reject(new Error('Metadata upload failed'));
+            });
+
+            const picture = Buffer.from('test image data');
+
+            await expect(
+                service.createPinataPinnedFile(picture, 'Test', 'Description'),
+            ).rejects.toThrow('Metadata upload failed');
+        });
+
+        it('should return full gateway URL with metadata hash', async () => {
+            (global.fetch as any).mockResolvedValue({
+                json: vi.fn().mockResolvedValue({ IpfsHash: 'QmMetadataHash123' }),
+            });
+
+            const picture = Buffer.from('test image');
+            const result = await service.createPinataPinnedFile(picture, 'MyNFT', 'A cool NFT');
+
+            expect(result).toContain('gateway.pinata.cloud');
+            expect(result).toContain('QmMetadataHash123');
+        });
+
+        it('should include name and description in metadata', async () => {
+            (global.fetch as any).mockResolvedValue({
+                json: vi.fn().mockResolvedValue({ IpfsHash: 'QmTest' }),
+            });
+
+            const picture = Buffer.from('image data');
+            await service.createPinataPinnedFile(picture, 'SpecialNFT', 'Special description');
+
+            // Verify fetch was called (for picture and metadata)
+            expect(global.fetch).toHaveBeenCalledTimes(2);
+        });
+    });
 });
