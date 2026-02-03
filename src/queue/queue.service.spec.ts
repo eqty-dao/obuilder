@@ -513,4 +513,97 @@ describe('QueueService', () => {
       expect(entry.nftInfo.id).toBe(456);
     });
   });
+
+  // ============================================
+  // Testnet-specific branch coverage
+  // ============================================
+
+  describe('setQueueEntryStatus testnet branches', () => {
+    it('should handle InQueue status reset on testnet', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('T', 'rid-inqueue-t', data, '0x456', 'tx1', 1);
+      await service.setQueueEntryStatus('T', 'rid-inqueue-t', 2); // Processing
+
+      await service.setQueueEntryStatus('T', 'rid-inqueue-t', 1); // Back to InQueue = 1
+
+      const [entry] = service.getQueueEntryByRequestId('T', 'rid-inqueue-t');
+      expect(entry.ownableStatus).toBe(1);
+      expect(entry.timestampProcessing).toBe(0);
+      expect(entry.timestampReady).toBe(0);
+    });
+
+    it('should handle Failed status on testnet', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('T', 'rid-failed-t', data, '0x456', 'tx1', 1);
+
+      await service.setQueueEntryStatus('T', 'rid-failed-t', 5); // Failed
+
+      const [entry] = service.getQueueEntryByRequestId('T', 'rid-failed-t');
+      expect(entry.ownableStatus).toBe(5);
+      expect(entry.timestampFailed).toBeGreaterThan(0);
+    });
+
+    it('should handle Sent status with hash on testnet', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('T', 'rid-sent-t', data, '0x456', 'tx1', 1);
+
+      await service.setQueueEntryStatus('T', 'rid-sent-t', 4, 'testnet-hash-123'); // Sent = 4
+
+      const [entry] = service.getQueueEntryByRequestId('T', 'rid-sent-t');
+      expect(entry.hash).toBe('testnet-hash-123');
+      expect(entry.timestampSent).toBeGreaterThan(0);
+    });
+
+    it('should handle Processing status on testnet', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('T', 'rid-processing-t2', data, '0x456', 'tx1', 1);
+
+      await service.setQueueEntryStatus('T', 'rid-processing-t2', 2); // Processing = 2
+
+      const [entry] = service.getQueueEntryByRequestId('T', 'rid-processing-t2');
+      expect(entry.timestampProcessing).toBeGreaterThan(0);
+    });
+  });
+
+  describe('ownableFailed error paths', () => {
+    it('should throw when index is out of bounds for mainnet', async () => {
+      // This tests the error path when entry is not found (returns defaultQueueEntry with index 0)
+      // But the queue is empty so index 0 is also out of bounds
+      await expect(
+        service.ownableFailed('L', 'non-existent-rid', 'Error message')
+      ).rejects.toThrow('out of bounds');
+    });
+
+    it('should throw when index is out of bounds for testnet', async () => {
+      await expect(
+        service.ownableFailed('T', 'non-existent-rid-t', 'Error message')
+      ).rejects.toThrow('out of bounds');
+    });
+  });
+
+  describe('getNextQueueEntry testnet', () => {
+    it('should return testnet entry when available', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('T', 'rid-next-t', data, '0x456', 'tx1', 1);
+
+      const result = (service as any).getNextQueueEntry('T');
+      expect(result[0]).toBeDefined();
+      expect(result[0].rid).toBe('rid-next-t');
+    });
+  });
+
+  describe('getQueueEntryIndexByStatus testnet', () => {
+    it('should return null for testnet when no matching status', () => {
+      const index = (service as any).getQueueEntryIndexByStatus('T', 2); // Processing
+      expect(index).toBeNull();
+    });
+
+    it('should return index when entry with status exists', async () => {
+      const data = new Uint8Array([1, 2, 3, 4]);
+      await service.enqueue('L', 'rid-index-test', data, '0x123', 'tx1', 1);
+
+      const index = (service as any).getQueueEntryIndexByStatus('L', 1); // InQueue = 1
+      expect(index).toBe(0);
+    });
+  });
 });
