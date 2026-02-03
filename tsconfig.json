@@ -21,12 +21,10 @@
     "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
-    // Basic strict settings - can be incrementally enabled
     "strictBindCallApply": true,
     "alwaysStrict": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
-    // Disabled for legacy compatibility
     "strictNullChecks": false,
     "noImplicitAny": false,
     "strictFunctionTypes": false,
