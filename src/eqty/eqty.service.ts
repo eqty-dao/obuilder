@@ -226,6 +226,75 @@ export class EqtyService implements OnModuleInit {
     }
 
     /**
+     * Get the current ETH fee per anchor
+     * @param networkType Network to query
+     * @returns ETH amount in wei required per anchor
+     */
+    public async getAnchorEthFee(networkType: 'mainnet' | 'testnet'): Promise<bigint> {
+        const client = networkType === 'mainnet'
+            ? this.anchorClientMainnet
+            : this.anchorClientTestnet;
+
+        if (!client) {
+            throw new Error(`No anchor client configured for ${networkType}`);
+        }
+
+        return client.getEthFee();
+    }
+
+    /**
+     * Preview total ETH cost for anchoring a chain
+     * @param chain The event chain to anchor
+     * @param networkType Network to query
+     * @returns Total ETH required in wei
+     */
+    public async previewAnchorCost(
+        chain: any,
+        networkType: 'mainnet' | 'testnet'
+    ): Promise<bigint> {
+        const client = networkType === 'mainnet'
+            ? this.anchorClientMainnet
+            : this.anchorClientTestnet;
+
+        if (!client) {
+            throw new Error(`No anchor client configured for ${networkType}`);
+        }
+
+        const numAnchors = chain.anchorMap?.length ?? 1;
+        return client.previewEthCost(numAnchors);
+    }
+
+    /**
+     * Anchor an EventChain to the blockchain with ETH payment
+     * ETH is forwarded to the RedeemEQTY contract
+     * @param chain The event chain to anchor
+     * @param networkType Network to use
+     * @returns Transaction response
+     */
+    public async anchorChainWithEth(
+        chain: any,
+        networkType: 'mainnet' | 'testnet'
+    ): Promise<TransactionResponse> {
+        const client = networkType === 'mainnet'
+            ? this.anchorClientMainnet
+            : this.anchorClientTestnet;
+
+        if (!client) {
+            throw new Error(`No anchor client configured for ${networkType}`);
+        }
+
+        const anchorMap = chain.anchorMap;
+        const ethCost = await client.previewEthCost(anchorMap.length);
+
+        this.logger.debug(`Anchoring ${anchorMap.length} entries with ${ethCost} wei ETH to ${networkType}`);
+
+        const tx = await client.anchor(anchorMap, { ethValue: ethCost });
+        this.logger.log(`Anchored chain with ETH to ${networkType}: ${tx?.hash || 'pending'}`);
+
+        return tx;
+    }
+
+    /**
      * Convert LTO network ID to EQTY network type
      * 'L' = mainnet, 'T' = testnet
      */
