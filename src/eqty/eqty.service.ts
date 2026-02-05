@@ -43,12 +43,14 @@ export class EqtyService implements OnModuleInit {
     private walletMainnet: Wallet | null = null;
     private signerMainnet: EthersSigner | null = null;
     private anchorClientMainnet: any = null;
+    private ownableClientMainnet: any = null;
 
     // Testnet (Base Sepolia)
     private providerTestnet: JsonRpcProvider | null = null;
     private walletTestnet: Wallet | null = null;
     private signerTestnet: EthersSigner | null = null;
     private anchorClientTestnet: any = null;
+    private ownableClientTestnet: any = null;
 
     // Network IDs
     private readonly MAINNET_CHAIN_ID = 8453; // Base Mainnet
@@ -82,6 +84,14 @@ export class EqtyService implements OnModuleInit {
             this.anchorClientMainnet = new eqtyCore.AnchorClient(contract);
 
             this.logger.log(`Initialized Base Mainnet: ${this.walletMainnet.address}`);
+
+            // Initialize OwnableClient if contract address is configured
+            const ownableAddressMainnet = this.getConfigSafe('eqty.ownableContract.mainnet');
+            if (ownableAddressMainnet) {
+                const ownableContract = new Contract(ownableAddressMainnet, eqtyCore.OwnableClient.ABI, this.walletMainnet);
+                this.ownableClientMainnet = new eqtyCore.OwnableClient(ownableContract);
+                this.logger.log(`Initialized OwnableNFT Mainnet: ${ownableAddressMainnet}`);
+            }
         } else {
             this.logger.warn('No mainnet private key configured for EQTY');
         }
@@ -100,6 +110,14 @@ export class EqtyService implements OnModuleInit {
             this.anchorClientTestnet = new eqtyCore.AnchorClient(contract);
 
             this.logger.log(`Initialized Base Sepolia: ${this.walletTestnet.address}`);
+
+            // Initialize OwnableClient if contract address is configured
+            const ownableAddressTestnet = this.getConfigSafe('eqty.ownableContract.testnet');
+            if (ownableAddressTestnet) {
+                const ownableContract = new Contract(ownableAddressTestnet, eqtyCore.OwnableClient.ABI, this.walletTestnet);
+                this.ownableClientTestnet = new eqtyCore.OwnableClient(ownableContract);
+                this.logger.log(`Initialized OwnableNFT Testnet: ${ownableAddressTestnet}`);
+            }
         } else {
             this.logger.warn('No testnet private key configured for EQTY');
         }
@@ -412,5 +430,153 @@ export class EqtyService implements OnModuleInit {
             message,
             hash: message.hash?.base58 || message.hash?.hex || ''
         };
+    }
+
+    // ============ OwnableNFT Methods ============
+
+    /**
+     * Get OwnableClient for a network
+     * @param networkType Network to use
+     * @returns OwnableClient or throws if not configured
+     */
+    private getOwnableClient(networkType: 'mainnet' | 'testnet'): any {
+        const client = networkType === 'mainnet'
+            ? this.ownableClientMainnet
+            : this.ownableClientTestnet;
+
+        if (!client) {
+            throw new Error(`OwnableNFT not configured for ${networkType}. Set eqty.ownableContract.${networkType} in config.`);
+        }
+
+        return client;
+    }
+
+    /**
+     * Mint a new OwnableNFT
+     * @param contentHash Hash of the content (bytes32)
+     * @param cid IPFS CID for metadata
+     * @param royaltyBps Royalty in basis points (max 1000 = 10%)
+     * @param isPublic Whether metadata is publicly visible
+     * @param networkType Network to mint on
+     * @param ethValue Optional ETH value for minting fee
+     */
+    public async mintOwnable(
+        contentHash: Uint8Array | string,
+        cid: string,
+        royaltyBps: number,
+        isPublic: boolean,
+        networkType: 'mainnet' | 'testnet',
+        ethValue?: bigint
+    ): Promise<TransactionResponse> {
+        const client = this.getOwnableClient(networkType);
+
+        this.logger.debug(`Minting Ownable on ${networkType}: cid=${cid}, royalty=${royaltyBps}bps, public=${isPublic}`);
+
+        const tx = await client.mint(contentHash, cid, royaltyBps, isPublic, { ethValue });
+        this.logger.log(`Minted Ownable on ${networkType}: ${tx?.hash || 'pending'}`);
+
+        return tx;
+    }
+
+    /**
+     * Anchor hashes to an OwnableNFT
+     * @param tokenId The Ownable token ID
+     * @param hashes Array of hashes to anchor
+     * @param networkType Network to use
+     * @param ethValue Optional ETH value for anchor fee
+     */
+    public async anchorToOwnable(
+        tokenId: number | bigint,
+        hashes: Array<Uint8Array | string>,
+        networkType: 'mainnet' | 'testnet',
+        ethValue?: bigint
+    ): Promise<TransactionResponse> {
+        const client = this.getOwnableClient(networkType);
+
+        this.logger.debug(`Anchoring ${hashes.length} hashes to Ownable #${tokenId} on ${networkType}`);
+
+        const tx = await client.anchor(tokenId, hashes, { ethValue });
+        this.logger.log(`Anchored to Ownable #${tokenId} on ${networkType}: ${tx?.hash || 'pending'}`);
+
+        return tx;
+    }
+
+    /**
+     * Lock an OwnableNFT (for DeFi collateralization)
+     * @param tokenId The Ownable token ID
+     * @param networkType Network to use
+     */
+    public async lockOwnable(
+        tokenId: number | bigint,
+        networkType: 'mainnet' | 'testnet'
+    ): Promise<TransactionResponse> {
+        const client = this.getOwnableClient(networkType);
+
+        this.logger.debug(`Locking Ownable #${tokenId} on ${networkType}`);
+
+        const tx = await client.lock(tokenId);
+        this.logger.log(`Locked Ownable #${tokenId} on ${networkType}: ${tx?.hash || 'pending'}`);
+
+        return tx;
+    }
+
+    /**
+     * Unlock an OwnableNFT (only callable by original locker)
+     * @param tokenId The Ownable token ID
+     * @param networkType Network to use
+     */
+    public async unlockOwnable(
+        tokenId: number | bigint,
+        networkType: 'mainnet' | 'testnet'
+    ): Promise<TransactionResponse> {
+        const client = this.getOwnableClient(networkType);
+
+        this.logger.debug(`Unlocking Ownable #${tokenId} on ${networkType}`);
+
+        const tx = await client.unlock(tokenId);
+        this.logger.log(`Unlocked Ownable #${tokenId} on ${networkType}: ${tx?.hash || 'pending'}`);
+
+        return tx;
+    }
+
+    /**
+     * Get Ownable data by token ID
+     * @param tokenId The Ownable token ID
+     * @param networkType Network to query
+     */
+    public async getOwnable(
+        tokenId: number | bigint,
+        networkType: 'mainnet' | 'testnet'
+    ): Promise<any> {
+        const client = this.getOwnableClient(networkType);
+        return client.getOwnable(tokenId);
+    }
+
+    /**
+     * Verify a hash exists in an Ownable's anchor history
+     * @param tokenId The Ownable token ID
+     * @param hash The hash to verify
+     * @param networkType Network to query
+     */
+    public async verifyOwnableAnchor(
+        tokenId: number | bigint,
+        hash: Uint8Array | string,
+        networkType: 'mainnet' | 'testnet'
+    ): Promise<{ exists: boolean; index: number }> {
+        const client = this.getOwnableClient(networkType);
+        return client.verify(tokenId, hash);
+    }
+
+    /**
+     * Check if an Ownable is locked
+     * @param tokenId The Ownable token ID
+     * @param networkType Network to query
+     */
+    public async isOwnableLocked(
+        tokenId: number | bigint,
+        networkType: 'mainnet' | 'testnet'
+    ): Promise<boolean> {
+        const client = this.getOwnableClient(networkType);
+        return client.isLocked(tokenId);
     }
 }
