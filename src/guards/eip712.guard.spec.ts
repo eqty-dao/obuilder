@@ -57,36 +57,31 @@ describe('EIP712Guard', () => {
             expect(result).toBe(true);
         });
 
-        it('should continue validation when @SkipAuth() is not set', async () => {
+        it('should reject when @SkipAuth() is not set and no credentials', async () => {
             vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
             const context = createMockContext();
-            // No headers, should still pass for backward compatibility
-            const result = await guard.canActivate(context);
-            expect(result).toBe(true);
+            await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
         });
     });
 
-    describe('Backward Compatibility (no signature)', () => {
+    describe('Missing Credentials', () => {
         beforeEach(() => {
             vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
         });
 
-        it('should allow request with no headers', async () => {
+        it('should reject request with no headers', async () => {
             const context = createMockContext({});
-            const result = await guard.canActivate(context);
-            expect(result).toBe(true);
+            await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
         });
 
-        it('should allow request with only signature header', async () => {
+        it('should reject request with only signature header', async () => {
             const context = createMockContext({ 'x-eqty-signature': '0xsignature' });
-            const result = await guard.canActivate(context);
-            expect(result).toBe(true);
+            await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
         });
 
-        it('should allow request with only message header', async () => {
+        it('should reject request with only message header', async () => {
             const context = createMockContext({ 'x-eqty-message': 'base64message' });
-            const result = await guard.canActivate(context);
-            expect(result).toBe(true);
+            await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
         });
     });
 
