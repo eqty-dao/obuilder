@@ -15,11 +15,15 @@ async function bootstrap() {
   });
   // const app = await NestFactory.create(AppModule);
 
-  // Enable CORS
+  // Enable CORS with allowed origins from environment
+  const allowedOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
+    : ['https://eqty.io', 'https://app.eqty.io'];
+
   app.enableCors({
-    origin: '*',  // Allows requests from any origin
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Signature-Input', 'Signature'],
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Signature-Input', 'Signature', 'X-EQTY-Signature', 'X-EQTY-Message', 'X-EQTY-Chain-Id'],
   });
 
   const config = await app.get<ConfigService>(ConfigService);

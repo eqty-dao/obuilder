@@ -27,12 +27,22 @@ export const SkipAuth = () => SetMetadata(SKIP_AUTH_KEY, true);
 /**
  * EQTY Domain for EIP-712 typed data
  * This provides domain separation to prevent signature replay attacks
+ * chainId is determined from the request header to support both mainnet and testnet
  */
-export const EQTY_DOMAIN = {
-    name: 'EQTY Ownables',
-    version: '1',
-    chainId: 8453, // Base mainnet
-} as const;
+const BASE_MAINNET_CHAIN_ID = 8453;
+const BASE_SEPOLIA_CHAIN_ID = 84532;
+const SUPPORTED_CHAIN_IDS = new Set([BASE_MAINNET_CHAIN_ID, BASE_SEPOLIA_CHAIN_ID]);
+
+export function getEqtyDomain(chainId: number) {
+    return {
+        name: 'EQTY Ownables',
+        version: '1',
+        chainId,
+    };
+}
+
+/** @deprecated Use getEqtyDomain(chainId) instead */
+export const EQTY_DOMAIN = getEqtyDomain(BASE_MAINNET_CHAIN_ID);
 
 /**
  * EIP-712 Types for authentication requests
@@ -78,10 +88,12 @@ export class EIP712Guard implements CanActivate {
         const signature = request.headers['x-eqty-signature'] as string;
         const message = request.headers['x-eqty-message'] as string;
 
-        // If no signature provided, allow request (backward compatibility during migration)
-        // TODO: Make signature mandatory after full migration
+        // Require EIP-712 signature on all authenticated endpoints
         if (!signature || !message) {
-            return true;
+            throw new UnauthorizedException({
+                message: 'Authentication required. Provide EIP-712 signature headers.',
+                code: 'MISSING_CREDENTIALS',
+            });
         }
 
         try {
@@ -99,9 +111,21 @@ export class EIP712Guard implements CanActivate {
                 });
             }
 
-            // Verify the EIP-712 signature
+            // Determine chainId from request header (defaults to mainnet)
+            const chainIdHeader = request.headers['x-eqty-chain-id'] as string;
+            const chainId = chainIdHeader ? parseInt(chainIdHeader, 10) : BASE_MAINNET_CHAIN_ID;
+
+            if (!SUPPORTED_CHAIN_IDS.has(chainId)) {
+                throw new UnauthorizedException({
+                    message: `Unsupported chain ID: ${chainId}`,
+                    code: 'UNSUPPORTED_CHAIN',
+                });
+            }
+
+            // Verify the EIP-712 signature with correct domain
+            const domain = getEqtyDomain(chainId);
             const recoveredAddress = ethers.verifyTypedData(
-                EQTY_DOMAIN,
+                domain,
                 AUTH_TYPES,
                 authData,
                 signature,
